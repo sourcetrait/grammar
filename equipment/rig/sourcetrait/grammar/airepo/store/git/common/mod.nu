@@ -2,7 +2,7 @@
 #
 # The store is an AIREPO-CLASS repository: it carries no draft pair, and work
 # rides the highest `rev/rev<N>` branch directly. That is why the project-side
-# relay tools cannot drive it - they resolve a `draft/ai/<handle>` ref that does
+# relay tools cannot drive it - they resolve a `draft/<handle>` ref that does
 # not exist here. Every helper operates on the cwd repo and BREAKS ON ERROR, so
 # a non-fast-forward stops the tool rather than tempting a force.
 

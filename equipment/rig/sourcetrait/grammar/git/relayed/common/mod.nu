@@ -6,6 +6,11 @@
 # non-zero exit so the tool stops rather than force past a non-fast-forward. No
 # progress printing - the caller's value is the STRUCTURED RESULT each main
 # returns (branches, tips, ahead/behind); errors carry the detail.
+#
+# Branch layout: the principal's branch is `draft/<handle>` and an agent's is
+# `draft/ai/<handle>/<agent>`, so several agents share one principal. The handle
+# is read from the lone `draft/<handle>` ref; the agent segment is the repo's
+# `relay.agent` git config value, set once per checkout.
 
 # run a git hop; error make (with context + stderr) on a non-zero exit.
 export def grun [args: list<string>, what: string]: nothing -> nothing {
@@ -15,18 +20,34 @@ export def grun [args: list<string>, what: string]: nothing -> nothing {
     }
 }
 
-# the principal handle, from the single draft/ai/<h> ref (local or on the bare).
+# the principal handle, from the single draft/<h> ref (local or on the bare).
 # the handle is the principal's, never mine; error unless exactly one exists.
 export def relay_handle []: nothing -> string {
     let hs = (^git for-each-ref "--format=%(refname:short)"
         | lines
-        | parse --regex 'draft/ai/(?<h>[^/]+)$'
+        | parse --regex 'draft/(?<h>[^/]+)$'
         | get h
         | uniq)
     if ($hs | length) != 1 {
-        error make { msg: $"relay: need exactly one draft/ai/<handle> branch, found: ($hs)" }
+        error make { msg: $"relay: need exactly one draft/<handle> branch, found: ($hs)" }
     }
     $hs | first
+}
+
+# the agent segment of my branch, from the repo's `relay.agent` git config.
+# error when unset: the segment names an agent, and a guess could name another.
+export def relay_agent []: nothing -> string {
+    let r = (^git config --get relay.agent | complete)
+    let agent = ($r.stdout | str trim)
+    if ($r.exit_code != 0) or ($agent | is-empty) {
+        error make { msg: "relay: no relay.agent in this repo's git config - set it to the agent segment of draft/ai/<handle>/<agent>" }
+    }
+    $agent
+}
+
+# my branch for a principal handle and an agent segment.
+export def relay_mine [h: string, agent: string]: nothing -> string {
+    $"draft/ai/($h)/($agent)"
 }
 
 # error unless the repo has the `relayed` remote configured.
@@ -57,13 +78,14 @@ export def rev_delta [a: string, b: string]: nothing -> record<behind: int, ahea
     {behind: ($c | get 0 | into int), ahead: ($c | get 1 | into int)}
 }
 
-# the sync core, shared by sync + submit. cwd = repo, h = handle. fetch the bare,
-# get onto my branch, ff-update the local principal branch, rebase mine onto it,
-# and assert the result is fast-forward-pushable. returns the resolved structured
-# state: branch names, short tips, and how far mine is ahead/behind theirs.
-export def relay_sync_core [h: string]: nothing -> record<their_branch: string, mine_branch: string, their_tip: string, mine_tip: string, bare_mine_tip: string, ahead: int, behind: int> {
+# the sync core, shared by sync + submit. cwd = repo, h = handle, agent = my
+# segment. fetch the bare, get onto my branch, ff-update the local principal
+# branch, rebase mine onto it, and assert the result is fast-forward-pushable.
+# returns the resolved structured state: branch names, short tips, and how far
+# mine is ahead/behind theirs.
+export def relay_sync_core [h: string, agent: string]: nothing -> record<their_branch: string, mine_branch: string, their_tip: string, mine_tip: string, bare_mine_tip: string, ahead: int, behind: int> {
     let theirs = $"draft/($h)"
-    let mine = $"draft/ai/($h)"
+    let mine = (relay_mine $h $agent)
     let bare_theirs = $"relayed/($theirs)"
     let bare_mine = $"relayed/($mine)"
     grun ["fetch" "relayed"] "fetch the bare"

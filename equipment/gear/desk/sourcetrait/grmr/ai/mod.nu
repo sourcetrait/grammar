@@ -1,14 +1,15 @@
 # ai - the fae relay toolkit (principal/host side of the bare-relay flow).
 #
 # First time in a repo: apply the relay .git/config (adds the `relayed` remote +
-# branch tracking), then run `ai relay setup` once. After that, from the
-# principal branch (draft/<handle>): `ai relay from|to|up`.
+# branch tracking), then run `ai relay setup <agent>` once. After that, from the
+# principal branch (draft/<handle>): `ai relay from|to|up <agent>`.
 #
 # Convention: remote `relayed` = the on-box bare; the principal branch is
-# `draft/<handle>`; the fae branch is `draft/ai/<handle>`; `dev` on `origin`.
-# <handle> is the principal's git handle (the host user.name), read from git
-# config (portable). Requires the `gstat` plugin. Assumes the repo is already set
-# up against `origin`, with `dev` and `draft/<handle>` tracking it.
+# `draft/<handle>`; an agent's branch is `draft/ai/<handle>/<agent>`, so several
+# agents share one principal and every command names the agent it acts for;
+# `dev` on `origin`. <handle> is the principal's git handle (the host user.name),
+# read from git config (portable). Requires the `gstat` plugin. Assumes the repo
+# is already set up against `origin`, with `dev` and `draft/<handle>` tracking it.
 #
 # INVARIANT - every relay hop to the bare or origin is fast-forward only. Nothing
 # here force-pushes: not the bare, and never origin. The local fae mirror is kept
@@ -19,6 +20,9 @@
 
 # the principal handle, from git config (the host user.name is the handle)
 def handle []: nothing -> string { ^git config user.name | str trim }
+
+# an agent's branch for the handle: draft/ai/<handle>/<agent>
+def fae-branch [h: string, agent: string]: nothing -> string { $"draft/ai/($h)/($agent)" }
 
 # colorize a noun (branch / remote) cyan for the progress lines.
 def cy [s: string]: nothing -> string { $"(ansi cyan)($s)(ansi reset)" }
@@ -37,13 +41,14 @@ def step [label: string, args: list<string>]: nothing -> nothing {
     print $"(ansi green)done(ansi reset)"
 }
 
-# bring the local fae mirror (draft/ai/<h>) to the bare's fae branch. Created if
-# missing; otherwise REBASED onto the bare - a plain ff would break when the bare
-# was rewritten (a recovery), so rebase replays the mirror's commits, dropping
-# now-redundant ones as empty, and never blind-forces. A rebase conflict STOPS.
-# Switches in to rebase and back to the principal branch; assumes a clean tree.
-def update-fae-mirror [h: string]: nothing -> nothing {
-    let fae = $"draft/ai/($h)"
+# bring the local fae mirror (draft/ai/<h>/<agent>) to the bare's fae branch.
+# Created if missing; otherwise REBASED onto the bare - a plain ff would break
+# when the bare was rewritten (a recovery), so rebase replays the mirror's
+# commits, dropping now-redundant ones as empty, and never blind-forces. A
+# rebase conflict STOPS. Switches in to rebase and back to the principal branch;
+# assumes a clean tree.
+def update-fae-mirror [h: string, agent: string]: nothing -> nothing {
+    let fae = (fae-branch $h $agent)
     let principal = $"draft/($h)"
     print -n $"(ansi blue)[relay](ansi reset) updating local (cy $fae) ... "
     if not ($fae in (^git for-each-ref "--format=%(refname:short)" "refs/heads" | lines)) {
@@ -91,10 +96,10 @@ def ensure-clean []: nothing -> nothing {
 }
 
 # the closing structured summary: current branch + tip, divergence vs origin, the
-# fae branch tip and whether it is merged into the principal branch.
-def relay-summary [h: string]: nothing -> nothing {
+# agent's fae branch tip and whether it is merged into the principal branch.
+def relay-summary [h: string, agent: string]: nothing -> nothing {
     let s = (gstat)
-    let fae = $"draft/ai/($h)"
+    let fae = (fae-branch $h $agent)
     let head = (^git rev-parse --short HEAD | str trim)
     let fae_tip = (^git rev-parse --short $"relayed/($fae)" | complete | get stdout | str trim)
     let merged = ((^git merge-base --is-ancestor $"relayed/($fae)" HEAD | complete).exit_code == 0)
@@ -104,9 +109,9 @@ def relay-summary [h: string]: nothing -> nothing {
     print $"  fae branch (cy $fae) @ ($fae_tip)   merged in: (if $merged { 'yes' } else { 'no' })"
 }
 
-# one-time: create the local checkout-able mirror of the fae branch. Re-run to
-# refresh it (the from command keeps it current each run).
-export def "relay setup" []: nothing -> nothing {
+# one-time per agent: create the local checkout-able mirror of the agent's fae
+# branch. Re-run to refresh it (the from command keeps it current each run).
+export def "relay setup" [agent: string]: nothing -> nothing {
     if not ("relayed" in (^git remote | lines)) {
         print -e $"(ansi red)error:(ansi reset) no (cy relayed) remote - apply the relay .git/config first"
         return
@@ -114,51 +119,53 @@ export def "relay setup" []: nothing -> nothing {
     ensure-clean
     let h = (handle)
     step $"fetching remote (cy relayed)" ["fetch" "relayed"]
-    update-fae-mirror $h
+    update-fae-mirror $h $agent
 }
 
-# pull the fae's work in: fetch the bare, rebase the local fae mirror onto it,
-# then FAST-FORWARD the principal branch onto the fae branch. The fae has already
-# rebased its work on top of the principal branch, so the merge is a ff; if not,
-# something is wrong upstream - it STOPS (never rebase/force the principal here).
-export def "relay from" []: nothing -> nothing {
+# pull an agent's work in: fetch the bare, rebase the local fae mirror onto it,
+# then FAST-FORWARD the principal branch onto the fae branch. The agent has
+# already rebased its work on top of the principal branch, so the merge is a ff;
+# if not, something is wrong upstream - it STOPS (never rebase/force the
+# principal here). With several agents, pull them one at a time; the second
+# ff's only once that agent has re-synced onto the new principal tip.
+export def "relay from" [agent: string]: nothing -> nothing {
     if not (on-branch) { return }
     ensure-clean
     let h = (handle)
-    let fae = $"draft/ai/($h)"
+    let fae = (fae-branch $h $agent)
     let principal = $"draft/($h)"
     step $"fetching remote (cy relayed)" ["fetch" "relayed"]
-    update-fae-mirror $h
+    update-fae-mirror $h $agent
     step $"fast-forwarding (cy $principal) onto (cy $fae)" ["merge" "--ff-only" $"relayed/($fae)"]
-    relay-summary $h
+    relay-summary $h $agent
 }
 
 # publish the principal's work to the bare: ff-push the principal branch, then
-# fast-forward the bare's fae ref up to it so BOTH bare refs converge before `up`
-# (Flow 2 - you changed). Both are ff; a non-ff means not synced -> STOP. The fae
-# then catches its local branch up on its next sync.
-export def "relay to" []: nothing -> nothing {
+# fast-forward the bare's fae ref for the agent up to it so BOTH bare refs
+# converge before `up` (Flow 2 - you changed). Both are ff; a non-ff means not
+# synced -> STOP. The agent then catches its local branch up on its next sync.
+export def "relay to" [agent: string]: nothing -> nothing {
     if not (on-branch) { return }
     let h = (handle)
     let principal = $"draft/($h)"
-    let fae = $"draft/ai/($h)"
+    let fae = (fae-branch $h $agent)
     step $"pushing (cy $principal) to remote (cy relayed)" ["push" "relayed" $principal]
     step $"fast-forwarding (cy $fae) to (cy $principal) on (cy relayed)" ["push" "relayed" $"($principal):($fae)"]
-    relay-summary $h
+    relay-summary $h $agent
 }
 
-# publish to GitHub, fast-forward only: the fae branch (off the bare), the
-# principal branch, then dev. Any non-ff aborts before it can touch origin.
+# publish to GitHub, fast-forward only: the agent's fae branch (off the bare),
+# the principal branch, then dev. Any non-ff aborts before it can touch origin.
 # (The local fae mirror is maintained by `relay from`; up publishes off the bare.)
-export def "relay up" []: nothing -> nothing {
+export def "relay up" [agent: string]: nothing -> nothing {
     if not (on-branch) { return }
     let h = (handle)
-    let fae = $"draft/ai/($h)"
+    let fae = (fae-branch $h $agent)
     let principal = $"draft/($h)"
     step $"fetching remote (cy relayed)" ["fetch" "relayed"]
     step $"fetching remote (cy origin)" ["fetch" "origin"]
     step $"publishing (cy $fae) to remote (cy origin)" ["push" "origin" $"relayed/($fae):($fae)"]
     step $"publishing (cy $principal) to remote (cy origin)" ["push" "origin" $principal]
     step $"publishing (cy dev) to remote (cy origin)" ["push" "origin" "dev"]
-    relay-summary $h
+    relay-summary $h $agent
 }

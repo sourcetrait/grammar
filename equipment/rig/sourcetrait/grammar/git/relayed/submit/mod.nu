@@ -3,16 +3,19 @@ use rig/sourcetrait/grammar/git/relayed/common
 # Commit my work and fast-forward-push my branch to the bare.
 #
 # cd into the repo; read the commit message from the shm path (relative to
-# XDGX_SHM_DIR - the message travels out-of-band); stage all, signed-commit if
-# anything is staged; run the sync core (rebase onto the principal's latest);
-# then a plain `git push relayed draft/ai/<h>` - never --force, so a non-ff push
-# STOPS. Returns the structured outcome: whether it committed, the new tip, the
-# principal's tip, and how many of my commits now sit on the bare ahead of theirs.
-export def main [args: record<repo: directory, msg_shm: string>]: nothing -> record<handle: string, committed: bool, commit: string, mine_tip: string, their_tip: string, ahead: int> {
+# XDGX_SHM_DIR - the message travels out-of-band); switch to my branch
+# `draft/ai/<handle>/<agent>` (the agent from the `relay.agent` git config),
+# stage all, signed-commit if anything is staged; run the sync core (rebase onto
+# the principal's latest); then a plain `git push relayed <mine>` - never
+# --force, so a non-ff push STOPS. Returns the structured outcome: handle and
+# agent, whether it committed, the new tip, the principal's tip, and how many of
+# my commits now sit on the bare ahead of theirs.
+export def main [args: record<repo: directory, msg_shm: string>]: nothing -> record<handle: string, agent: string, committed: bool, commit: string, mine_tip: string, their_tip: string, ahead: int> {
     cd $args.repo
     common relay_ensure_remote
     let h = (common relay_handle)
-    let mine = $"draft/ai/($h)"
+    let agent = (common relay_agent)
+    let mine = (common relay_mine $h $agent)
     let msg_path = ($env.XDGX_SHM_DIR | path join $args.msg_shm)
     if not ($msg_path | path exists) {
         error make { msg: $"relay submit: commit message shm not found: ($args.msg_shm)" }
@@ -29,9 +32,10 @@ export def main [args: record<repo: directory, msg_shm: string>]: nothing -> rec
         common grun ["commit" "-S" "-F" $msg_path] "commit (signed)"
         $committed = true
     }
-    let t = (common relay_sync_core $h)
+    let t = (common relay_sync_core $h $agent)
     {
         handle: $h,
+        agent: $agent,
         committed: $committed,
         commit: (^git rev-parse --short HEAD | str trim),
         mine_tip: $t.mine_tip,
