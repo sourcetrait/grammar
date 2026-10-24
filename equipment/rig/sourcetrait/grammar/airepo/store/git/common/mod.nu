@@ -1,10 +1,10 @@
 # Shared helpers for the store's git tools (grammar:airepo/store/git).
 #
 # The store is an AIREPO-CLASS repository: it carries no draft pair, and work
-# rides the highest `rev/rev<N>` branch directly. That is why the project-side
-# relay tools cannot drive it - they resolve a `draft/<handle>` ref that does
-# not exist here. Every helper operates on the cwd repo and BREAKS ON ERROR, so
-# a non-fast-forward stops the tool rather than tempting a force.
+# rides the one line its bare's HEAD names. That is why the project-side relay
+# tools cannot drive it - they resolve a `draft/<handle>` ref that does not
+# exist here. Every helper operates on the cwd repo and BREAKS ON ERROR, so a
+# non-fast-forward stops the tool rather than tempting a force.
 
 # run a git hop; error make (with context + stderr) on a non-zero exit.
 export def grun [args: list<string>, what: string]: nothing -> nothing {
@@ -14,38 +14,35 @@ export def grun [args: list<string>, what: string]: nothing -> nothing {
     }
 }
 
-# the store checkout, reached through the work dir's `store` symlink. the link
-# is gitignored and system-specific, so it is resolved at call time and never
-# recorded anywhere.
-export def store_repo []: nothing -> string {
-    let dir = ($env.EQUIP_WORK_DIR | path join "store")
-    let kind = (try { $dir | path type } catch { null })
-    if $kind == null {
-        error make { msg: $"store git: no store at ($dir) - the symlink is missing or dangling" }
+# the store checkout the caller named: refused unless it is a git work tree's
+# root, so a stray path never reaches a git hop.
+export def checkout [repo: directory]: nothing -> string {
+    let dir = ($repo | path expand)
+    if (($dir | path join ".git" | path type) == null) {
+        error make { msg: $"store git: no git checkout at ($dir)" }
     }
     $dir
 }
 
-# error unless the repo has the `relayed` remote configured.
+# error unless the repo has the `srv` remote, its bare, configured.
 export def ensure_remote []: nothing -> nothing {
-    if not ("relayed" in (^git remote | lines)) {
-        error make { msg: "store git: no `relayed` remote configured in this repo" }
+    if not ("srv" in (^git remote | lines)) {
+        error make { msg: "store git: no `srv` remote configured in this repo" }
     }
 }
 
-# the working branch: the HIGHEST rev/rev<N> that exists locally. a new era adds
-# rev/rev<N+1> and every tool follows it without an edit.
-export def current_rev []: nothing -> string {
-    let revs = (^git for-each-ref "--format=%(refname:short)" "refs/heads/rev"
-        | lines
-        | parse --regex 'rev/rev(?<n>\d+)$'
-        | get n
-        | each {|n| $n | into int }
-        | sort)
-    if ($revs | is-empty) {
-        error make { msg: "store git: no rev/rev<N> branch found" }
+# the working branch: the line the `srv` bare's HEAD names, so a new line is
+# followed by every tool without an edit.
+export def working_branch []: nothing -> string {
+    let r = (^git ls-remote --symref srv HEAD | complete)
+    if $r.exit_code != 0 {
+        error make { msg: $"store git: cannot read the bare's HEAD: ($r.stderr | str trim)" }
     }
-    $"rev/rev($revs | last)"
+    let named = ($r.stdout | parse --regex 'ref: refs/heads/(?<branch>\S+)\s+HEAD')
+    if ($named | is-empty) {
+        error make { msg: "store git: the bare's HEAD names no branch" }
+    }
+    $named | first | get branch
 }
 
 # ahead/behind counts of <b> relative to <a>: {behind, ahead} (a...b left/right).
