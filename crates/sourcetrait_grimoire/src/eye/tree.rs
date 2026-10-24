@@ -1,6 +1,6 @@
 use crate::*;
 
-/// Render a compact file tree of `dir` as a newline-joined string.
+/// Render a compact file tree of `dir`, every line newline-terminated.
 ///
 /// Files precede directories within each level (each group name-sorted by raw
 /// bytes, case-sensitive); directories recurse depth-first, one space of indent
@@ -21,7 +21,7 @@ pub(crate) fn tree(dir: &Path, ignore: &[String], regard: &[String]) -> TreeResu
     let root = dir.display().to_string();
     let mut lines = vec![format!("{}/", root.trim_end_matches('/'))];
     walk(dir, dir, 1, &ignore_globs, &regard_globs, &mut lines)?;
-    Ok(lines.join("\n"))
+    Ok(lines.join("\n") + "\n")
 }
 
 /// Compile one ignore/regard pattern, mapping a syntax error to `TreeError::Glob`.

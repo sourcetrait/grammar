@@ -61,7 +61,8 @@ fn renders_files_before_dirs_with_sizes_symlinks_and_default_git_ignore() {
         "  inner.txt 40b".to_string(),
         " empty/".to_string(),
     ]
-    .join("\n");
+    .join("\n")
+        + "\n";
 
     assert_eq!(tree(&root, &[], &[]).unwrap(), expected);
 }
@@ -130,7 +131,8 @@ fn renders_the_docblock_example() {
         "  somedir/".to_string(),
         "   .file2 40b".to_string(),
     ]
-    .join("\n");
+    .join("\n")
+        + "\n";
 
     assert_eq!(tree(&root, &[], &[]).unwrap(), expected);
 }
