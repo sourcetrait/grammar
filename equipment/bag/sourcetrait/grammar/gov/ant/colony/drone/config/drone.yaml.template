@@ -1,9 +1,0 @@
-ai_id: "%{ai_identity}%"
-ai_shm_dir: "{infer:env:XDGX_SHM_DIR}/ai/{infer:ai_identity}/{infer:session_nom}"
-fae:
-    identity: "%{fae_identity}%"
-drone:
-    shm_dir: "{infer:ai_shm_dir}/drone/{infer:drone_name}"
-env:
-  XDG_CACHE_HOME: ~/.sys/.xdg/cache
-  XDGX_SHM_DIR: /dev/shm/box

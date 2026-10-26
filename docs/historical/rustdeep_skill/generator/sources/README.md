@@ -1,1 +1,0 @@
-Provide both `./input` and `./last_output` to the generator prompt.

@@ -1,58 +1,47 @@
 SourceTrait Grammar
 ================================================================================
-[![License Badge]][License] [![Linkable Badge]][Linkable] [![AI Badge]][AI]
+[![License Badge]][License] [![Rein Badge]][AI]
 
-*Toolkit for AI-assisted data analysis and tooling*
+Harness tools powered by Nushell.
 
+Agent-maintained documentation is located in [./doc/ai/doc.yaml](doc/ai).
 
-Crates
---------------------------------------------------------------------------------
-
-### [Grammar MCP](./crates/sourcetrait_grammar_mcp)
-[![Grammar MCP Crate Badge]][Grammar MCP Crate]
-
-*MCP server*
-
-### [Grimoire](./crates/sourcetrait_nu_plugin_grimoire)
-[![Nu Plugin Crate Badge]][Nu Plugin Crate]
-
-*Nu Plugin*
-
-### [Library](./crates/sourcetrait_grammar_lib)
-[![Library Crate Badge]][Library Crate]
-
-*Common library for SourceTrait AI Empower*
-
-AI
---------------------------------------------------------------------------------
-
-This workspace is iteratively AI authored. It is essentialy tooling for AI, by
-AI.
-
+Tested with:
+- Claude Code
+- ChatGPT Codex
+- Mistral Vibe CLI (GLM)
 
 Repository
 --------------------------------------------------------------------------------
 
-Found a bug? Let us know! Upvote an existing issue on GitHub or create one if it
-doesn't exist.
+Found a bug?  
+Let us know! Upvote an existing issue or create one if not found.
+
+Have questions, concerns, ideas, or requests?  
+Upvote an existing discussion or create one if not found.
+
+### AI
+LLM generation is heavily used.
 
 ### Contributors
 Contributors, please review [SOURCETRAIT.md](./SOURCETRAIT.md).  
 
 #### Copyright Assignment Agreement (CAA)
-By committing to this repository you agree to assign to
-[Asmov LLC](https://asmov.software) all right, title, and interest worldwide in
-all copyright covering your contribution.
+By committing to this repository you
+[agree to assign](./docs/legal/Copyright_Assignment_Agreement.md)
+to [Asmov LLC](https://asmov.software)
+all right, title, and interest worldwide in all copyright covering your
+contribution.
 
 
 License (AGPL3)
 --------------------------------------------------------------------------------
-SourceTrait AI Empower: Toolkit for AI-assisted data analysis and tooling  
+SourceTrait Grammar
 Developed by [SourceTrait](https://sourcetrait.com), a division of **Asmov LLC**  
-Copyright (C) 2025 [Asmov LLC](https://asmov.software)  
+Copyright (C) 2026 [Asmov LLC](https://asmov.software)  
 
 This program is free software: you can redistribute it and/or modify
-it under the terms of the **GNU Affero General Public License** as
+it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 
@@ -63,26 +52,11 @@ GNU Affero General Public License for more details.
 
 You should have received a [copy](./LICENSE-AGPL-3.txt) of the
 GNU Affero General Public License along with this program.
-If not, see [https://www.gnu.org/licenses/](https://www.gnu.org/licenses/).
+If not, see https://www.gnu.org/licenses/.
 
-
-External dependency licenses are listed in:  
-[`LICENSES-EXTERNAL.txt`](./LICENSES-EXTERNAL.txt)
 
 [Docs Badge]: https://img.shields.io/badge/docs-blue
 [License]: #License-AGPL3
 [License Badge]: https://img.shields.io/badge/license-AGPL3-blue.svg
-[Linkable]: #Linking-Exception-Section-7
-[Linkable Badge]: https://img.shields.io/badge/linkable-libs-green.svg
 [AI]: #AI
-[AI Badge]: https://img.shields.io/badge/ai-authored-green.svg
-
-[Grammar MCP Crate]: https://crates.io/crates/sourcetrait_grammar_mcp
-[Grammar MCP Crate Badge]: https://img.shields.io/crates/v/sourcetrait_grammar_mcp.svg
-
-[Nu Plugin Crate]: https://crates.io/crates/sourcetrait_nu_plugin_grimoire
-[Nu Plugin Crate Badge]: https://img.shields.io/crates/v/sourcetrait_nu_plugin_grimoire.svg
-
-[Library Crate]: https://crates.io/crates/sourcetrait_grammar_lib
-[Library Crate Badge]: https://img.shields.io/crates/v/sourcetrait_grammar_lib.svg
-
+[Rein Badge]: https://img.shields.io/badge/rein-AI-blue.svg
