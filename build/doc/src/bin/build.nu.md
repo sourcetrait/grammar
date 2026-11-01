@@ -38,6 +38,11 @@ which a whole build on the key's machine keeps current; the key's machine packs
 and signs it, building nothing. A server's tree is built that way on the
 server, in a one-time container (`build/container/run.bash`).
 
+`--nu-sources` serves a build with no network: the rpm's, whose source
+package carries nushell's and its core plugins' published sources beside the
+vendored crates (`build/rpm/`), so nushell installs from them rather than
+from crates.io.
+
 ## def pack_tree
 The tree is packed as a whole build packs its own, so a split release's
 package is the same OptZst; it lands beside the tree, in the directory the

@@ -46,6 +46,13 @@ protocol. A target directory of their own, `nu/build` in cargo's, keeps their
 builds incremental and apart from the workspace's, and cargo skips a crate
 outright when that version is already installed at the root.
 
+A build with no network, a source package's on a distribution's builder,
+names `sources`, a directory holding each crate's published source as
+`<crate>-<version>/`, and each installs from there by `--path`, `--offline`,
+still against its own published lock: the crates its lock reaches come from
+the vendored sources cargo's configuration points it at. `--path` takes one
+package an invocation, so each installs in its own.
+
 ## def target_dir
 cargo's own answer, `cargo metadata`'s `target_directory`, which honors
 `CARGO_TARGET_DIR` and cargo's config, so nushell's install, the tree, and the

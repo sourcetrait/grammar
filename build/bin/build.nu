@@ -16,7 +16,9 @@
 # `<dir>/build.nuon` naming its name, semver, os, and arch: no tally, no pack,
 # no signature, so a machine without the key builds it, a server's tree among
 # them. `--pack <dir>` packs such a `<dir>` into the signed OptZst, building
-# nothing, so the key's machine runs no build.
+# nothing, so the key's machine runs no build. `--nu-sources <dir>` installs
+# nushell and its core plugins offline from their published sources there,
+# each `<crate>-<version>/`, as a build with no network needs.
 
 const MOD_DIR = (path self | path expand | path dirname | path dirname | path join 'mod')
 const BUNDLE = ($MOD_DIR | path join 'bundle')
@@ -37,6 +39,7 @@ def main [
     --debug        # cargo's dev profile; the package's semver takes `+dbg`
     --tree: path   # build and lay the tree out in this directory, no pack
     --pack: path   # pack the tree a `--tree` laid out in this directory
+    --nu-sources: path # install nushell offline from the published sources here
 ]: nothing -> nothing {
     let profile: string = if $debug { 'debug' } else { 'release' }
     let name: string = (optzst package_record $PACKAGE | get name)
@@ -57,7 +60,7 @@ def main [
     }
     bundle compile $ROOT $profile
     print 'installing nushell and its core plugins'
-    let nu_root: path = (bundle nushell $ROOT $profile)
+    let nu_root: path = (bundle nushell $ROOT $profile $nu_sources)
     print 'laying out the package'
     let laid: path = (bundle layout $ROOT $profile $nu_root $target.os)
     if $tree != null {

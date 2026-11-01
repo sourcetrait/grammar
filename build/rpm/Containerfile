@@ -1,0 +1,13 @@
+# grammar's one-time rpm container: Fedora's own toolchain, as copr builds with,
+# and rpm-build.
+#
+# Built and run by run.bash beside it, then removed with its image: BASE is the
+# Fedora release the rpm is for.
+
+ARG BASE=registry.fedoraproject.org/fedora:44
+FROM ${BASE}
+
+RUN dnf install -y --setopt=install_weak_deps=False \
+        cargo clang cmake curl gcc gcc-c++ git make openssl-devel perl \
+        pkgconf-pkg-config rpm-build rust tar zstd \
+    && dnf clean all

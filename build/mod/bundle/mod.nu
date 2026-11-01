@@ -52,19 +52,31 @@ export def compile [root: path, profile: string]: nothing -> nothing {
     ^cargo build --locked --manifest-path ($root | path join 'Cargo.toml') ...$flags ...$packages
 }
 
-# Install nushell and its core plugins at the engine's version from crates.io.
+# Install nushell and its core plugins at the engine's version, from crates.io
+# or, offline, from `sources`, each crate's published source as
+# `<crate>-<version>/` there.
 #
 # Returns the install's root, `nu/<profile>` in cargo's target directory, its
 # binaries in `bin/`. Cargo skips a crate already installed there at that
 # version.
-export def nushell [root: path, profile: string]: nothing -> path {
+export def nushell [root: path, profile: string, sources?: path]: nothing -> path {
     let version: string = (engine_version $root)
     let target: path = (target_dir $root)
     let nu_root: path = ($target | path join 'nu' $profile)
     let flags: list<string> = (if $profile == 'debug' { ['--debug'] } else { [] })
-    let crates: list<string> = (['nu'] | append $CORE_PLUGINS | each {|crate| $"($crate)@($version)" })
-    (^cargo install --locked --root $nu_root
-        --target-dir ($target | path join 'nu' 'build') ...$flags ...$crates)
+    let crates: list<string> = (['nu'] | append $CORE_PLUGINS)
+    let common: list<string> = ['--locked' '--root' $nu_root '--target-dir' ($target | path join 'nu' 'build') ...$flags]
+    if $sources == null {
+        ^cargo install ...$common ...($crates | each {|crate| $"($crate)@($version)" })
+    } else {
+        for crate in $crates {
+            let dir: path = ($sources | path expand | path join $"($crate)-($version)")
+            if not ($dir | path join 'Cargo.toml' | path exists) {
+                error make {msg: $"no ($crate) ($version) source at ($dir)"}
+            }
+            ^cargo install --offline ...$common --path $dir
+        }
+    }
     $nu_root
 }
 
