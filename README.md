@@ -22,6 +22,34 @@ MCP, nushell, their plugins, and the grammar and gram equips, with
 It requires gram's repository cloned beside this one, as `gram`: `ext/gram`
 links to it, and the package carries its equip.
 
+Installing
+--------------------------------------------------------------------------------
+A package is `grammar_<version>_<os>_<arch>.opt.tar.zst`. Unpack it, check
+both signatures with a key you trust, and run its install script beside the
+unpacked files:
+
+```bash
+tar -xf grammar_<version>_<os>_<arch>.opt.tar.zst
+gpgv --keyring <key> grammar.tar.gpg.sig grammar.tar
+gpgv --keyring <key> package-grammar.tar.gpg.sig package-grammar.tar
+tar -xf package-grammar.tar
+bash install.bash --place uenv-usr-local
+```
+
+`--place uenv-usr-local` and `--place uenv-usr-adhoc` install into
+`$UENV_USR_LOCAL/opt/grammar` or `$UENV_USR_ADHOC/opt/grammar` and link each of
+its `bin/` entries from that home's `bin/`; `--place dir --dir <path>` installs
+into a directory of your own and links nothing. The script checks `grammar.tar`
+against its record first.
+
+- Linux: bash 5 or later, and a tar that reads zstd, with `zstd` installed.
+- macOS: macOS ships bash 3.2, which the script refuses, and a tar that reads
+  zstd only through the `zstd` program. Homebrew's `bash` and `zstd` serve:
+  run `install.bash` under Homebrew's bash, with `zstd` on `PATH` for the
+  unpack.
+- Windows: `install.ps1` under PowerShell 7, in an elevated session for a UENV
+  place, its links being symlinks.
+
 Repository
 --------------------------------------------------------------------------------
 
