@@ -23,7 +23,6 @@ sourcetrait_common.workspace = true
 
 [dev-dependencies]
 futures-util.workspace = true
-nutype.workspace = true
 syn.workspace = true
 
 [package.metadata]

@@ -1,9 +1,8 @@
 //! Type text held to nushell's own reading of it.
 use crate::*;
-use nuval::NuonStyle;
 
-/// nushell's reading of type text as nutype holds it, or none where nushell
-/// refuses the text or nutype the shape: the text annotates a definition's
+/// nushell's reading of type text as nuval holds it, or none where nushell
+/// refuses the text or nuval the shape: the text annotates a definition's
 /// parameter, read back from its signature.
 fn nushell_read(text: &str) -> Option<NuType> {
     let engine = nu_cmd_lang::create_default_context();
@@ -39,7 +38,7 @@ fn type_text_reads_as_nushell_reads_it() {
         let ours = NuType::from_text(text).ok();
         let theirs = nushell_read(text);
         if ours != theirs {
-            differ.push(format!("{text:?}: nutype {ours:?}, nushell {theirs:?}"));
+            differ.push(format!("{text:?}: nuval {ours:?}, nushell {theirs:?}"));
         }
     }
     assert!(differ.is_empty(), "{} differ:\n{}", differ.len(), differ.join("\n"));
@@ -95,9 +94,9 @@ fn a_type_lays_out_as_the_repositorys_files_do() {
 #[test]
 fn a_type_serializes_as_its_text_and_crosses_the_wire_in_binary() {
     let ty = every_shape();
-    let nuon = nuval::to_nuon(&ty, NuonStyle::Raw).expect("written");
-    assert_eq!(nuon, nuval::to_nuon(&ty.to_inline(), NuonStyle::Raw).expect("its text"));
-    assert_eq!(nuval::from_nuon::<NuType>(&nuon).expect("read back"), ty);
+    let nuon = to_nuon(&ty, NuonStyle::Raw).expect("written");
+    assert_eq!(nuon, to_nuon(&ty.to_inline(), NuonStyle::Raw).expect("its text"));
+    assert_eq!(from_nuon::<NuType>(&nuon).expect("read back"), ty);
     let bytes = bitcode::encode(&ty);
     assert_eq!(bitcode::decode::<NuType>(&bytes).expect("bitcode"), ty);
     let archived = rkyv::to_bytes::<rkyv::rancor::Error>(&ty).expect("rkyv");

@@ -9,9 +9,9 @@ The system's own data is cereal data, so the engine takes `::serde`,
 `::bitcode`, and `::rkyv` as dependencies of its own, the paths
 `cereal::derived` emits, as nuval does.
 
-## use nutype
-The contract's types are nutype's, as its values are nuval's; the indices are
-written and read as NUON through nuval's serde support.
+## use nuval
+The contract's types and its values are both nuval's; the indices are written
+and read as NUON through nuval's serde support.
 
 ## use std::os::unix::fs::MetadataExt
 Unix alone, as `std::os::unix` is: its one reader, `plugins.rs`'s

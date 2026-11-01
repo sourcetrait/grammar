@@ -1,4 +1,4 @@
-//! nutype's types to nushell's shapes and types and back.
+//! nuval's types to nushell's shapes and types and back.
 use crate::*;
 
 /// Types of every shape, alone and nested.

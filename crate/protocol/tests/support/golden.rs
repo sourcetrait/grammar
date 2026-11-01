@@ -5,8 +5,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use nutype::NuTypeFile;
-use nuval::{NuVal, NuonStyle};
+use nuval::{NuTypeFile, NuVal, NuonStyle};
 
 /// The golden at `file`, its model at `model`, both under the crate; the
 /// file written from `actual` first under `BLESS=1`.

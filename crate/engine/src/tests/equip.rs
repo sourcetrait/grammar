@@ -113,7 +113,7 @@ fn a_malformed_index_fails_to_parse() {
 }
 
 /// An index the previous build wrote, its types in the structure it
-/// serialized, loads with them read as nutype's, so a rig keeps answering
+/// serialized, loads with them read as nuval's types, so a rig keeps answering
 /// until it is committed again.
 #[test]
 fn an_earlier_typed_index_still_loads() {

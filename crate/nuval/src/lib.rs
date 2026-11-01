@@ -15,6 +15,17 @@ pub(crate) mod text {
     pub(crate) mod ser;
     pub(crate) mod write;
 }
+pub(crate) mod ty {
+    pub(crate) mod check;
+    pub(crate) mod error;
+    pub(crate) mod model;
+    #[cfg(feature = "nushell")]
+    pub(crate) mod shape;
+    pub(crate) mod text {
+        pub(crate) mod read;
+        pub(crate) mod write;
+    }
+}
 pub(crate) mod val;
 pub(crate) mod val_error;
 pub(crate) mod width;
@@ -22,6 +33,11 @@ pub(crate) mod width;
 mod tests {
     mod access;
     mod text;
+    mod ty {
+        mod check;
+        mod shape;
+        mod text;
+    }
     mod val;
     mod val_error;
 }
@@ -32,7 +48,7 @@ pub(crate) use crate::error::*;
 #[cfg(feature = "nushell")]
 pub(crate) use snafu::OptionExt;
 
-pub(crate) use std::{fmt, ops::Range};
+pub(crate) use std::{fmt, ops::Range, str::FromStr};
 
 #[cfg(feature = "nushell")]
 pub(crate) use std::ops::Bound;
@@ -44,7 +60,7 @@ pub(crate) mod nu {
     pub(crate) use nu_protocol::{
         ChainedError, CompileError, ConfigError, ConfigWarning, ErrorLabel, Filesize, FloatRange,
         IntRange, LabeledError, ParseError, ParseWarning, Range, Record, ShellError, ShellWarning,
-        Span, Value,
+        Span, SyntaxShape, Type, Value,
         ast::{CellPath, PathMember},
         casing::Casing,
         shell_error::{
@@ -73,6 +89,10 @@ pub use crate::{
         de::{from_nuon, from_nuval},
         ser::{to_nuon, to_nuval},
         write::NuonStyle,
+    },
+    ty::{
+        error::{NuTypeError, NuTypeResult},
+        model::{NuField, NuType, NuTypeFile},
     },
     val::{
         Bounded, CellPathMemberData, DateData, GlobData, NuVal, NuValResult, RangeData, SpanData,

@@ -12,7 +12,6 @@ keywords.workspace   = true
 
 [dependencies]
 getrandom.workspace = true
-nutype.workspace = true
 nuval.workspace = true
 serde.workspace = true
 sourcetrait_process.workspace = true

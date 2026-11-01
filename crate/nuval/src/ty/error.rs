@@ -1,6 +1,6 @@
 use crate::*;
 
-/// Type text that didn't read, a shape nutype doesn't hold, or a value that
+/// Type text that didn't read, a shape no data type holds, or a value that
 /// isn't of its type.
 #[derive(Debug, PartialEq, Eq, snafu::Snafu)]
 #[snafu(visibility(pub(crate)))]

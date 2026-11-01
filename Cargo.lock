@@ -4378,28 +4378,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "nutype"
-version = "0.0.0-10"
-dependencies = [
- "nu-cmd-lang",
- "nu-engine",
- "nu-parser",
- "nu-protocol",
- "nuval",
- "rkyv",
- "serde",
- "snafu 0.9.2",
- "sourcetrait_cereal_bitcode",
- "sourcetrait_common",
-]
-
-[[package]]
 name = "nuval"
 version = "0.0.0-10"
 dependencies = [
  "chrono",
  "miette 7.6.0",
+ "nu-cmd-lang",
  "nu-engine",
+ "nu-parser",
  "nu-protocol",
  "nuon",
  "rkyv",
@@ -6659,7 +6645,6 @@ dependencies = [
  "nu-protocol",
  "nu-std",
  "nuon",
- "nutype",
  "nuval",
  "rkyv",
  "serde",
@@ -6781,7 +6766,6 @@ name = "sourcetrait_grammar_protocol"
 version = "0.0.0-10"
 dependencies = [
  "futures-util",
- "nutype",
  "nuval",
  "rkyv",
  "serde",
@@ -6799,7 +6783,6 @@ version = "0.0.0-10"
 dependencies = [
  "getrandom 0.4.3",
  "nix",
- "nutype",
  "nuval",
  "serde",
  "sourcetrait_process",

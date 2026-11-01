@@ -2,8 +2,7 @@
 //! its NUON files, each held to its model.
 use std::path::{Path, PathBuf};
 
-use nutype::NuTypeFile;
-use nuval::NuVal;
+use nuval::{NuTypeFile, NuVal};
 
 /// The repository's `.nutype` files, from the workspace's root.
 const FILES: [&str; 7] = [
@@ -62,7 +61,7 @@ fn each_repository_nuon_holds_to_its_model() {
 }
 
 /// Each file's type annotates a definition's parameter, and nushell reads it
-/// as nutype does.
+/// as nuval does.
 #[cfg(feature = "nushell")]
 #[test]
 fn each_repository_nutype_annotates_a_parameter_as_nushell_reads_it() {
@@ -75,6 +74,6 @@ fn each_repository_nutype_annotates_a_parameter_as_nushell_reads_it() {
         assert!(working_set.parse_errors.is_empty(), "{file}: {:?}", working_set.parse_errors);
         let decl = working_set.find_decl(b"t").expect("the definition");
         let shape = &working_set.get_decl(decl).signature().required_positional[0].shape;
-        assert_eq!(nutype::NuType::try_from(shape).expect("a shape nutype holds"), model.ty, "{file}");
+        assert_eq!(nuval::NuType::try_from(shape).expect("a shape nuval holds"), model.ty, "{file}");
     }
 }

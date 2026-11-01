@@ -1,4 +1,4 @@
-# ty.rs
+# model.rs
 
 ## enum NuType
 The types a value nuval holds can take, and the shapes nushell's annotations

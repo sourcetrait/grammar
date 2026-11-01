@@ -31,7 +31,6 @@ nu-plugin-engine.workspace = true
 nu-protocol.workspace = true
 nu-std.workspace = true
 nuon.workspace = true
-nutype = { workspace = true, features = ["nushell"] }
 nuval = { workspace = true, features = ["nushell"] }
 rkyv.workspace = true
 serde.workspace = true

@@ -10,7 +10,7 @@ commit, so a call holds its data and result to them and the signature block rend
 without parsing the rig's source again. Each type is written as its text.
 
 ## enum StoredType / enum EarlierType / fn stored_type
-The build before nutype wrote each type as the serde structure of its own model,
+The build before the type model wrote each type as the serde structure of its own model,
 `{Record: {fields: [...]}}`. An entry reads either form, the earlier converted, so a
 namespace's installed rigs keep answering after an upgrade; the next commit writes the
 text. The forms can't collide: no type text is a record, and the earlier form's one

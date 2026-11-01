@@ -1,6 +1,6 @@
 [package]
 name = "nuval"
-description = "Serializable nushell values and errors"
+description = "Serializable nushell values, errors, and types"
 version.workspace    = true
 authors.workspace    = true
 license.workspace    = true
@@ -30,7 +30,11 @@ sourcetrait_common.workspace = true
 [dev-dependencies]
 # nuon takes nu-engine without `os` while nuval's nu-protocol keeps it, and
 # nu-engine builds only with the two paired, so its defaults pair them.
+# nu-parser is the reference a type's text is held to, reading a definition's
+# signature with nu-cmd-lang's `def`.
+nu-cmd-lang.workspace = true
 nu-engine.workspace = true
+nu-parser.workspace = true
 nuon.workspace = true
 
 [package.metadata]

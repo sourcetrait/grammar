@@ -12,8 +12,7 @@ pub(crate) use std::{
 
 #[cfg(unix)]
 pub(crate) use nix::fcntl::OFlag;
-pub(crate) use nutype::NuTypeFile;
-pub(crate) use nuval::{NuVal, NuonStyle};
+pub(crate) use nuval::{NuTypeFile, NuVal, NuonStyle};
 
 pub(crate) use crate::owner::current_boot;
 

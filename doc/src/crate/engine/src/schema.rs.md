@@ -1,10 +1,10 @@
 # schema.rs
 
-The contract's types: nutype's `NuType`, read from an `execute` definition's or a rig
+The contract's types: nuval's `NuType`, read from an `execute` definition's or a rig
 `main`'s parsed signature, and the strict check that holds a value to it. A type is DATA,
 cereal-derived and serializing as its text, so the rig index records each call's data and
 result types as they are and a call is held to them without its rig's source being parsed
-again. nutype converts nushell's shapes and types; the contract's own rules are a pass over
+again. nuval converts nushell's shapes and types; the contract's own rules are a pass over
 the result, kept here because they are the contract's and not the type model's.
 
 The contract is nushell's own, User's ruling: an agent writes Nu signatures and NUON
@@ -16,7 +16,7 @@ NO FALLBACK ANYWHERE: a type is the grammar's or it is refused, by name.
 
 ## fn compact
 The signature block's spelling: the type's parts with the separators' spaces dropped.
-nutype's `to_inline` is the full spelling, so the two can only ever differ in
+nuval's `to_inline` is the full spelling, so the two can only ever differ in
 PRESENTATION, never in what they understand a type to be.
 
 ## fn signature_group
@@ -47,7 +47,7 @@ record or table refused at EVERY depth: a return declares what the body produces
 open type there would assert nothing.
 
 ## fn not_data
-nutype refuses a closure, a block, and the parser's other shapes as types no value takes;
+nuval refuses a closure, a block, and the parser's other shapes as types no value takes;
 the contract names each as no data type.
 
 ## fn grammar
@@ -69,7 +69,7 @@ is the one place any field stands.
 A scalar is read by the value's own VARIANT, so `int` refuses a float, `float` refuses an
 int, and `number` takes either, as nushell's types do. `path` and `directory` values are
 strings by then, and a `glob` read back from NUON is a string too, so each takes one.
-nutype's own check holds a NuVal the same way; this one holds nushell's value, which a
+nuval's own check holds a NuVal the same way; this one holds nushell's value, which a
 call's data already is, so the data is never converted only to be checked.
 
 Every refusal names its PATH from the root the caller gives, `data` or `result`, with a
@@ -77,6 +77,6 @@ Every refusal names its PATH from the root the caller gives, `data` or `result`,
 wrong value in a large table.
 
 ## fn typedef_text
-nutype's inline spelling, for messages and the test harness: an open record renders
+nuval's inline spelling, for messages and the test harness: an open record renders
 `record<>`, where nushell's own Display would print a bare `record`, which is no valid type
 syntax.

@@ -1,4 +1,4 @@
-//! nutype's types to and from nushell's shapes and types.
+//! nuval's types to and from nushell's shapes and types.
 use crate::*;
 
 impl TryFrom<&nu::SyntaxShape> for NuType {
