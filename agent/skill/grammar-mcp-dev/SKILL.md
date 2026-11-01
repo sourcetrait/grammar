@@ -11,8 +11,13 @@ Using the tools is in grammar-mcp; the Nu language is in nu.
 - A source is the `equip/<author>/<name>` directory; `commit` takes the
   equip's namepath, `<author>/<name>`.
 - A call runs the committed copy: edit the source, then commit.
+- `new` registers the equip and seeds its rig, so `commit` follows it;
+  `install` takes a whole unregistered source, refusing a registered one.
+- `scaffold` writes a module or a call, wired; a call's open `record<>`s are
+  refused until their fields are typed.
 - `install` adds the rig to `default` and the purviews in view; `uninstall`
-  drops it from every purview and answers `{}`.
+  drops it from every purview and answers `{}`. A moved source registers
+  again by `uninstall`, then `install` from its new path.
 - A builtin, `gram` or `grammar`, drops its author everywhere:
   `interface equip commit gram`.
 
@@ -63,7 +68,7 @@ A rig carries `.nu` sources and `.gitignore` files; at its root `rig.toml`,
 `README.md`, `LEGAL.md`, `LICENSE.txt`, `LICENSE-*.txt`, `.assets/` with no
 script, and `.docs/` of `.md` and `.txt`. A lib carries `.nu` files alone.
 Nothing is executable. An equip can't be named `docs`, `tools`, `bin`, or
-`target`.
+`target`, nor take `interface` or `grimm` as its author or name.
 
 ## Where equips live
 - the repository's own: `./equip/<author>/<name>/`

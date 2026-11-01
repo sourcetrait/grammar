@@ -73,6 +73,13 @@ it names each peer as a `[[channel]]` alias with its `cert`, read at each
 command. Peers trust each other by known public key. A send reports
 `remote/channel/Sent` or `Unsent`; a reply comes from `remote/channel/<nom>`.
 
+## RemoteEngine
+`.grammar/remotes.toml` names each remote engine as an `[[engine]]` alias:
+`address`, `user`, `key`, and `known_hosts`, a list or a file; `command`
+(`grammar-ssh` by default), `id`, `namespace`, and `workdir` optional. Its
+worker runs in the account's login shell, `command not found: <command>` when
+missing, and ends with its session, opened at the first call or a connect.
+
 ## SEQUENCE: OpenGrammarChannel
 1. `interface channel open async`.
 2. On `new`, a Monitor on the returned `wss`; on `existing`, the running
@@ -80,7 +87,7 @@ command. Peers trust each other by known public key. A send reports
 3. Wait for the `mcp/channel/Open` packet.
 4. `interface channel ready`, nothing sent before it.
 
-## SEQUENCE: GrammarRemoteChannel
+## SEQUENCE: OpenRemoteGrammarChannel
 1. OpenGrammarChannel on both hosts.
 2. Each host without the peer's entry:
    `interface remote channel set <alias> --cert <peer's cert>`.
@@ -91,6 +98,26 @@ command. Peers trust each other by known public key. A send reports
 5. The listener waits for `remote/channel/Connected`.
 6. Each sends to the peer's nom from `interface remote channel list`, never the
    alias.
+
+## SEQUENCE: OpenRemoteGrammarEngine
+1. A host without an entry: `interface remote engine import <alias>` from an
+   ssh configuration's host, else `interface remote engine set <alias>
+   --address <host[:port]> --user <user> --key <key> --known-hosts <key>`.
+2. `interface remote engine connect <alias>`.
+3. Each call on it names `host: <alias>`.
+
+## SEQUENCE: DeployRemoteGrammarEngine
+1. The package in this host's home's `zst/`, the home
+   `$nu.current-exe | path dirname | path dirname`, for a host of the same os
+   and arch.
+2. Over ssh: the package copied to the host, its three members extracted, and
+   its record checked, `sha256sum --check grammar.tar.sha256`.
+3. The host's `<opt>/grammar` emptied, `grammar.tar` unpacked into it, and the
+   package copied into its `zst/`.
+4. Its `bin/grammar-mcp` and `bin/grammar-ssh` linked from the user's local
+   bin.
+5. OpenRemoteGrammarEngine, `--command` naming its `bin/grammar-ssh` where the
+   login's `PATH` finds another first.
 
 ## Command Signatures
 Note: Each begins with `interface `
