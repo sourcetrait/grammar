@@ -26,4 +26,8 @@ every machine builds with the same compiler whatever its distribution ships;
 `minimal` carries rustc, cargo, and the standard library alone. Fedora's rustup
 package is `rustup-init`, which installs rustup with its proxies under
 `/root/.cargo/bin`; Debian's is rustup itself, its proxies in `/usr/bin`, so it
-installs the toolchain and makes it the default.
+installs the toolchain and makes it the default. Its default host is set from
+the machine's architecture first, `riscv64` taking
+`riscv64gc-unknown-linux-gnu`: Ubuntu's riscv64 rustup names its own host
+`riscv64a23-unknown-linux-gnu`, for which Rust's channel publishes no
+toolchain.

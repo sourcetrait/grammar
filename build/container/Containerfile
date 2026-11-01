@@ -23,6 +23,11 @@ RUN if command -v dnf >/dev/null 2>&1; then \
             build-essential cmake clang perl pkg-config libssl-dev \
             git tar zstd ca-certificates rustup \
         && rm -rf /var/lib/apt/lists/* \
+        && case "$(uname -m)" in \
+               riscv64) host=riscv64gc-unknown-linux-gnu ;; \
+               *) host="$(uname -m)-unknown-linux-gnu" ;; \
+           esac \
+        && rustup set default-host "${host}" \
         && rustup toolchain install --profile minimal "${RUST}" \
         && rustup default "${RUST}"; \
     else \
