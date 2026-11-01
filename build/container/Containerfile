@@ -1,18 +1,33 @@
 # grammar-mcp's one-time build container: a base, its build tools, and Rust.
 #
 # Built and run by run.bash beside it, then removed with its image: BASE is the
-# machine's own distribution, RUST the toolchain.
+# machine's own distribution, of the Fedora family or the Debian family, RUST
+# the toolchain.
 
 ARG BASE=registry.fedoraproject.org/fedora:44
 FROM ${BASE}
 
 ARG RUST=1.99.1
 
-RUN dnf install -y --setopt=install_weak_deps=False \
-        gcc gcc-c++ make cmake clang perl pkgconf-pkg-config openssl-devel \
-        git tar zstd rustup \
-    && dnf clean all
-
-RUN rustup-init -y --no-modify-path --profile minimal --default-toolchain "${RUST}"
+RUN if command -v dnf >/dev/null 2>&1; then \
+        dnf install -y --setopt=install_weak_deps=False \
+            gcc gcc-c++ make cmake clang perl pkgconf-pkg-config openssl-devel \
+            git tar zstd rustup \
+        && dnf clean all \
+        && rustup-init -y --no-modify-path --profile minimal \
+            --default-toolchain "${RUST}"; \
+    elif command -v apt-get >/dev/null 2>&1; then \
+        export DEBIAN_FRONTEND=noninteractive \
+        && apt-get update \
+        && apt-get install -y --no-install-recommends \
+            build-essential cmake clang perl pkg-config libssl-dev \
+            git tar zstd ca-certificates rustup \
+        && rm -rf /var/lib/apt/lists/* \
+        && rustup toolchain install --profile minimal "${RUST}" \
+        && rustup default "${RUST}"; \
+    else \
+        echo "the base has neither dnf nor apt-get" >&2; \
+        exit 1; \
+    fi
 
 ENV PATH=/root/.cargo/bin:${PATH}
