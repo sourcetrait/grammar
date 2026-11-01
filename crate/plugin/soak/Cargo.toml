@@ -1,0 +1,35 @@
+[package]
+name = "sourcetrait_grammar_soak"
+description = "A Liquid templating plugin for Nushell"
+version.workspace    = true
+authors.workspace    = true
+license.workspace    = true
+edition.workspace    = true
+repository.workspace = true
+homepage.workspace   = true
+categories.workspace = true
+keywords.workspace   = true
+
+[lib]
+name = "nu_plugin_soak"
+
+[[bin]]
+name = "nu_plugin_soak"
+path = "src/main.rs"
+
+[dependencies]
+humantime.workspace = true
+liquid.workspace = true
+nu-path.workspace = true
+nu-plugin.workspace = true
+nu-protocol.workspace = true
+snafu.workspace = true
+walkdir.workspace = true
+
+[dev-dependencies]
+nu-plugin-test-support.workspace = true
+sourcetrait_common = { workspace = true, features = ["tooling"] }
+tempfile.workspace = true
+
+[package.metadata]
+rein = "ai"

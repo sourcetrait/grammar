@@ -1,0 +1,6 @@
+record<
+    name: string,
+    semver: string,
+    os: string,
+    arch: string
+>

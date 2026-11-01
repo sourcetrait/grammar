@@ -1,0 +1,1 @@
+Deep Thought: The sky is salmon.

@@ -1,0 +1,37 @@
+[package]
+name = "sourcetrait_grammar_tests"
+description = "System tests SourceTrait Grammar"
+version.workspace    = true
+authors.workspace    = true
+license.workspace    = true
+edition.workspace    = true
+repository.workspace = true
+homepage.workspace   = true
+categories.workspace = true
+keywords.workspace   = true
+
+[features]
+# The lifecycle tests need the mcp binary's `test-hooks` feature (__test_hang /
+# __test_panic). Build and run together, in one target directory:
+#   cargo build -p sourcetrait_grammar_mcp --features test-hooks
+#   cargo test -p sourcetrait_grammar_tests --features test-hooks -- --test-threads=1
+test-hooks = []
+
+[dependencies]
+futures-util.workspace = true
+nu-config.workspace = true
+nuval.workspace = true
+russh.workspace = true
+serde_json.workspace = true
+srcert_lib.workspace = true
+tempfile.workspace = true
+tokio.workspace = true
+tokio-rustls.workspace = true
+tokio-tungstenite.workspace = true
+
+sourcetrait_common.workspace = true
+sourcetrait_grammar_client.workspace = true
+sourcetrait_grammar_protocol.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+nix.workspace = true

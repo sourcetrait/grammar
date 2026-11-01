@@ -1,0 +1,52 @@
+[package]
+name = "sourcetrait_grammar_engine"
+description = "Grammar's nushell engine"
+version.workspace    = true
+authors.workspace    = true
+license.workspace    = true
+edition.workspace    = true
+repository.workspace = true
+homepage.workspace   = true
+categories.workspace = true
+keywords.workspace   = true
+
+[features]
+# Test-only engine decls (__test_hang / __test_panic) for the lifecycle system
+# tests; never enabled in a shipped build.
+test-hooks = []
+
+[dependencies]
+bitcode.workspace = true
+indoc.workspace = true
+nix.workspace = true
+nu-cmd-extra.workspace = true
+nu-cmd-lang.workspace = true
+nu-cmd-plugin.workspace = true
+nu-command.workspace = true
+nu-config.workspace = true
+nu-engine.workspace = true
+nu-parser.workspace = true
+nu-plugin-engine.workspace = true
+nu-protocol.workspace = true
+nu-std.workspace = true
+nuon.workspace = true
+nutype = { workspace = true, features = ["nushell"] }
+nuval = { workspace = true, features = ["nushell"] }
+rkyv.workspace = true
+serde.workspace = true
+tokio.workspace = true
+
+sourcetrait_common.workspace = true
+sourcetrait_grammar_protocol.workspace = true
+sourcetrait_process.workspace = true
+
+[build-dependencies]
+toml.workspace = true
+
+[package.metadata]
+rein = "ai"
+
+# result_large_err allowed as nushell allows it in its own crates: ShellError is
+# the Err every Command and every helper serving one returns.
+[lints.clippy]
+result_large_err = "allow"

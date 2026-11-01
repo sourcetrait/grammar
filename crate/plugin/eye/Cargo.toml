@@ -1,0 +1,33 @@
+[package]
+name = "sourcetrait_grammar_eye"
+description = "A file inspection plugin for Nushell"
+version.workspace    = true
+authors.workspace    = true
+license.workspace    = true
+edition.workspace    = true
+repository.workspace = true
+homepage.workspace   = true
+categories.workspace = true
+keywords.workspace   = true
+
+[lib]
+name = "nu_plugin_eye"
+
+[[bin]]
+name = "nu_plugin_eye"
+path = "src/main.rs"
+
+[dependencies]
+ignore.workspace = true
+nu-glob.workspace = true
+nu-path.workspace = true
+nu-plugin.workspace = true
+nu-protocol.workspace = true
+snafu.workspace = true
+
+[dev-dependencies]
+nu-plugin-test-support.workspace = true
+sourcetrait_common.workspace = true
+
+[package.metadata]
+rein = "ai"

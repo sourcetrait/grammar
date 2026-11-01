@@ -1,0 +1,25 @@
+[package]
+name = "sourcetrait_grammar_operator"
+description = "Grammar's system monitoring"
+version.workspace    = true
+authors.workspace    = true
+license.workspace    = true
+edition.workspace    = true
+repository.workspace = true
+homepage.workspace   = true
+categories.workspace = true
+keywords.workspace   = true
+
+[dependencies]
+bitcode.workspace = true
+nix.workspace = true
+rkyv.workspace = true
+serde.workspace = true
+tokio.workspace = true
+
+sourcetrait_common.workspace = true
+sourcetrait_grammar_protocol.workspace = true
+sourcetrait_process.workspace = true
+
+[package.metadata]
+rein = "ai"

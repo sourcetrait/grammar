@@ -1,0 +1,22 @@
+[package]
+name = "sourcetrait_grammar_scratch"
+description = "Grammar's owned scratch directories, their owners' markers, and the sweep"
+version.workspace    = true
+authors.workspace    = true
+license.workspace    = true
+edition.workspace    = true
+repository.workspace = true
+homepage.workspace   = true
+categories.workspace = true
+keywords.workspace   = true
+
+[dependencies]
+nix.workspace = true
+nutype.workspace = true
+nuval.workspace = true
+serde.workspace = true
+sourcetrait_process.workspace = true
+tempfile.workspace = true
+
+[package.metadata]
+rein = "ai"

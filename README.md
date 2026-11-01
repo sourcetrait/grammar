@@ -1,0 +1,72 @@
+SourceTrait Grammar MCP
+================================================================================
+[![License Badge]][License] [![Rein Badge]][AI]
+
+Harness MCP powered by Nushell.
+
+Agent-maintained documentation is located in [./doc/ai/doc.yaml](doc/ai).
+
+Skills are located in [./agent/skill](agent/skill).
+
+Tested with:
+- Claude Code
+- ChatGPT Codex
+- Mistral Vibe CLI (GLM)
+
+Building
+--------------------------------------------------------------------------------
+`nu build.nu` builds the release, a signed OptZip in `target/pkg/` carrying the
+MCP, nushell, their plugins, and the grammar and gram equips.
+
+It requires gram's repository cloned beside this one, as `gram`: `ext/gram`
+links to it, and the package carries its equip.
+
+Repository
+--------------------------------------------------------------------------------
+
+Found a bug?  
+Let us know! Upvote an existing issue or create one if not found.
+
+Have questions, concerns, ideas, or requests?  
+Upvote an existing discussion or create one if not found.
+
+### AI
+LLM generation is heavily used.
+
+### Contributors
+Contributors, please review [SOURCETRAIT.md](./SOURCETRAIT.md).  
+
+#### Copyright Assignment Agreement (CAA)
+By committing to this repository you
+[agree to assign](./docs/legal/Copyright_Assignment_Agreement.md)
+to [Asmov LLC](https://asmov.software)
+all right, title, and interest worldwide in all copyright covering your
+contribution.
+
+
+License (AGPL3)
+--------------------------------------------------------------------------------
+SourceTrait Grammar MCP
+Developed by [SourceTrait](https://sourcetrait.com), a division of **Asmov LLC**  
+Copyright (C) 2026 [Asmov LLC](https://asmov.software)  
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a [copy](./LICENSE-AGPL-3.txt) of the
+GNU Affero General Public License along with this program.
+If not, see https://www.gnu.org/licenses/.
+
+
+[Docs Badge]: https://img.shields.io/badge/docs-blue
+[License]: #License-AGPL3
+[License Badge]: https://img.shields.io/badge/license-AGPL3-blue.svg
+[AI]: #AI
+[Rein Badge]: https://img.shields.io/badge/rein-AI-blue.svg

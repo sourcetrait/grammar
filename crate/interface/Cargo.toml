@@ -1,0 +1,25 @@
+[package]
+name = "sourcetrait_grammar_interface"
+description = "Grammar's interface commands, parsed"
+version.workspace    = true
+authors.workspace    = true
+license.workspace    = true
+edition.workspace    = true
+repository.workspace = true
+homepage.workspace   = true
+categories.workspace = true
+keywords.workspace   = true
+
+[dependencies]
+# nu-parser takes nu-engine without `os` while nu-protocol keeps it, and nu-engine
+# builds only with the two paired, so its defaults pair them.
+nu-engine.workspace = true
+nu-parser.workspace = true
+nu-protocol.workspace = true
+nuval = { workspace = true, features = ["nushell"] }
+serde.workspace = true
+
+sourcetrait_grammar_protocol.workspace = true
+
+[package.metadata]
+rein = "ai"

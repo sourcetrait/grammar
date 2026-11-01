@@ -1,0 +1,39 @@
+# Schema: every public type bitcode encodes on the daemon's wire.
+#
+#     let schema: <this type> = (open schema/v1.nuon)
+#
+# `tests/framing.rs` generates it from the protocol's, nuval's, and datum's
+# source with syn and holds the file to it; `BLESS=1` rewrites it. SCHEMA_ID is
+# the SHA-256 of its raw NUON with every record's keys sorted.
+#
+# `types` holds each type by name, its kind `struct` or `enum`, and its
+# generic parameters joined by commas. `variants` holds each enum's variants
+# by index, in declaration order. `fields` holds every struct's fields and
+# every variant's, `variant` null for a struct's, by index in declaration
+# order; a tuple field's name is its position. `aliases` holds each alias the
+# fields reach. A field bitcode skips is left out.
+
+record<
+    aliases: table<
+        name: string,
+        generics: string,
+        type: string
+    >,
+    types: table<
+        name: string,
+        kind: string,
+        generics: string
+    >,
+    variants: table<
+        owner: string,
+        index: int,
+        name: string
+    >,
+    fields: table<
+        owner: string,
+        variant: oneof<string, nothing>,
+        index: int,
+        name: string,
+        type: string
+    >
+>

@@ -1,0 +1,60 @@
+# The embedded base every load merges onto. The agent's own file, the start
+# directory's `.grammar/config.toml` or the one `--config` names, overrides it field
+# by field; anything absent from both falls through to the code defaults.
+#
+# This file carries only what is not an argument. The store coordinate (--id,
+# --namespace), the work dir (--workdir) and the deny list (--deny) stay arguments;
+# setting one here is an unknown-field error. It names no `[identity]`: a host's own
+# key pair is the agent's file's alone, and its remote channels live in
+# `remotes.toml` beside that file.
+#
+# Paths are strings so a file stays portable: a leading `~` or `$VAR` expands at
+# load, with an unset XDG home falling back to the XDG spec's default.
+
+[channel]
+# port is omitted here on purpose: absent means the kernel assigns one, which is the
+# default. The agent learns the real endpoint from `interface channel open`'s return,
+# so nothing needs a fixed port. Set it only if something outside that flow has to
+# predict the address - and then it must be unprivileged (1024-65535); the host does
+# not run as root, so a lower port could only ever fail to bind, and 0 is rejected
+# rather than meaning "any".
+#
+#   port = 47800
+#
+# How much one origin may emit before it is warned, and before it is stopped. Two
+# independent (window, rate) pairs: a short window catches a burst, a longer one would
+# catch sustained misbehaviour.
+#
+# These values are initial. There is no basis for them beyond reasoning - only
+# production traffic will say what a normal producer does, so expect to tune them. The
+# channel is a notification lane carrying state summaries, not a serialization lane, so
+# a high rate is misuse by definition rather than load to absorb.
+#
+# Windows are whole seconds here and on `interface channel config`: MCP arguments
+# cross as JSON, which cannot carry a nu duration, and TOML has no duration type either.
+spam_warn_window_secs = 10
+spam_warn_rate = 10
+spam_error_window_secs = 10
+spam_error_rate = 15
+
+# When a resource level is worth one warning to the agent.
+#
+# These are warnings only - the host never reacts to them. Heavy load is normal, and how
+# to react is the agent's call. The system itself supplies the error when a level really
+# is exceeded (VRAM ends in an OOM, CPU just slows down); these buy the agent notice
+# before that happens.
+#
+# Expressed against the machine's total capacity rather than as absolute figures, so the
+# same defaults mean the same thing on a different box instead of silently ageing.
+[supervisor]
+# Warn once the host's own CPU reaches this fraction of all cores.
+cpu_warn_fraction = 0.80
+# Warn once the host's own RSS reaches this fraction of total system RAM.
+ram_warn_fraction = 0.80
+# Warn once GPU memory free falls below this - capacity minus 4 GiB of headroom.
+vram_warn_headroom_mib = 4096
+# Warn once a watched filesystem reaches this fraction. Which filesystems are watched is
+# decided by a baseline `df` at startup: anything already at or above the line is a
+# pre-existing condition and is never enrolled (this box carries a 4 KiB pseudo-mount
+# sitting at 100% by design). df is slow, so it is sampled every five minutes.
+disk_warn_fraction = 0.80

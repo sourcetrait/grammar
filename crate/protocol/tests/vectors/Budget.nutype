@@ -1,0 +1,13 @@
+# Budget: the payloads DecodeBudget decodes, retained by their length and hash.
+#
+#     let budget: <this type> = (open tests/vectors/budget.nuon)
+#
+# Each payload is the pinned bitcode's encoding of a value the framing tests
+# build, small for what it decodes to: one past a decoded budget, or deep
+# enough to exhaust a recursive decoder's stack. `sha256` is lowercase hex.
+
+table<
+    name: string,
+    bytes: int,
+    sha256: string
+>

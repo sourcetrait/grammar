@@ -1,0 +1,37 @@
+[package]
+name = "nuval"
+description = "Serializable nushell values and errors"
+version.workspace    = true
+authors.workspace    = true
+license.workspace    = true
+edition.workspace    = true
+repository.workspace = true
+homepage.workspace   = true
+categories.workspace = true
+keywords.workspace   = true
+
+[features]
+default = ["nushell"]
+# nushell's own values and errors, converted to and from nuval's. The data
+# and its NUON text, and every client of them, build without.
+nushell = ["dep:chrono", "dep:miette", "dep:nu-protocol"]
+
+[dependencies]
+bitcode.workspace = true
+chrono = { workspace = true, optional = true }
+miette = { workspace = true, optional = true }
+nu-protocol = { workspace = true, optional = true }
+rkyv.workspace = true
+serde.workspace = true
+snafu.workspace = true
+
+sourcetrait_common.workspace = true
+
+[dev-dependencies]
+# nuon takes nu-engine without `os` while nuval's nu-protocol keeps it, and
+# nu-engine builds only with the two paired, so its defaults pair them.
+nu-engine.workspace = true
+nuon.workspace = true
+
+[package.metadata]
+rein = "ai"

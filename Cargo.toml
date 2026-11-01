@@ -1,0 +1,119 @@
+[workspace]
+resolver = "3"
+members = [
+  "crate/nuval",
+  "crate/nutype",
+  "crate/protocol",
+  "crate/channel",
+  "crate/peer",
+  "crate/interface",
+  "crate/scratch",
+  "crate/engine",
+  "crate/operator",
+  "crate/client",
+  "crate/daemon",
+  "crate/plugin/eye",
+  "crate/plugin/soak",
+  "crate/mcp",
+  "tests",
+]
+
+[workspace.package]
+version = "0.0.0-9"
+edition = "2024"
+authors = ["SourceTrait <development@sourcetrait.com>"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/sourcetrait/grammar_mcp"
+homepage = "https://sourcetrait.com"
+categories = []
+keywords = ["sourcetrait", "grammar"]
+
+[workspace.dependencies]
+bitcode = { version = "=0.6.9" }
+chrono = { version = "0.4.45", default-features = false, features = ["serde", "std", "unstable-locales"] }
+clap = { version = "4", features = ["derive"] }
+directories = { version = "6" }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+humantime = { version = "2" }
+ignore = { version = "0.4" }
+indoc = { version = "2" }
+liquid = { version = "0.26" }
+miette = { version = "7.6", features = ["fancy-no-backtrace"] }
+nix = { version = "0.31", features = ["fs", "process", "signal", "user"] }
+rkyv = { version = "0.8" }
+rmcp = { version = "3.8", features = ["server", "transport-io", "schemars", "macros"] }
+russh = { version = "=0.65.0", default-features = false, features = ["ring", "rsa"] }
+rustls = { version = "0.23", default-features = false, features = ["logging", "ring", "std", "tls12"] }
+schemars = { version = "1" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
+sha2 = { version = "0.11" }
+shellexpand = "3"
+snafu = { version = "0.9" }
+syn = { version = "3", features = ["full"] }
+tempfile = { version = "3" }
+tokio ={ version = "1", features = ["macros", "process", "io-util", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["logging", "ring", "tls12"] }
+tokio-tungstenite = { version = "0.30", default-features = false, features = ["handshake"] }
+tokio-util = { version = "0.7", features = ["codec"] }
+toml = { version = "1" }
+toml_edit = { version = "0.25" }
+walkdir = { version = "2" }
+zstd = { version = "0.14" }
+
+nu-cmd-extra = { version = "0.116.1" }
+nu-cmd-lang = { version = "0.116.1" }
+nu-cmd-plugin = { version = "0.116.1" }
+nu-command = { version = "0.116.1" }
+nu-config = { version = "0.116.1", features = ["plugin"] }
+nu-engine = { version = "0.116.1" }
+nu-glob = { version = "0.116.1" }
+nu-parser = { version = "0.116.1" }
+nu-path = { version = "0.116.1" }
+nu-plugin = { version = "0.116.1" }
+nu-plugin-engine = { version = "0.116.1" }
+nu-plugin-test-support = { version = "0.116.1" }
+nu-protocol = { version = "0.116.1" }
+nu-std = { version = "0.116.1" }
+nuon = { version = "0.116.1" }
+nutype = { path = "crate/nutype", default-features = false }
+nuval = { path = "crate/nuval", default-features = false }
+sourcetrait_grammar_channel = { path = "crate/channel" }
+sourcetrait_grammar_client = { path = "crate/client" }
+sourcetrait_grammar_engine = { path = "crate/engine" }
+sourcetrait_grammar_interface = { path = "crate/interface" }
+sourcetrait_grammar_operator = { path = "crate/operator" }
+sourcetrait_grammar_peer = { path = "crate/peer" }
+sourcetrait_grammar_protocol = { path = "crate/protocol" }
+sourcetrait_grammar_scratch = { path = "crate/scratch" }
+
+sourcetrait_common = {
+    path = "../common/crates/sourcetrait_common",
+    version = ">=0.0.0-0",
+    default-features = false,
+    features = [
+        "agnostic",
+        "cereal",
+        "clapx",
+        "datum",
+        "subsys",
+        "testing",
+        "tomlx",
+    ]
+}
+sourcetrait_process = { path = "../common_mono/unix/crates/sourcetrait_process", version = ">=0.0.0-0" }
+
+srcert_lib = { path = "../srcert/crates/srcert_lib" }
+
+# sourcetrait's fork of bitcode, for its decode budget and its sound short copy,
+# its wire format upstream's 0.6.9 byte for byte.
+[patch.crates-io]
+bitcode = { path = "../bitcode" }
+
+[profile.release]
+# EmbedEngine principle 1 (grammar): eval runs in-process on host threads and a
+# panicking body is caught by catch_unwind so it fails one eval, not the host. That
+# REQUIRES unwinding - `panic = "abort"` would make the catch moot and a single bad
+# body would take the whole MCP down. Pinned explicit as an invariant (it is also
+# the default; the lock is to make any future change to abort a deliberate edit).
+panic = "unwind"

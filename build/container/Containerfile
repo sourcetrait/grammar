@@ -1,0 +1,18 @@
+# grammar-mcp's one-time build container: a base, its build tools, and Rust.
+#
+# Built and run by run.bash beside it, then removed with its image: BASE is the
+# machine's own distribution, RUST the toolchain.
+
+ARG BASE=registry.fedoraproject.org/fedora:44
+FROM ${BASE}
+
+ARG RUST=1.99.1
+
+RUN dnf install -y --setopt=install_weak_deps=False \
+        gcc gcc-c++ make cmake clang perl pkgconf-pkg-config openssl-devel \
+        git tar zstd rustup \
+    && dnf clean all
+
+RUN rustup-init -y --no-modify-path --profile minimal --default-toolchain "${RUST}"
+
+ENV PATH=/root/.cargo/bin:${PATH}

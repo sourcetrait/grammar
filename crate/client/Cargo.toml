@@ -1,0 +1,26 @@
+[package]
+name = "sourcetrait_grammar_client"
+description = "Grammar's native SSH client"
+version.workspace    = true
+authors.workspace    = true
+license.workspace    = true
+edition.workspace    = true
+repository.workspace = true
+homepage.workspace   = true
+categories.workspace = true
+keywords.workspace   = true
+
+[dependencies]
+bitcode.workspace = true
+futures-util.workspace = true
+rkyv.workspace = true
+russh.workspace = true
+serde.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+
+sourcetrait_common.workspace = true
+sourcetrait_grammar_protocol.workspace = true
+
+[package.metadata]
+rein = "ai"

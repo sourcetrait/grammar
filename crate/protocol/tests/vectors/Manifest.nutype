@@ -1,0 +1,19 @@
+# Manifest: the v1 fixture set, pinned.
+#
+#     let manifest: <this type> = (open tests/vectors/manifest.nuon)
+#
+# `version` is the protocol's, `schema_id` the SHA-256 of `schema/v1.nuon`'s
+# canonical form, and `codec` the pinned bitcode, each as the hellos name them.
+# Each file's `sha256` hashes its table's canonical NUON, so a checkout's line
+# endings and a file's layout move none of them.
+
+record<
+    version: string,
+    schema_id: string,
+    codec: string,
+    files: table<
+        file: string,
+        vectors: int,
+        sha256: string
+    >
+>

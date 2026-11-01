@@ -1,0 +1,63 @@
+[package]
+name = "sourcetrait_grammar_mcp"
+description = "Grammar MCP"
+version.workspace    = true
+authors.workspace    = true
+license.workspace    = true
+edition.workspace    = true
+repository.workspace = true
+homepage.workspace   = true
+categories.workspace = true
+keywords.workspace   = true
+
+[[bin]]
+name = "grammar-mcp"
+path = "src/main.rs"
+
+[features]
+# Test-only engine decls (__test_hang / __test_panic) for the lifecycle system
+# tests; never enabled in a shipped build.
+test-hooks = ["sourcetrait_grammar_engine/test-hooks"]
+
+[dependencies]
+clap.workspace = true
+directories.workspace = true
+futures-util.workspace = true
+nix.workspace = true
+nu-engine.workspace = true
+nu-parser.workspace = true
+nu-protocol.workspace = true
+nuon.workspace = true
+nuval = { workspace = true, features = ["nushell"] }
+rmcp.workspace = true
+rustls.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+shellexpand.workspace = true
+tempfile.workspace = true
+tokio.workspace = true
+tokio-rustls.workspace = true
+tokio-tungstenite.workspace = true
+toml.workspace = true
+
+sourcetrait_common.workspace = true
+sourcetrait_grammar_channel.workspace = true
+sourcetrait_grammar_client.workspace = true
+sourcetrait_grammar_engine.workspace = true
+sourcetrait_grammar_interface.workspace = true
+sourcetrait_grammar_operator.workspace = true
+sourcetrait_grammar_peer.workspace = true
+sourcetrait_grammar_protocol.workspace = true
+sourcetrait_grammar_scratch.workspace = true
+sourcetrait_process.workspace = true
+
+srcert_lib.workspace              = true
+
+[package.metadata]
+rein = "ai"
+
+# result_large_err allowed as nushell allows it in its own crates: ShellError is
+# the Err every Command and every helper serving one returns.
+[lints.clippy]
+result_large_err = "allow"

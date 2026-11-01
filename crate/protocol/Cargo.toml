@@ -1,0 +1,30 @@
+[package]
+name = "sourcetrait_grammar_protocol"
+description = "Grammar's portable protocol"
+version.workspace    = true
+authors.workspace    = true
+license.workspace    = true
+edition.workspace    = true
+repository.workspace = true
+homepage.workspace   = true
+categories.workspace = true
+keywords.workspace   = true
+
+[dependencies]
+bitcode.workspace = true
+nuval.workspace = true
+rkyv.workspace = true
+serde.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+
+sourcetrait_common.workspace = true
+
+[dev-dependencies]
+futures-util.workspace = true
+nutype.workspace = true
+syn.workspace = true
+
+[package.metadata]
+rein = "ai"
