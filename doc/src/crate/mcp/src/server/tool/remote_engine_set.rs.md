@@ -4,7 +4,10 @@
 
 ## fn NuSh::engine_set
 The parameters become the change field for field, so a set changes what it
-names alone.
+names alone. An interface flag takes a string or a list, never either, so the
+known hosts arrive by two flags, `--known-hosts` for the keys and
+`--known-hosts-file` for a file, each replacing the other's form and the two
+together refused.
 
 ## fn NuSh::write_engine
 The change is held to its fields' checks before the file is touched, so a bad

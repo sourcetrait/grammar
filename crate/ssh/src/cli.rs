@@ -20,8 +20,8 @@ pub(crate) enum GrammarSshCmd {
         /// The namespace.
         #[arg(long)]
         namespace: String,
-        /// The working directory, an absolute path.
+        /// The working directory, an absolute path; where the session starts by default.
         #[arg(long)]
-        workdir: PathBuf,
+        workdir: Option<PathBuf>,
     },
 }

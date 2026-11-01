@@ -13,7 +13,7 @@ use sourcetrait_grammar_protocol::{
     ControlAnswer, ControlRequest, EngineCommand, EngineRequest, EngineResponse, ExecuteRequest,
     FromEngineSys, Host, LIMITS_DEFAULT, NuVal, ToEngineSys, TransportError, ValueAnswer,
 };
-use sourcetrait_grammar_tests::{Cuttable, Sshd, TestKey, TestWorker, alive, holds_within};
+use sourcetrait_grammar_tests::{Cuttable, LOGIN_MARK, Sshd, TestKey, TestWorker, alive, holds_within};
 
 /// A definition that sleeps past any test's wait, until it is cancelled.
 const SLEEP: &str = "def execute [data: nothing]: nothing -> nothing { sleep 30sec }";
@@ -128,6 +128,53 @@ fn a_session_serves_its_workers_info_a_call_and_a_kill() {
         session.close().await;
         assert!(holds_within(END_WAIT, || !alive(pid)).await, "the worker ends with its session");
     });
+}
+
+#[test]
+fn a_worker_runs_in_its_accounts_login_and_starts_where_the_session_does() {
+    let sshd = Sshd::start();
+    let worker = TestWorker::new();
+    let mut endpoint = sshd.endpoint("lab", &worker);
+    endpoint.workdir = None;
+    runtime().block_on(async {
+        let (session, _events) = open(&endpoint, LIMITS_DEFAULT).await.expect("a session");
+        let definition = format!(
+            "def execute [data: nothing]: nothing -> record<login: string> {{ {{login: ($env.{LOGIN_MARK}? | default '')}} }}"
+        );
+        match session.request(execute(datum::NonceGenerator::new().generate(), &definition)).await.expect("a response") {
+            EngineResponse::Wire(FromEngineSys::Value(ValueAnswer { result: Ok(value), .. })) => {
+                assert_eq!(value.get("login"), Some(&NuVal::String("1".to_string())), "the login shell's mark");
+            }
+            other => panic!("a value, not {other:?}"),
+        }
+        let home = nix::unistd::User::from_uid(nix::unistd::getuid())
+            .expect("the user database")
+            .expect("the test's user")
+            .dir;
+        match session.request(EngineRequest::Info).await.expect("info") {
+            EngineResponse::Info(info) => {
+                let start = std::fs::canonicalize(&info.work_dir).expect("the workdir");
+                assert_eq!(start, std::fs::canonicalize(&home).expect("the home"), "the session's start");
+            }
+            other => panic!("info, not {other:?}"),
+        }
+        session.close().await;
+    });
+}
+
+#[test]
+fn a_worker_missing_from_its_host_is_command_not_found() {
+    let sshd = Sshd::start();
+    let worker = TestWorker::new();
+    let mut endpoint = sshd.endpoint("lab", &worker);
+    endpoint.command = worker.home("bin").join("absent").display().to_string();
+    let refused = runtime().block_on(async { refusal(open(&endpoint, LIMITS_DEFAULT).await) });
+    assert_eq!(refused.kind(), "remote::engine::unavailable", "{}", refused.message());
+    assert!(
+        refused.message().ends_with(&format!("command not found: {}", endpoint.command)),
+        "{}",
+        refused.message()
+    );
 }
 
 #[test]

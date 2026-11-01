@@ -111,17 +111,17 @@ pub struct RemoteChannelCloseParams {
 pub struct RemoteEngineSetParams {
     /// The engine to make or change.
     pub alias: String,
-    /// The host's name or address.
-    pub host: Option<String>,
-    /// The host's SSH port.
-    pub port: Option<u16>,
+    /// The host as `<host>[:<port>]`.
+    pub address: Option<String>,
     /// The account the session logs in as.
     pub user: Option<String>,
     /// The private key file the session authenticates with.
     pub key: Option<String>,
     /// The host's public keys as OpenSSH lines.
-    pub host_keys: Option<Vec<String>>,
-    /// The worker's absolute path on the host.
+    pub known_hosts: Option<Vec<String>>,
+    /// A known_hosts file holding the host's keys.
+    pub known_hosts_file: Option<String>,
+    /// The worker on the host: a name its login's PATH finds, or an absolute path.
     pub command: Option<String>,
     /// The worker's id.
     pub id: Option<String>,

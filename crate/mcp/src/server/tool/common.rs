@@ -106,7 +106,7 @@ impl NuSh {
         match entries.into_iter().find(|entry| entry.alias == alias) {
             Some(entry) => {
                 entry
-                    .endpoint()
+                    .endpoint(&EngineDefaults::of(&self.controller.config))
                     .map_err(|reason| GrammarMcpError::RemoteEngineInvalidParams { reason })?;
                 Ok(Route::Remote(alias.to_string()))
             }

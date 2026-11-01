@@ -206,7 +206,7 @@ impl McpController {
         request: EngineRequest,
     ) -> Result<EngineResponse, TransportError> {
         let remote = self.remote_system()?;
-        let endpoint = engine_endpoint(&self.config.remotes_file, alias)
+        let endpoint = engine_endpoint(&self.config.remotes_file, alias, &EngineDefaults::of(&self.config))
             .map_err(|reason| TransportError::Unavailable { reason })?;
         remote.request(endpoint, request).await
     }

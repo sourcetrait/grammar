@@ -1,13 +1,13 @@
 //! A remote engine's entry: its host, how the host is trusted, and what runs there.
 use crate::*;
 
-/// The SSH port an entry takes when it names none.
+/// The SSH port an address takes when it names none.
 pub const SSH_PORT: u16 = 22;
 
-/// The namespace an entry takes when it names none.
-pub const ENGINE_NAMESPACE: &str = "default";
+/// The worker's command when an entry names none, found on the login's `PATH`.
+pub const WORKER_COMMAND: &str = "grammar-ssh";
 
-/// A remote engine as the MCP's config names it, each field checked by `check`.
+/// A remote engine as the MCP's entry resolves it, each field checked by `check`.
 #[cereal::derived(Data, Eq)]
 pub struct Endpoint {
     /// The name a tool's `host` gives the engine.
@@ -21,14 +21,14 @@ pub struct Endpoint {
     pub key: String,
     /// The host's public keys as OpenSSH lines, one of which it must present.
     pub host_keys: Vec<String>,
-    /// The worker's absolute path on the host.
+    /// The worker's command: a name the login's `PATH` finds, or an absolute path.
     pub command: String,
     /// The worker's id.
     pub id: String,
     /// The worker's namespace.
     pub namespace: String,
-    /// The worker's working directory on the host.
-    pub workdir: String,
+    /// The worker's working directory on the host; the session's own when none.
+    pub workdir: Option<String>,
 }
 
 impl Endpoint {
@@ -40,9 +40,9 @@ impl Endpoint {
             ("port", check_port(self.port)),
             ("user", check_word(&self.user)),
             ("key", check_key(&self.key)),
-            ("host_keys", check_host_keys(&self.host_keys)),
-            ("command", check_path(&self.command)),
-            ("workdir", check_path(&self.workdir)),
+            ("known_hosts", check_host_keys(&self.host_keys)),
+            ("command", check_command(&self.command)),
+            ("workdir", self.workdir.as_deref().map_or(Ok(()), check_path)),
             ("id or namespace", check_instance(&self.id, &self.namespace)),
         ];
         for (field, checked) in fields {
@@ -51,12 +51,19 @@ impl Endpoint {
         Ok(())
     }
 
-    /// The worker's command line, which the host's login shell runs as it stands.
+    /// The exec command: the worker's line run by the account's login shell.
     pub fn command_line(&self) -> String {
-        format!(
-            "{} serve --id {} --namespace {} --workdir {}",
-            self.command, self.id, self.namespace, self.workdir
-        )
+        format!("exec /bin/sh -c 'exec \"$SHELL\" -l -c \"exec {}\"'", self.worker_line())
+    }
+
+    /// The worker's own command line, as the login shell runs it.
+    pub fn worker_line(&self) -> String {
+        let mut line = format!("{} serve --id {} --namespace {}", self.command, self.id, self.namespace);
+        if let Some(workdir) = &self.workdir {
+            line.push_str(" --workdir ");
+            line.push_str(workdir);
+        }
+        line
     }
 
     /// The instance the session's hello expects.
@@ -70,17 +77,62 @@ impl Endpoint {
     }
 }
 
-/// An engine's alias held to the name rule and kept from `local`, refused whole.
+/// An engine's alias: names joined by `/`, each a name, and never `local`.
 pub fn check_alias(alias: &str) -> Result<(), String> {
-    if !valid_name(alias) {
+    if !alias.split('/').all(valid_name) {
         return Err(format!(
-            "[[engine]] alias `{alias}` is not a name: 1 to 64 letters, digits, `.`, `_`, or `-`, a letter or digit first"
+            "[[engine]] alias `{alias}` is not a name: names joined by `/`, each 1 to 64 letters, digits, `.`, `_`, or `-`, a letter or digit first"
         ));
     }
     if alias == LOCAL_HOST {
         return Err(format!("[[engine]] `{alias}`: alias `{LOCAL_HOST}` names the MCP's own engine"));
     }
     Ok(())
+}
+
+/// An address, `<host>[:<port>]`, as its host and port: 22 when it names none.
+pub fn parse_address(address: &str) -> Result<(String, u16), String> {
+    let (host, port) = match address.strip_prefix('[') {
+        Some(rest) => {
+            let (host, after) = rest
+                .split_once(']')
+                .ok_or_else(|| format!("`{address}` opens a bracket it never closes"))?;
+            let port = match after {
+                "" => None,
+                _ => Some(
+                    after
+                        .strip_prefix(':')
+                        .ok_or_else(|| format!("`{address}` holds `{after}` after its bracket, where `:<port>` goes"))?,
+                ),
+            };
+            (host, port)
+        }
+        None => match address.rsplit_once(':') {
+            Some((host, _)) if host.contains(':') => {
+                return Err(format!("`{address}` holds more than one `:`; an IPv6 host goes in brackets, `[::1]:22`"));
+            }
+            Some((host, port)) => (host, Some(port)),
+            None => (address, None),
+        },
+    };
+    check_word(host).map_err(|why| format!("`{address}`'s host {why}"))?;
+    let port = match port {
+        None => SSH_PORT,
+        Some(port) => port
+            .parse::<u16>()
+            .ok()
+            .filter(|port| *port != 0)
+            .ok_or_else(|| format!("`{address}`'s port `{port}` isn't a port from 1 to 65535"))?,
+    };
+    Ok((host.to_string(), port))
+}
+
+/// The name a known hosts file lists `host` under: `[host]:port` off port 22.
+pub fn known_hosts_name(
+    host: &str,
+    port: u16,
+) -> String {
+    if port == SSH_PORT { host.to_string() } else { format!("[{host}]:{port}") }
 }
 
 /// A host or a user: one word, not empty, with no whitespace or control character.
@@ -111,7 +163,21 @@ pub fn check_host_keys(lines: &[String]) -> Result<(), String> {
     lines.iter().try_for_each(|line| pinned_key(line).map(|_| ()))
 }
 
-/// The worker's command or workdir: absolute, of characters login shells keep.
+/// The worker's command: a name the login's `PATH` finds, or an absolute path.
+pub fn check_command(command: &str) -> Result<(), String> {
+    if command.starts_with('/') {
+        return shell_neutral_path(command);
+    }
+    if valid_name(command) {
+        Ok(())
+    } else {
+        Err(format!(
+            "`{command}` is neither an absolute path nor a name the login's PATH finds: 1 to 64 letters, digits, `.`, `_`, or `-`, a letter or digit first"
+        ))
+    }
+}
+
+/// The worker's workdir: absolute, of characters login shells keep.
 pub fn check_path(path: &str) -> Result<(), String> {
     shell_neutral_path(path)
 }

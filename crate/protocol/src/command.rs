@@ -246,16 +246,10 @@ const ENGINE_ALIAS_ARGS: &[ArgSpec] = &[ArgSpec {
 
 const ENGINE_SET_FLAGS: &[ArgSpec] = &[
     ArgSpec {
-        name: "host",
+        name: "address",
         shape: ArgShape::String,
         optional: true,
-        summary: "The host's name or address.",
-    },
-    ArgSpec {
-        name: "port",
-        shape: ArgShape::Int,
-        optional: true,
-        summary: "The host's SSH port; 22 when the entry names none.",
+        summary: "The host as `<host>[:<port>]`, port 22 by default, an IPv6 host in brackets.",
     },
     ArgSpec {
         name: "user",
@@ -270,34 +264,40 @@ const ENGINE_SET_FLAGS: &[ArgSpec] = &[
         summary: "The private key file the session authenticates with, unencrypted.",
     },
     ArgSpec {
-        name: "host-keys",
+        name: "known-hosts",
         shape: ArgShape::Strings,
         optional: true,
-        summary: "The host's public keys as OpenSSH lines, one of which it must present.",
+        summary: "The host's public keys as OpenSSH lines, in place of a known_hosts file.",
+    },
+    ArgSpec {
+        name: "known-hosts-file",
+        shape: ArgShape::String,
+        optional: true,
+        summary: "A known_hosts file holding the host's keys, in place of the keys inline.",
     },
     ArgSpec {
         name: "command",
         shape: ArgShape::String,
         optional: true,
-        summary: "The worker's absolute path on the host.",
+        summary: "The worker on the host; `grammar-ssh` on the login's PATH when absent.",
     },
     ArgSpec {
         name: "id",
         shape: ArgShape::String,
         optional: true,
-        summary: "The worker's id.",
+        summary: "The worker's id; the MCP's own when absent.",
     },
     ArgSpec {
         name: "namespace",
         shape: ArgShape::String,
         optional: true,
-        summary: "The worker's namespace; `default` when the entry names none.",
+        summary: "The worker's namespace; the MCP's own when absent.",
     },
     ArgSpec {
         name: "workdir",
         shape: ArgShape::String,
         optional: true,
-        summary: "The worker's absolute working directory on the host.",
+        summary: "The worker's absolute working directory; the login's own when absent.",
     },
 ];
 

@@ -9,6 +9,13 @@ product that drives a worker links it without an engine of its own.
 A remote engine's entry and its fields' checks, held before the remotes file
 is written and before a session opens.
 
+## mod known_hosts
+A known hosts file read for one host's keys.
+
+## mod kh
+ssh-key's known hosts types and a key's data, through russh's re-export, so
+the parser is the one russh links.
+
 ## mod session
 The MCP's end of a session over any reader and writer, an SSH channel's or a
 child's pipes, so the worker's own tests drive a real worker through the same
@@ -23,9 +30,11 @@ The remote engines as a subsys system under the MCP's controller.
 
 ## deps
 `bitcode`, `rkyv`, and `serde` are the cereal derive's own, every crate that
-derives `Data` naming them.
+derives `Data` naming them. `ring` is rustls's backend already, taken for a
+hashed known hosts name's HMAC-SHA1.
 
 ## pub use
-The endpoint, its defaults, and its fields' checks, the session, its events
-and an ask's responder, the SSH open and its session, and the system with its
-messages, a session's state, parameters, paths, and handle.
+The endpoint, its defaults, its address and its fields' checks, a known hosts
+file's keys, the session, its events and an ask's responder, the SSH open and
+its session, and the system with its messages, a session's state, parameters,
+paths, and handle.

@@ -83,8 +83,9 @@ pub(crate) use crate::{
     },
     mcp::ServiceExt,
     engines::{
-        EngineChange, EngineEntry, KIND_ENGINE_INVALID, KIND_ENGINE_NOT_OPEN, engine_endpoint,
-        import_ssh, read_engines, set_engine, unset_engine,
+        EngineChange, EngineDefaults, EngineEntry, KIND_ENGINE_INVALID, KIND_ENGINE_NOT_OPEN,
+        KnownHosts, engine_endpoint, import_ssh, read_engines, set_engine, unset_engine,
+        write_known_hosts,
     },
     error::error_to_call_result,
     server::{
@@ -130,9 +131,10 @@ pub(crate) use crate::server::{
 };
 
 pub(crate) use sourcetrait_grammar_client::{
-    ENGINE_NAMESPACE, Endpoint, FromRemote, RemoteAsk, RemoteEmergency, RemoteHandle,
-    RemoteSysParams, RemoteSysPaths, RemoteSystem, SSH_PORT, SessionPhase, SessionState, ToRemote,
-    check_alias, check_host_keys, check_instance, check_key, check_path, check_port, check_word,
+    Endpoint, FromRemote, RemoteAsk, RemoteEmergency, RemoteHandle, RemoteSysParams,
+    RemoteSysPaths, RemoteSystem, SSH_PORT, SessionPhase, SessionState, ToRemote, WORKER_COMMAND,
+    check_alias, check_command, check_host_keys, check_instance, check_key, check_path,
+    check_word, known_host_keys, known_hosts_name, parse_address,
 };
 
 pub(crate) use sourcetrait_grammar_engine::{

@@ -1,11 +1,14 @@
 //! The wire's framing: a preface, then length-prefixed bitcode frames.
 use crate::*;
 
-/// The eight bytes each direction of a stream writes before its first frame.
-pub const PREFACE: [u8; 8] = *b"GRAMD001";
+/// The four bytes each direction of a stream writes before its first frame.
+pub const PREFACE: [u8; 4] = *b"GRMR";
 
-/// The codec both ends must name in their hellos.
-pub const CODEC_ID: &str = "bitcode-0.6.9";
+/// The codec both ends must name in their hellos: the bitcode fork's own name.
+pub const CODEC_ID: &str = bitcode::CODEC;
+
+/// The most of a stream's first bytes a bad preface's refusal shows.
+const HEAD_SHOWN: usize = 64;
 
 /// The SHA-256 of `schema/v1.nuon`'s canonical form, named by both hellos.
 pub const SCHEMA_ID: [u8; 32] =
@@ -58,8 +61,8 @@ pub enum FrameStage {
 pub enum FrameError {
     /// The stream ended before its first byte.
     ClosedBeforePreface,
-    /// A preface byte differed from `GRAMD001`.
-    BadPreface { at: usize, got: u8 },
+    /// A preface byte differed from `GRMR`, the stream's first bytes kept.
+    BadPreface { at: usize, got: u8, head: Vec<u8> },
     /// The stream ended inside a preface, a header, or a body.
     Truncated { stage: FrameStage, held: usize, expected: usize },
     /// A frame declared no payload.
@@ -90,8 +93,9 @@ impl fmt::Display for FrameError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ClosedBeforePreface => write!(f, "the stream closed before its preface"),
-            Self::BadPreface { at, got } => {
-                write!(f, "preface byte {at} is {got:#04x}, not GRAMD001's")
+            Self::BadPreface { at, got, head } => {
+                let head = String::from_utf8_lossy(head);
+                write!(f, "preface byte {at} is {got:#04x}, not GRMR's; the stream began {head:?}")
             }
             Self::Truncated { stage, held, expected } => {
                 write!(f, "the stream ended in a {stage:?} with {held} of {expected} bytes")
@@ -182,7 +186,9 @@ impl tku::Decoder for FrameCodec {
                 return Ok(None);
             };
             if got != PREFACE[self.preface_read] {
-                return Err(FrameError::BadPreface { at: self.preface_read, got });
+                let mut head = PREFACE[..self.preface_read].to_vec();
+                head.extend(src.iter().take(HEAD_SHOWN - self.preface_read));
+                return Err(FrameError::BadPreface { at: self.preface_read, got, head });
             }
             src.advance(1);
             self.preface_read += 1;

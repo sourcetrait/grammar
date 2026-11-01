@@ -59,7 +59,7 @@ than fail.
 
 ## fn optional_text / fn optional_texts
 An optional flag stays absent when not given, so a set changes only what it
-names. An empty list stays a list, so `--host-keys []` reaches the entry's
+names. An empty list stays a list, so `--known-hosts []` reaches the entry's
 check and is refused there rather than read as absent.
 
 ## fn mode

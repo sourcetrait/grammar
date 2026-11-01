@@ -1,19 +1,27 @@
 # codec.rs
 
-The wire contract fixes the stream's shape: `GRAMD001`, then frames of a
+The wire contract fixes the stream's shape: `GRMR`, then frames of a
 four-byte big-endian length and exactly that many bitcode bytes, with no
 compression. This file is that shape and nothing about a transport, so an SSH
 channel, a child's pipes, and a test duplex all carry it alike.
 
 ## const PREFACE
 Each direction writes it before its first frame, so either end that reads
-anything else, a shell's banner on an SSH session among them, refuses the
-stream before it dispatches a byte.
+anything else, a login profile's output on an SSH session among them, refuses
+the stream before it dispatches a byte. Four bytes are enough against text
+that isn't ours, and the hello carries the versions, so the preface carries
+none.
 
 ## const CODEC_ID
-The hello names it, and a test holds it to the bitcode version `Cargo.lock`
-resolves, so a dependency bump that changes the format cannot pass silently:
-the identity changes with it, and an old peer refuses the new one.
+The bitcode fork's own `CODEC`, `cereal-bitcode-` and its version: the fork,
+common's `sourcetrait_cereal_bitcode`, is the codec, its wire format
+upstream's. The hello names it, and a test holds it to the version
+`Cargo.lock` resolves for the fork, so a change of the codec cannot pass
+silently: the identity changes with it, and an old peer refuses the new one.
+
+## const HEAD_SHOWN
+A bad preface's refusal shows at most this much of the stream's start, enough
+for a banner's first line.
 
 ## const SCHEMA_ID
 The hellos name it, and v1 requires exact agreement, as with the codec. It is
@@ -43,6 +51,9 @@ ceiling and a frame too large to send are apart: the first is the peer's
 invalid frame, the second this end's result too large, and the transport
 errors they map to differ. A payload past its decode budget names the bound and
 its limit; like a payload that doesn't decode, it is the peer's invalid frame.
+A bad preface keeps the stream's first bytes, the preface's matched part and
+what followed, and shows them as text, so a login profile writing to stdout
+ahead of the worker is told by what it wrote.
 
 ### fn transport
 The stable `remote::engine::` kind a frontend reports, so a framing failure
@@ -56,7 +67,7 @@ end sets the negotiated ceiling once the hellos end.
 
 ### fn decode
 The preface is checked a byte at a time as it arrives, so a wrong stream is
-refused at its first wrong byte, not after eight. A header's length is checked
+refused at its first wrong byte, not after four. A header's length is checked
 against the ceiling before anything is reserved, and the reservation is then
 that checked length, so a hostile length costs nothing.
 
@@ -75,7 +86,7 @@ The one adapter: tokio-util's `Framed` over any `AsyncRead + AsyncWrite`. The
 transport's authentication stays the transport's.
 
 ## fn payload
-Encoding is the pinned bitcode's, which is deterministic, so a frame's bytes
+Encoding is the bitcode fork's, which is deterministic, so a frame's bytes
 are the same on every platform and golden vectors hold everywhere.
 
 ## fn decode_payload
@@ -84,6 +95,6 @@ and unknown variants, and it bit-packs no column below a bit an element, but a
 decoded element can be far larger than its bits: an empty diagnostic is three
 bits on the wire and some 96 bytes decoded, and cereal's lazy decoder recurses
 a level for each level a value nests, with no bound of its own. So the decode
-runs within a budget, sourcetrait's fork of bitcode charging each collection's
+runs within a budget, the fork charging each collection's
 elements, heap, and nesting when its lengths are read, before its elements are
 read or allocated. A refusal leaves nothing decoded and nothing dispatched.

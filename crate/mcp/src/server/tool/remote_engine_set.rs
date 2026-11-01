@@ -9,22 +9,30 @@ impl NuSh {
     ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
         let RemoteEngineSetParams {
             alias,
-            host,
-            port,
+            address,
             user,
             key,
-            host_keys,
+            known_hosts,
+            known_hosts_file,
             command,
             id,
             namespace,
             workdir,
         } = p;
+        let known_hosts = match (known_hosts, known_hosts_file) {
+            (Some(_), Some(_)) => {
+                let refused = engine_invalid("give `--known-hosts` or `--known-hosts-file`, not both".to_string());
+                return error_to_call_result(refused, nonce);
+            }
+            (Some(keys), None) => Some(KnownHosts::Keys(keys)),
+            (None, Some(file)) => Some(KnownHosts::File(file)),
+            (None, None) => None,
+        };
         let change = EngineChange {
-            host,
-            port,
+            address,
             user,
             key,
-            host_keys,
+            known_hosts,
             command,
             id,
             namespace,

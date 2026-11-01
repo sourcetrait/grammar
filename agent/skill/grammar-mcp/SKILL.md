@@ -144,7 +144,7 @@ List the remote engines, configured and live: each one's entry and state.
 One remote engine's entry and state.
 `remote engine get [alias: string]: nothing -> record`
 Make or change a remote engine's entry in `remotes.toml`.
-`remote engine set [alias: string, --host: string, --port: int, --user: string, --key: string, --host-keys: list<string>, --command: string, --id: string, --namespace: string, --workdir: string]: nothing -> record`
+`remote engine set [alias: string, --address: string, --user: string, --key: string, --known-hosts: list<string>, --known-hosts-file: string, --command: string, --id: string, --namespace: string, --workdir: string]: nothing -> record`
 Remove a remote engine's entry from `remotes.toml`; a live session stays.
 `remote engine unset [alias: string]: nothing -> nothing`
 Open a remote engine's session and start its worker now.

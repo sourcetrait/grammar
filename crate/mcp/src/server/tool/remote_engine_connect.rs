@@ -13,7 +13,9 @@ impl NuSh {
                 .into_iter()
                 .find(|entry| entry.alias == p.alias)
                 .ok_or_else(|| engine_invalid(format!("no remote engine `{}` in the remotes file", p.alias)))?;
-            let endpoint = entry.endpoint().map_err(engine_invalid)?;
+            let endpoint = entry
+                .endpoint(&EngineDefaults::of(&self.controller.config))
+                .map_err(engine_invalid)?;
             self.controller.remote_connect(endpoint).await?;
             self.engine_row(&p.alias).await
         };

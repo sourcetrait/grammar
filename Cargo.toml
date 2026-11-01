@@ -29,7 +29,7 @@ categories = []
 keywords = ["sourcetrait", "grammar"]
 
 [workspace.dependencies]
-bitcode = { version = "=0.6.9" }
+bitcode = { package = "sourcetrait_cereal_bitcode", path = "../common/crates/sourcetrait_cereal_bitcode", version = "=0.0.0-1" }
 chrono = { version = "0.4.45", default-features = false, features = ["serde", "std", "unstable-locales"] }
 clap = { version = "4", features = ["derive"] }
 directories = { version = "6" }
@@ -40,6 +40,7 @@ indoc = { version = "2" }
 liquid = { version = "0.26" }
 miette = { version = "7.6", features = ["fancy-no-backtrace"] }
 nix = { version = "0.31", features = ["fs", "process", "signal", "user"] }
+ring = { version = "0.17", default-features = false }
 rkyv = { version = "0.8" }
 rmcp = { version = "3.8", features = ["server", "transport-io", "schemars", "macros"] }
 russh = { version = "=0.65.0", default-features = false, features = ["ring", "rsa"] }
@@ -104,11 +105,6 @@ sourcetrait_common = {
 sourcetrait_process = { path = "../common_mono/unix/crates/sourcetrait_process", version = ">=0.0.0-0" }
 
 srcert_lib = { path = "../srcert/crates/srcert_lib" }
-
-# sourcetrait's fork of bitcode, for its decode budget and its sound short copy,
-# its wire format upstream's 0.6.9 byte for byte.
-[patch.crates-io]
-bitcode = { path = "../bitcode" }
 
 [profile.release]
 # EmbedEngine principle 1 (grammar): eval runs in-process on host threads and a

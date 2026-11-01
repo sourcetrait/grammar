@@ -120,9 +120,9 @@ fn a_signature_line_names_each_parameter_and_the_result() {
     let engine = command_by_words("remote engine set").expect("engine set");
     assert_eq!(
         engine.signature_text(),
-        "remote engine set [alias: string, --host: string, --port: int, --user: string, --key: string, \
-         --host-keys: list<string>, --command: string, --id: string, --namespace: string, \
-         --workdir: string]: nothing -> record",
+        "remote engine set [alias: string, --address: string, --user: string, --key: string, \
+         --known-hosts: list<string>, --known-hosts-file: string, --command: string, --id: string, \
+         --namespace: string, --workdir: string]: nothing -> record",
     );
 }
 
@@ -195,7 +195,7 @@ fn transport_errors() -> Vec<(&'static str, TransportError)> {
     vec![
         ("version_mismatch", T::VersionMismatch { expected: "1.0".into(), found: "2.0".into() }),
         ("schema_mismatch", T::SchemaMismatch { expected: "a".into(), found: "b".into() }),
-        ("codec_mismatch", T::CodecMismatch { expected: "bitcode-0.6.9".into(), found: "bitcode-0.7.0".into() }),
+        ("codec_mismatch", T::CodecMismatch { expected: "cereal-bitcode-0.0.0-1".into(), found: "bitcode-0.6.9".into() }),
         ("wrong_worker", T::WrongWorker { expected: "fixture/default".into(), found: "fixture/test".into() }),
         ("connect_failed", T::ConnectFailed { reason: "refused".into() }),
         ("host_key_rejected", T::HostKeyRejected { reason: "ssh-ed25519 SHA256:x".into() }),

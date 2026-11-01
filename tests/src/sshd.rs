@@ -19,6 +19,19 @@ pub const SSHD: &str = "/usr/sbin/sshd";
 /// The id a test worker runs as.
 pub const WORKER_ID: &str = "fixture";
 
+/// The variable the sshd's login shell sets, which its sessions' workers inherit.
+pub const LOGIN_MARK: &str = "GRAMMAR_TEST_LOGIN";
+
+/// The login shell the sshd's sessions name in `SHELL`: `-l -c` alone, its run marked.
+const LOGIN_SHELL: &str = "#!/bin/sh\n\
+if [ \"$#\" -ne 3 ] || [ \"$1\" != -l ] || [ \"$2\" != -c ]; then\n\
+    echo \"login-shell: wants -l -c <command>, got: $*\" >&2\n\
+    exit 2\n\
+fi\n\
+GRAMMAR_TEST_LOGIN=1\n\
+export GRAMMAR_TEST_LOGIN\n\
+exec /bin/sh -c \"$3\"\n";
+
 /// How long a started sshd may take to listen.
 const LISTEN_DEADLINE: Duration = Duration::from_secs(10);
 
@@ -172,6 +185,9 @@ impl Sshd {
         let user_key = TestKey::new(&root.join("user_ed25519"));
         let stranger_key = TestKey::new(&root.join("stranger_ed25519"));
         write_private(&root.join("authorized_keys"), format!("{}\n", user_key.public).as_bytes());
+        let login_shell = root.join("login-shell");
+        fs::write(&login_shell, LOGIN_SHELL).expect("the login shell");
+        fs::set_permissions(&login_shell, fs::Permissions::from_mode(0o700)).expect("its mode");
         let mut failures = Vec::new();
         for _ in 0..PORT_TRIES {
             let port = free_port();
@@ -221,8 +237,13 @@ impl Sshd {
             command: worker.command().display().to_string(),
             id: WORKER_ID.to_string(),
             namespace: "default".to_string(),
-            workdir: worker.workdir().display().to_string(),
+            workdir: Some(worker.workdir().display().to_string()),
         }
+    }
+
+    /// The address an entry names this sshd by.
+    pub fn address(&self) -> String {
+        format!("127.0.0.1:{}", self.port)
     }
 }
 
@@ -233,11 +254,15 @@ impl Drop for Sshd {
     }
 }
 
-/// `endpoint` as a remotes file's `[[engine]]` table.
+/// `endpoint` as a remotes file's `[[engine]]` table, its keys inline.
 pub fn engine_toml(endpoint: &Endpoint) -> String {
     let keys: Vec<String> = endpoint.host_keys.iter().map(|key| format!("\"{key}\"")).collect();
+    let workdir = match &endpoint.workdir {
+        Some(workdir) => format!("workdir = \"{workdir}\"\n"),
+        None => String::new(),
+    };
     format!(
-        "[[engine]]\nalias = \"{}\"\nhost = \"{}\"\nport = {}\nuser = \"{}\"\nkey = \"{}\"\nhost_keys = [{}]\ncommand = \"{}\"\nid = \"{}\"\nnamespace = \"{}\"\nworkdir = \"{}\"\n\n",
+        "[[engine]]\nalias = \"{}\"\naddress = \"{}:{}\"\nuser = \"{}\"\nkey = \"{}\"\nknown_hosts = [{}]\ncommand = \"{}\"\nid = \"{}\"\nnamespace = \"{}\"\n{workdir}\n",
         endpoint.alias,
         endpoint.host,
         endpoint.port,
@@ -247,7 +272,6 @@ pub fn engine_toml(endpoint: &Endpoint) -> String {
         endpoint.command,
         endpoint.id,
         endpoint.namespace,
-        endpoint.workdir,
     )
 }
 
@@ -366,7 +390,7 @@ fn read_log(path: &Path) -> String {
     }
 }
 
-/// The sshd's config: loopback, its own keys, public keys alone, nothing forwarded.
+/// The sshd's config: loopback, its own keys and login shell, public keys alone, nothing forwarded.
 fn config_text(root: &Path, port: u16) -> String {
     let at = |name: &str| root.join(name).display().to_string();
     [
@@ -374,6 +398,7 @@ fn config_text(root: &Path, port: u16) -> String {
         format!("HostKey {}", at("host_ed25519")),
         format!("PidFile {}", at("sshd.pid")),
         format!("AuthorizedKeysFile {}", at("authorized_keys")),
+        format!("SetEnv SHELL={}", at("login-shell")),
         "AuthenticationMethods publickey".to_string(),
         "PubkeyAuthentication yes".to_string(),
         "PasswordAuthentication no".to_string(),

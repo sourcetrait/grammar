@@ -4,7 +4,7 @@ use crate::*;
 /// Parses grammar-ssh's command line, serves its session, and exits by its result.
 pub fn run_main() -> process::ExitCode {
     let GrammarSshCmd::Serve { id, namespace, workdir } = GrammarSshCli::parse().command;
-    match serve(&id, &namespace, &workdir) {
+    match serve(&id, &namespace, workdir.as_deref()) {
         Ok(end) => {
             eprintln!("grammar-ssh: {end}, stopping");
             process::ExitCode::SUCCESS
@@ -23,11 +23,11 @@ fn wire() -> io::Result<(tk::Stdin, tk::File)> {
     Ok((tk::stdin(), tk::File::from_std(fs::File::from(out))))
 }
 
-/// `id` and `namespace`'s session in `workdir`, served until it ends.
+/// `id` and `namespace`'s session, in `workdir` or its start, to its end.
 fn serve(
     id: &str,
     namespace: &str,
-    workdir: &Path,
+    workdir: Option<&Path>,
 ) -> GrammarSshResult<SessionEnd> {
     let (reader, writer) = wire().map_err(|e| GrammarSshError::Session {
         reason: format!("the wire's descriptors: {e}"),
@@ -35,7 +35,10 @@ fn serve(
     let env: BTreeMap<String, String> = std::env::vars_os()
         .filter_map(|(key, value)| Some((key.into_string().ok()?, value.into_string().ok()?)))
         .collect();
-    let started = InstanceConfig::load(current_uid(), id, namespace, workdir, &env).and_then(|config| {
+    let started = start_dir(workdir).and_then(|workdir| {
+        InstanceConfig::load(current_uid(), id, namespace, &workdir, &env)
+    });
+    let started = started.and_then(|config| {
         for line in &config.homes.diagnostics {
             eprintln!("grammar-ssh: {line}");
         }
@@ -64,6 +67,17 @@ fn serve(
     let end = end?;
     shut?;
     Ok(end)
+}
+
+/// The workdir named, or the directory the session started in when none is.
+fn start_dir(workdir: Option<&Path>) -> GrammarSshResult<PathBuf> {
+    match workdir {
+        Some(workdir) => Ok(workdir.to_path_buf()),
+        None => std::env::current_dir().map_err(|e| GrammarSshError::WorkdirInvalid {
+            path: PathBuf::from("."),
+            reason: format!("the session's start directory: {e}"),
+        }),
+    }
 }
 
 /// The process moved into `workdir`, before the engine seeds its `PWD` from it.

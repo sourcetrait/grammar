@@ -2,9 +2,10 @@
 
 A worker reached over SSH. The MCP connects to the host with russh, holds the
 host's key to the pinned ones, authenticates with its key file, and runs the
-worker's command line on an exec channel; the channel's data is the session's
-reader, its writer the session's writer, and its stderr the MCP's log under
-the engine's alias. No system ssh, agent, forwarding, or PTY is involved.
+worker through the account's login shell on an exec channel; the channel's
+data is the session's reader, its writer the session's writer, and its stderr
+the MCP's log under the engine's alias. No system ssh, agent, forwarding, or
+PTY is involved.
 
 ## const PIPE_BYTES
 The worker's output the pump holds before the session reads it; past it the
@@ -54,11 +55,22 @@ fingerprint for the error.
 
 ## struct Witness
 What the pump saw beside the worker's output: the host refusing the command,
-the worker's exit, and its last stderr lines.
+the worker's exit and its status, and its last stderr lines.
 
 ### fn explain
 A session lost before its reply becomes `unavailable` with what the worker
-did, where the pump saw it; any other refusal stands.
+did, where the pump saw it; any other refusal stands. A worker its host
+doesn't have is `command not found: <command>`, the command as the entry
+names it, the words a shell's own user knows.
+
+### fn not_found
+The login's shell telling of a missing command, as measured on Fedora and
+macOS: bash, zsh, sh, and fish exit 127 with the command named on stderr;
+macOS's sh, bash 3.2, exits 126 for a missing absolute path, naming it with
+"No such file or directory"; and nu exits 1 with ``Command `<command>` not
+found`` and its help line. A 127 not naming the command is a missing shell or
+another failure, and a 126 without those words a command found but not run, so
+each stands as what the worker did.
 
 ## fn pump
 The channel's messages in order: data into the session's reader, stderr into

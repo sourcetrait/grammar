@@ -19,6 +19,11 @@ held, its engine up, and its scratch made, or with why it couldn't. The
 shutdown runs whatever the session's outcome, so a session that never opened
 still releases its lock and removes its scratch.
 
+## fn start_dir
+The workdir named, or the process's own directory when none is, read before
+the start, so a directory that can't be read is refused through the hello as
+a bad workdir.
+
 ## fn enter
 The engine seeds `$env.PWD` from the process's working directory, which a
 session's sshd leaves at the account's home. An MCP's client starts it in the

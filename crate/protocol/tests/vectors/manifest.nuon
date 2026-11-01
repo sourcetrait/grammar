@@ -1,13 +1,13 @@
 {
   version: "1.0",
   schema_id: "cff0b200934c5aea97807eb2cb57a914cb2b50bf671cddcac5ad684fde7b8097",
-  codec: "bitcode-0.6.9",
+  codec: "cereal-bitcode-0.0.0-1",
   files: [
     [file,           vectors, "sha256"];
     ["engine.nuon",  61,      "0222333bf801add474ebf20d83f783b0ae9c2cd655973d3059bba0c7cbaaa6e6"],
-    ["hello.nuon",   3,       "02a99fd39147fa89fcda83632160b74732b0e29feae9e477bc825f5ecbf9792e"],
+    ["hello.nuon",   3,       "1bed4ed0da67b184ecaa87a1b8a54f2c18cb064fd91fd68cc3bc3081002a9cab"],
     ["peer.nuon",    12,      "a034840e06ba906d99af995b7b8fa3d3040423259f274bb042bee5805426211a"],
-    ["session.nuon", 69,      "ee38d5ddc9846bbb89427f0d6dc2b1b1755b0ee03e2a434f5afb5df530a836ce"],
+    ["session.nuon", 69,      "806637fdd5f85bdfb04ed34c6cca9a47adc4e3f4a0321dd1a70fdaf134fcc913"],
     ["value.nuon",   57,      "33ea3f6aedc7ad9599c0009eb8f027b6eab51125d16f83494f556befa7a7de1f"]
   ]
 }

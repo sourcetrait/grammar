@@ -59,7 +59,7 @@
   [runtime_error/schema_invalid,            RuntimeError,       "020a6e6f7420612074797065"],
   [transport_error/authentication_failed,   TransportError,     "06097075626c69636b6579"],
   [transport_error/busy,                    TransportError,     "08"],
-  [transport_error/codec_mismatch,          TransportError,     "020d626974636f64652d302e362e390d626974636f64652d302e372e30"],
+  [transport_error/codec_mismatch,          TransportError,     "021663657265616c2d626974636f64652d302e302e302d310d626974636f64652d302e362e39"],
   [transport_error/connect_failed,          TransportError,     "040772656675736564"],
   [transport_error/host_key_rejected,       TransportError,     "05147373682d65643235353139205348413235363a78"],
   [transport_error/invalid_frame,           TransportError,     "090f6120747261696c696e672062797465"],

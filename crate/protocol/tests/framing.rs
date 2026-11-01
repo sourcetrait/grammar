@@ -68,7 +68,7 @@ fn a_frame_is_the_preface_a_big_endian_length_and_its_bitcode() {
     assert_eq!(out.as_ref(), wire(&[&frame, &frame]).as_slice());
     // Golden: bitcode packs the sixteen equal bytes into four, the same on
     // every platform.
-    let golden = "4752414d4430303100000004090700000000000409070000";
+    let golden = "47524d5200000004090700000000000409070000";
     let hex: String = out.iter().map(|b| format!("{b:02x}")).collect();
     assert_eq!(hex, golden);
     let back = decode_to_end(&mut FrameCodec::new(), &out).expect("decoded");
@@ -92,10 +92,24 @@ fn coalesced_frames_come_apart_in_order() {
 
 #[test]
 fn a_bad_preface_is_refused_at_its_first_wrong_byte() {
-    // Five bytes are enough: the decoder does not wait for eight.
-    let err = feed_bytewise(b"GRAMX").expect_err("refused");
-    assert!(matches!(err, FrameError::BadPreface { at: 4, got: b'X' }), "{err}");
+    // Three bytes are enough: the decoder does not wait for four.
+    let err = feed_bytewise(b"GRX").expect_err("refused");
+    assert!(matches!(err, FrameError::BadPreface { at: 2, got: b'X', .. }), "{err}");
     assert_eq!(err.transport().kind(), "remote::engine::invalid_frame");
+}
+
+#[test]
+fn a_bad_preface_shows_what_the_stream_began_with() {
+    // A login profile writing to stdout ahead of the worker, as one read.
+    let banner = format!("Welcome to the host\n{}", "x".repeat(100));
+    let err = decode_to_end(&mut FrameCodec::new(), banner.as_bytes()).expect_err("refused");
+    let FrameError::BadPreface { at: 0, got: b'W', head } = &err else { panic!("{err}") };
+    assert_eq!(head.as_slice(), &banner.as_bytes()[..64], "the first 64 bytes, no more");
+    let shown = err.to_string();
+    assert!(shown.contains("the stream began \"Welcome to the host\\nxxx"), "{shown}");
+    // A preface broken after its first bytes shows them too.
+    let err = decode_to_end(&mut FrameCodec::new(), b"GRAMD001").expect_err("refused");
+    assert!(err.to_string().ends_with("the stream began \"GRAMD001\""), "{err}");
 }
 
 #[test]
@@ -108,9 +122,9 @@ fn an_empty_stream_closed_before_its_preface() {
 fn a_stream_ending_inside_a_preface_a_header_or_a_body_says_where() {
     let full = wire(&[b"0123456789"]);
     let cases = [
-        (5, FrameStage::Preface, 5, 8),
-        (10, FrameStage::Header, 2, 4),
-        (15, FrameStage::Body, 3, 10),
+        (3, FrameStage::Preface, 3, 4),
+        (6, FrameStage::Header, 2, 4),
+        (11, FrameStage::Body, 3, 10),
     ];
     for (cut, stage, held, expected) in cases {
         let err = decode_to_end(&mut FrameCodec::new(), &full[..cut]).expect_err("truncated");
@@ -186,18 +200,18 @@ fn a_frame_to_send_must_hold_something_and_fit_the_ceiling() {
 }
 
 #[test]
-fn the_codec_is_the_bitcode_the_lock_resolves() {
+fn the_codec_is_the_cereal_bitcode_the_lock_resolves() {
     let lock = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../Cargo.lock"))
         .expect("the workspace's Cargo.lock");
     let version = lock
         .split("[[package]]")
-        .find(|block| block.contains("name = \"bitcode\""))
+        .find(|block| block.contains("name = \"sourcetrait_cereal_bitcode\""))
         .and_then(|block| block.lines().find_map(|l| l.strip_prefix("version = \"")))
         .and_then(|v| v.strip_suffix('"'))
-        .expect("bitcode in the lock");
-    assert_eq!(CODEC_ID, format!("bitcode-{version}"));
+        .expect("sourcetrait_cereal_bitcode in the lock");
+    assert_eq!(CODEC_ID, format!("cereal-bitcode-{version}"));
     assert!(check_codec(CODEC_ID).is_ok());
-    for other in ["bitcode-0.6.9+zstd", "bitcode-0.6.8", ""] {
+    for other in [&format!("{CODEC_ID}+zstd"), "bitcode-0.6.9", ""] {
         let err = check_codec(other).expect_err("refused");
         assert_eq!(err.transport().kind(), "remote::engine::codec_mismatch");
     }

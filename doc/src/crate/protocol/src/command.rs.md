@@ -35,7 +35,9 @@ agent types after the head, never by an invented key.
 ## const ENGINE_SET_FLAGS
 Each field of an engine's entry a flag of its own, every one optional, so a set
 changes what it names alone: the entry's model and nothing else (User), an
-import being a command of its own.
+import being a command of its own. The known hosts take two flags, a list of
+keys and a file, a flag holding one shape; each optional field's summary names
+its default.
 
 ## const ENGINE_IMPORT_FLAGS
 The ssh configuration's host and the file it lives in, each defaulting as

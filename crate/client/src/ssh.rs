@@ -97,7 +97,7 @@ pub async fn open(
                 .await;
             let _ = tk::timeout(CLOSE_FLUSH, &mut pump).await;
             let witness = witness.lock().unwrap_or_else(|e| e.into_inner());
-            Err(witness.explain(refusal))
+            Err(witness.explain(refusal, &endpoint.command))
         }
     }
 }
@@ -213,15 +213,17 @@ impl russh::client::Handler for Pinned {
 
 /// What the pump saw besides output: a refused command, an exit, the last lines.
 #[derive(Debug, Default)]
-struct Witness {
-    refused: bool,
-    exit: Option<String>,
-    tail: VecDeque<String>,
+pub(crate) struct Witness {
+    pub(crate) refused: bool,
+    pub(crate) exit: Option<String>,
+    /// The exit's status, when the command exited rather than died by a signal.
+    pub(crate) status: Option<u32>,
+    pub(crate) tail: VecDeque<String>,
 }
 
 impl Witness {
     /// A line of the worker's stderr kept, the oldest past the tail dropped.
-    fn keep(&mut self, line: String) {
+    pub(crate) fn keep(&mut self, line: String) {
         if self.tail.len() == TAIL_LINES {
             self.tail.pop_front();
         }
@@ -229,10 +231,19 @@ impl Witness {
     }
 
     /// The session's refusal, told as what the worker did where the pump saw it.
-    fn explain(&self, refusal: TransportError) -> TransportError {
+    pub(crate) fn explain(
+        &self,
+        refusal: TransportError,
+        command: &str,
+    ) -> TransportError {
         let TransportError::SessionLost { reason } = &refusal else {
             return refusal;
         };
+        if self.not_found(command) {
+            return TransportError::Unavailable {
+                reason: format!("command not found: {command}"),
+            };
+        }
         let what = match (&self.exit, self.refused) {
             (_, true) => "the host refused to run the worker's command".to_string(),
             (Some(exit), false) => format!("the worker {exit} before its reply"),
@@ -244,6 +255,20 @@ impl Witness {
                 true => format!("{what}: {reason}"),
                 false => format!("{what}: {reason}; its stderr: {tail}"),
             },
+        }
+    }
+
+    /// Whether the login's shell found no `command`, by its status and words.
+    fn not_found(&self, command: &str) -> bool {
+        let said = |words: &str| self.tail.iter().any(|line| line.contains(words));
+        let named_missing = || {
+            self.tail.iter().any(|line| line.contains(command) && line.contains("No such file or directory"))
+        };
+        match self.status {
+            Some(127) => said(command),
+            Some(126) => named_missing(),
+            Some(1) => said(&format!("Command `{command}` not found")) || said(&format!("`{command}` is neither a Nushell built-in")),
+            _ => false,
         }
     }
 }
@@ -281,7 +306,9 @@ async fn pump(
             russh::ChannelMsg::ExitStatus { exit_status } => {
                 let exit = format!("exited {exit_status}");
                 eprintln!("grammar: {alias}: the worker {exit}");
-                witness.lock().unwrap_or_else(|e| e.into_inner()).exit = Some(exit);
+                let mut witness = witness.lock().unwrap_or_else(|e| e.into_inner());
+                witness.exit = Some(exit);
+                witness.status = Some(exit_status);
             }
             russh::ChannelMsg::ExitSignal { signal_name, .. } => {
                 let exit = format!("was killed by {signal_name:?}");

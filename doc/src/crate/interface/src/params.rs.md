@@ -15,8 +15,9 @@ whole numbers alone, literals the contract reads without evaluating
 in the model and the docs, never in a command.
 
 ## struct RemoteEngineSetParams
-Every field optional but the alias, a set naming only what it changes;
-`host_keys` replaces the pinned keys whole.
+Every field optional but the alias, a set naming only what it changes; the
+known hosts come as a list or a file, two flags for one field, since a flag
+takes one shape, and either replaces the entry's known hosts whole.
 
 ## struct RemoteEngineImportParams
 `from` defaults to the engine's alias, so a host named alike in the ssh

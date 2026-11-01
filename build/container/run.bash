@@ -5,7 +5,7 @@
 # [--rust <version>] [--jobs <n>]`, on the machine the tree is for.
 #
 # `--sources` holds grammar beside the repositories it reaches: common,
-# common_mono, srcert, bitcode, and gram. The image is built from this
+# common_mono, srcert, and gram. The image is built from this
 # directory's Containerfile on `--base`, this machine's own distribution, and
 # runs build.bash, which leaves the tree in `<out>/tree` and its build record
 # in `<out>/build.nuon`. The image, the base when this run pulled it, and the
@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-repos=(grammar common common_mono srcert bitcode gram)
+repos=(grammar common common_mono srcert gram)
 base=registry.fedoraproject.org/fedora:44
 rust=1.99.1
 jobs=4

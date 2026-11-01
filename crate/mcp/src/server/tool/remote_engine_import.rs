@@ -11,10 +11,16 @@ impl NuSh {
             check_alias(&p.alias).map_err(engine_invalid)?;
             let from = p.from.clone().unwrap_or_else(|| p.alias.clone());
             let ssh_config = p.ssh_config.clone();
-            let change = tk::spawn_blocking(move || import_ssh(&from, ssh_config.as_deref()))
+            let imported = tk::spawn_blocking(move || import_ssh(&from, ssh_config.as_deref()))
                 .await
                 .map_err(|e| engine_invalid(format!("the import's task failed: {e}")))?
                 .map_err(engine_invalid)?;
+            let dir = EngineDefaults::of(&self.controller.config).dir;
+            let file = write_known_hosts(&dir, &p.alias, &imported.name, &imported.keys).map_err(engine_invalid)?;
+            let change = EngineChange {
+                known_hosts: Some(KnownHosts::File(file)),
+                ..imported.change
+            };
             self.write_engine(&p.alias, &change).await
         };
         match import.await {
