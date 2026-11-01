@@ -29,7 +29,8 @@ next open makes another, so the end removes each.
 ## const SCRATCH_MODE
 Asked of `tempfile` outright: its directories default to 0777 less the umask,
 which left one 0755 under a 022 umask. The umask can only narrow the mode asked
-for, never widen it.
+for, never widen it. Unix alone: Windows keeps no mode bits, and a scratch
+directory or an inbox made there takes the ACL its parent passes down.
 
 ## struct ScratchDirs
 The bulk directory beside the transient one. Both always exist, so a definition
@@ -37,7 +38,7 @@ reads either without asking which the host could make.
 
 ## fn make_scratch_dirs
 The bulk directory goes in the temporary directory, `UENV_USR_TMP`, `TMPDIR`,
-or `/tmp`; the transient one in the runtime directory, `UENV_USR_TRANSIENT` or
+or the platform's own; the transient one in the runtime directory, `UENV_USR_TRANSIENT` or
 `XDG_RUNTIME_DIR`, or, where neither names one, beside the bulk one with a
 warning, the fallback the XDG spec asks for. Both are read as every home is
 (`home.rs`). Each base is swept first, so a host's start is what cleans after a
@@ -60,8 +61,9 @@ The base is the transient directory's own, so an inbox follows the same order,
 `UENV_USR_TRANSIENT`, `XDG_RUNTIME_DIR`, then beside the bulk one. The nom's
 name is made with `create`, which fails on a name already there, so an inbox
 left by an earlier open or a directory of anyone else's is never reused; the
-fallback is `mkdtemp`'s, under the same prefix. Both are made at
-`SCRATCH_MODE` from creation.
+fallback is `mkdtemp`'s, under the same prefix, through `private_tempdir`. Both
+are made at `SCRATCH_MODE` from creation on Unix; on Windows both take the ACL
+the base passes down.
 
 ## fn remove_channel_dir
 A deliberate close's and a failed start's removal, the path forgotten first: an
@@ -76,16 +78,24 @@ a deliberate close removed among them, is no error. A host killed outright
 leaves its inbox, which nothing sweeps.
 
 ## fn make_dir
-The shared guard's owned directory: the name unguessable and the mode 0700
-from creation, so no other user can enter it and no other process can claim its
-name first, and its owner marked with the guard's `owner.nuon`, which names the
-boot and the PID namespace a sweep judges the owner under. Where this process's
-start can't be read no marker is written, as on a platform with no process
-table, and a sweep keeps the directory unmarked.
+The shared guard's owned directory: the name unguessable, so no other process
+can claim it first, and on Unix the mode 0700 from creation, so no other user
+can enter it; on Windows it takes the ACL its base passes down. Its owner is
+marked with the guard's `owner.nuon`, which names the boot and the PID
+namespace a sweep judges the owner under. Where this process's start can't be
+read no marker is written, as on a platform with no process table, and a sweep
+keeps the directory unmarked.
+
+## fn private_tempdir
+Every randomly named directory the host makes outside the guard comes from
+here: an unmarked scratch directory and an inbox whose nom's name is taken.
+`keep` hands the directory over, since a `TempDir` removes its directory on
+drop and these live until the process's end or the Channel's close.
 
 ## fn sweep_stale
 The shared guard's sweep (`sourcetrait_grammar_scratch`), the worker's own: a
-directory goes only when the UID owns it and its marker's owner is proven gone,
-and a process that can't be read is unknown, never dead. A directory without a
-readable marker is kept: it may be a host's still between its creation and its
-marker. Each directory kept with no running owner is reported on stderr.
+directory goes only when its marker's owner is proven gone and, on Unix, the
+UID owns it, and a process that can't be read is unknown, never dead. A
+directory without a readable marker is kept: it may be a host's still between
+its creation and its marker. Each directory kept with no running owner is
+reported on stderr.

@@ -23,6 +23,13 @@ tree.
 read, so an equip under either word could never be helped by its own name. Each is held
 from an author as well as a name (User), the same refusal as a denied name.
 
+## fn is_executable
+Any execute bit on Unix. Windows keeps no execute bit, and an extension in
+`PATHEXT` is the only mark it gives a runnable file, so that is the test off
+Unix. A `PATHEXT` naming `.NU` would mark every `.nu` file executable, each
+then refused in every zone. The refusal's message names the execute bit,
+which on Windows is never the cause: the extension is.
+
 ## struct SelfView
 A temp `<tmp>/equip/<author>/<name>/<kind>` symlink per source kind, prepended to
 `NU_LIB_DIRS`, so an equip's OWN equip-prefixed `use` - a rig importing its own lib or its
@@ -37,6 +44,14 @@ nothing and surface as "External command failed", so the view gives its equip-pr
 
 The sequence number is what keeps two concurrent validations from sharing a view directory,
 and the view exists before its first link, so a failed link drops it whole.
+
+Each link is a symlink on Unix and a directory symlink, `symlink_dir`, on
+Windows, where making one is a privileged act: without Developer Mode,
+`SeCreateSymbolicLinkPrivilege`, or an administrator's token the first link
+fails, no view is made, and an equip's own equip-prefixed `use` resolves as if
+none existed: to nothing before the equip is placed in the namespace, and to
+its committed copy once it is. The view's drop removes the links, never what
+they point at, since `remove_dir_all` follows no symbolic link.
 
 ## fn validate_equip_source
 Reports ALL findings across both kinds AND builds the rig's index and docs in the SAME walk,

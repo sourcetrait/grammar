@@ -4,6 +4,10 @@ use crate::*;
 /// The remotes file's name, beside the agent's config file.
 pub const REMOTES_FILE: &str = "remotes.toml";
 
+/// The file an edit locks on Windows, which locks no directory.
+#[cfg(windows)]
+const REMOTES_LOCK: &str = "remotes.lock";
+
 /// The address a listen binds when neither the call nor the entry names one.
 const DEFAULT_LISTEN: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
 
@@ -232,6 +236,24 @@ fn alias_of(table: &toml_edit::Table) -> Option<&str> {
     table.get("alias").and_then(|item| item.as_str())
 }
 
+/// What an edit locks: the file's directory on Unix, a file in it on Windows.
+#[cfg(not(windows))]
+fn lock_target(dir: &Path) -> Result<fs::File, String> {
+    fs::File::open(dir).map_err(|e| format!("open {}: {e}", dir.display()))
+}
+
+/// What an edit locks: the file's directory on Unix, a file in it on Windows.
+#[cfg(windows)]
+fn lock_target(dir: &Path) -> Result<fs::File, String> {
+    let path = dir.join(REMOTES_LOCK);
+    fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(&path)
+        .map_err(|e| format!("open {}: {e}", path.display()))
+}
+
 /// Rewrite the remotes file by `edit`, atomically, under a lock on its directory.
 pub fn edit_remotes(
     path: &Path,
@@ -242,7 +264,7 @@ pub fn edit_remotes(
         .filter(|dir| !dir.as_os_str().is_empty())
         .ok_or_else(|| format!("{} names no directory", path.display()))?;
     fs::create_dir_all(dir).map_err(|e| format!("make {}: {e}", dir.display()))?;
-    let lock = fs::File::open(dir).map_err(|e| format!("open {}: {e}", dir.display()))?;
+    let lock = lock_target(dir)?;
     lock.lock().map_err(|e| format!("lock {}: {e}", dir.display()))?;
     let (text, permissions) = match fs::read_to_string(path) {
         Ok(text) => (text, fs::metadata(path).ok().map(|meta| meta.permissions())),

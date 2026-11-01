@@ -484,7 +484,7 @@ impl SupervisedSystem {
         let Ok(file) = fs::File::open(lock) else {
             return false;
         };
-        nix::fcntl::Flock::lock(file, nix::fcntl::FlockArg::LockExclusiveNonblock).is_err()
+        file.try_lock().is_err()
     }
 
     /// The systems stopped in order.

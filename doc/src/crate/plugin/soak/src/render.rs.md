@@ -14,7 +14,9 @@ keeping every other file in the destination, so there is no whole tree to
 swap in.
 
 The source is canonicalized and the destination resolved through its longest
-existing ancestor, so the overlap checks compare real paths. A destination at
+existing ancestor, so the overlap checks compare real paths. Both go through
+dunce, which answers the plain path on Windows where std answers the verbatim
+`\\?\` form, so the two compare alike and an error names the path as written. A destination at
 or below the source would walk its own output on the next run, and an output
 below the source would overwrite a template.
 

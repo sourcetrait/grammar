@@ -17,8 +17,8 @@ test-hooks = []
 
 [dependencies]
 bitcode.workspace = true
+dunce.workspace = true
 indoc.workspace = true
-nix.workspace = true
 nu-cmd-extra.workspace = true
 nu-cmd-lang.workspace = true
 nu-cmd-plugin.workspace = true
@@ -39,6 +39,16 @@ tokio.workspace = true
 sourcetrait_common.workspace = true
 sourcetrait_grammar_protocol.workspace = true
 sourcetrait_process.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+nix.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = [
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Threading",
+] }
 
 [build-dependencies]
 toml.workspace = true

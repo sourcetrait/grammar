@@ -166,9 +166,8 @@ pub fn scaffold_leaf(
 }
 
 fn run_git_output(dir: &std::path::Path, args: &[&str]) -> io::Result<String> {
-    let out = process::Command::new("git")
+    let out = git_command(dir)
         .args(args)
-        .current_dir(dir)
         .output()
         .map_err(|e| io::Error::other(format!("git: {e}")))?;
     if !out.status.success() {

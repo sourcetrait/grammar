@@ -1,5 +1,6 @@
 //! The sweep: proven-dead owners' directories removed, every other kept.
 use crate::*;
+#[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 
 /// A directory a sweep kept, and why.
@@ -92,6 +93,7 @@ fn judge(
     if !meta.is_dir() {
         return keep("it is no directory".to_string());
     }
+    #[cfg(unix)]
     if meta.uid() != uid {
         return keep(format!("UID {} owns it", meta.uid()));
     }

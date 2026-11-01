@@ -10,8 +10,14 @@ const UENV_HOMES: [(&str, &str); 6] = [
     ("UENV_USR_TRANSIENT", "XDG_RUNTIME_DIR"),
 ];
 
-/// The temporary directory where neither `UENV_USR_TMP` nor `TMPDIR` names one.
-pub(crate) const TMP_DEFAULT: &str = "/tmp";
+/// The temporary directory where no variable names one, `/tmp` on Unix.
+pub(crate) fn tmp_default() -> PathBuf {
+    if cfg!(unix) {
+        PathBuf::from("/tmp")
+    } else {
+        std::env::temp_dir()
+    }
+}
 
 /// The user's base dirs, `None` where no home directory can be found.
 pub(crate) static BASE_DIRS: LazyLock<Option<dirs::BaseDirs>> = LazyLock::new(dirs::BaseDirs::new);

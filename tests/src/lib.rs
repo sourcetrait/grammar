@@ -40,7 +40,7 @@ pub fn grammar_mcp_bin() -> PathBuf {
     if dir.ends_with("deps") {
         dir.pop();
     }
-    dir.join("grammar-mcp")
+    dir.join(format!("grammar-mcp{}", std::env::consts::EXE_SUFFIX))
 }
 
 /// Run the binary once as a subprocess, its homes under `scratch`.
@@ -545,8 +545,9 @@ pub fn bundle_plugins(root: &Path, plugins: &[(&str, &str)]) -> PathBuf {
     for (kind, name) in plugins {
         let kind_dir = dir.join(kind);
         std::fs::create_dir_all(&kind_dir).expect("mkdir the plugin kind's dir");
-        let built = grammar_mcp_bin().with_file_name(name);
-        std::fs::copy(&built, kind_dir.join(name)).unwrap_or_else(|e| {
+        let file = format!("{name}{}", std::env::consts::EXE_SUFFIX);
+        let built = grammar_mcp_bin().with_file_name(&file);
+        std::fs::copy(&built, kind_dir.join(&file)).unwrap_or_else(|e| {
             panic!("copy {}: {e}; build it with `cargo build --bin {name}`", built.display())
         });
     }

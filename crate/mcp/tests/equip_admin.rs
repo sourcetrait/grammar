@@ -1,4 +1,5 @@
 
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
 use sourcetrait_grammar_mcp::guts::{
@@ -239,6 +240,8 @@ fn lib_denies_a_non_nu_file() {
     );
 }
 
+/// Unix alone: Windows has no mode bit, a file's extension marking it there.
+#[cfg(unix)]
 #[tested]
 fn lib_denies_an_executable_file() {
     let t = testing::test!({ .using_temp_dir() });

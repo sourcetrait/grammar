@@ -33,6 +33,14 @@ impl TestInstance {
         if let Ok(path) = std::env::var("PATH") {
             env.insert("PATH".to_string(), path);
         }
+        // Windows gives every process its system variables; a program such as
+        // ssh-keygen fails without them, so a cleared environment keeps them.
+        #[cfg(windows)]
+        for var in ["SystemRoot", "SystemDrive", "windir", "ComSpec", "PATHEXT", "TEMP", "TMP", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "ProgramData"] {
+            if let Ok(value) = std::env::var(var) {
+                env.insert(var.to_string(), value);
+            }
+        }
         Self { root, id: id.to_string(), env }
     }
 
@@ -50,7 +58,7 @@ impl TestInstance {
 
     /// `namespace`'s instance loaded as this process's user.
     pub fn load(&self, namespace: &str) -> InstanceConfig {
-        let uid = nix::unistd::geteuid().as_raw();
+        let uid = sourcetrait_grammar_scratch::current_uid();
         InstanceConfig::load(uid, &self.id, namespace, &self.workdir(), &self.env).expect("the instance loads")
     }
 

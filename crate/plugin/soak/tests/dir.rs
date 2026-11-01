@@ -2,6 +2,7 @@
 //! silent loss, or a path resolved in the wrong place, each pinned here.
 
 use std::fs;
+#[cfg(unix)]
 use std::os::unix::fs::symlink;
 use std::path::Path;
 
@@ -160,7 +161,9 @@ fn every_entry_arrives_however_many_and_however_deep() {
     assert_eq!(read(&dst.join(&deep).join("bottom.txt")).as_deref(), Some("bottom"));
 }
 
-/// Symlinks in the source are followed, a file's and a directory's.
+/// Symlinks in the source are followed, a file's and a directory's. Unix
+/// alone: on Windows a symlink takes a privilege a plain session lacks.
+#[cfg(unix)]
 #[tested]
 fn symlinks_in_the_source_are_followed() {
     let t = testing::test!({ .using_temp_dir() });
@@ -178,7 +181,9 @@ fn symlinks_in_the_source_are_followed() {
     assert_eq!(read(&dst.join("linkdir").join("inner.txt")).as_deref(), Some("inner"));
 }
 
-/// A symlink loop in the source is refused, and nothing is written.
+/// A symlink loop in the source is refused, and nothing is written. Unix
+/// alone, as symlinks are.
+#[cfg(unix)]
 #[tested]
 fn a_symlink_loop_is_refused() {
     let t = testing::test!({ .using_temp_dir() });
@@ -239,6 +244,8 @@ fn an_output_inside_the_source_is_refused() {
 }
 
 /// A write's error surfaces: an output linked to `/dev/full` fails the soak.
+/// Unix alone, which has the device.
+#[cfg(unix)]
 #[tested]
 fn a_write_error_surfaces() {
     let t = testing::test!({ .using_temp_dir() });

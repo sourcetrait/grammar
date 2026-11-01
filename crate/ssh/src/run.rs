@@ -16,10 +16,30 @@ pub fn run_main() -> process::ExitCode {
     }
 }
 
-/// The wire's two ends: stdin, and stdout's own descriptor, fd 1 then given stderr.
+/// The wire: stdin, and stdout's descriptor close-on-exec, fd 1 given stderr.
+#[cfg(unix)]
 fn wire() -> io::Result<(tk::Stdin, tk::File)> {
-    let out = nix::unistd::dup(io::stdout())?;
+    use std::os::fd::AsFd;
+    let out = io::stdout().as_fd().try_clone_to_owned()?;
     nix::unistd::dup2_stdout(io::stderr())?;
+    Ok((tk::stdin(), tk::File::from_std(fs::File::from(out))))
+}
+
+/// The wire: stdin, and stdout's handle uninheritable, stdout given stderr.
+#[cfg(windows)]
+fn wire() -> io::Result<(tk::Stdin, tk::File)> {
+    use std::os::windows::io::{AsHandle, AsRawHandle, FromRawHandle, OwnedHandle};
+    use windows_sys::Win32::System::Console::{STD_OUTPUT_HANDLE, SetStdHandle};
+    let stdout = io::stdout();
+    let out = stdout.as_handle().try_clone_to_owned()?;
+    let old = stdout.as_raw_handle();
+    let stderr = io::stderr().as_raw_handle();
+    if unsafe { SetStdHandle(STD_OUTPUT_HANDLE, stderr) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    if old != stderr {
+        drop(unsafe { OwnedHandle::from_raw_handle(old) });
+    }
     Ok((tk::stdin(), tk::File::from_std(fs::File::from(out))))
 }
 

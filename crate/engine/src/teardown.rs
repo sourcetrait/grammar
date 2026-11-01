@@ -11,7 +11,7 @@ pub(crate) fn make_tracker(cancel: Arc<AtomicBool>) -> nu::ThreadJob {
     )
 }
 
-/// SIGKILL every tracked child AND its descendants in the process table.
+/// Kill every tracked child AND its descendants in the process table.
 pub(crate) fn tree_kill(tracked: &[u32]) {
     let table = sourcetrait_process::processes();
     let mut victims: Vec<u32> = Vec::new();
@@ -26,22 +26,39 @@ pub(crate) fn tree_kill(tracked: &[u32]) {
         }
     }
     for pid in victims {
+        kill_pid(pid);
+    }
+}
+
+/// Kill the host's plugin subprocesses.
+pub(crate) fn kill_plugin_subprocesses() {
+    let me = std::process::id();
+    for p in sourcetrait_process::processes() {
+        if p.ppid == me && p.name.starts_with("nu_plugin_") {
+            kill_pid(p.pid);
+        }
+    }
+}
+
+/// One process killed outright: SIGKILL on Unix, `TerminateProcess` on Windows.
+fn kill_pid(pid: u32) {
+    #[cfg(unix)]
+    {
         let _ = nix::sys::signal::kill(
             nix::unistd::Pid::from_raw(pid as i32),
             nix::sys::signal::Signal::SIGKILL,
         );
     }
-}
-
-/// SIGKILL the host's plugin subprocesses.
-pub(crate) fn kill_plugin_subprocesses() {
-    let me = std::process::id();
-    for p in sourcetrait_process::processes() {
-        if p.ppid == me && p.name.starts_with("nu_plugin_") {
-            let _ = nix::sys::signal::kill(
-                nix::unistd::Pid::from_raw(p.pid as i32),
-                nix::sys::signal::Signal::SIGKILL,
-            );
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::Foundation::CloseHandle;
+        use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_TERMINATE, TerminateProcess};
+        unsafe {
+            let process = OpenProcess(PROCESS_TERMINATE, 0, pid);
+            if !process.is_null() {
+                TerminateProcess(process, 1);
+                CloseHandle(process);
+            }
         }
     }
 }

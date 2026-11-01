@@ -7,10 +7,26 @@ namespace from a bad workdir without reading text. stdout carries nothing but
 the wire.
 
 ## fn wire
-The wire is stdout's own descriptor, duplicated, and fd 1 then points at
-stderr, so nothing else in the process, a stray print or an external that
-inherits fd 1, can write into the stream: what would corrupt a frame lands in
-the MCP's log instead.
+The wire is stdout's own descriptor or handle, duplicated, and the standard
+output then points at stderr, so nothing else in the process, a stray print or
+an external that inherits the standard output, can write into the stream: what
+would corrupt a frame lands in the MCP's log instead. The duplicate is the
+wire's one copy, and no external inherits it: one holding it would keep the
+session's stream open past the worker's exit, since the stream's reader sees
+its end only once every copy of the write end is closed.
+
+On Unix the duplicate is made close-on-exec by `try_clone_to_owned`, which
+asks `fcntl` for `F_DUPFD_CLOEXEC`, and `dup2` then places stderr on fd 1,
+closing the original there. A plain `dup` would leave the copy inheritable,
+since a duplicate's close-on-exec flag starts off.
+
+On Windows `try_clone_to_owned` duplicates the handle non-inheritable, and
+`SetStdHandle` makes stderr the standard output, which Rust looks up on every
+write and for every child that inherits it. The old stdout handle is then
+closed, so no copy of the wire is left for a child to inherit: std's `Command`
+creates a child with handle inheritance on by default, passing it every
+inheritable handle the process holds. Where the old handle is stderr's own it
+is kept, since closing it would close stderr.
 
 ## fn serve
 The environment is read once as data, an entry that isn't UTF-8 left out. The

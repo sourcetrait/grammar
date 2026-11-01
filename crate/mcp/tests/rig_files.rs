@@ -1,4 +1,5 @@
 
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
@@ -16,6 +17,7 @@ static TESTING: testing::ModuleWith<TestServer> = testing::module_with!(Integrat
     .setup(|_| TestServer::new())
 });
 
+#[cfg(unix)]
 fn chmod_x(path: &Path) {
     let mut perms = std::fs::metadata(path).expect("metadata").permissions();
     perms.set_mode(perms.mode() | 0o755);
@@ -107,6 +109,8 @@ fn assets_dotfiles_judged_by_extension() {
     );
 }
 
+/// Unix alone: Windows has no mode bit, a file's extension marking it there.
+#[cfg(unix)]
 #[tested]
 fn assets_denies_executable_bit() {
     let t = testing::test!({ .using_temp_dir() });
@@ -174,6 +178,8 @@ fn docs_allows_gitignore() {
     assert!(!has_error(&env), ".docs/.gitignore is allowlisted; got {env}");
 }
 
+/// Unix alone: Windows has no mode bit, a file's extension marking it there.
+#[cfg(unix)]
 #[tested]
 fn docs_denies_executable_bit() {
     let t = testing::test!({ .using_temp_dir() });
@@ -239,6 +245,8 @@ fn sanctioned_file_in_module_dir_denied_root_only() {
     );
 }
 
+/// Unix alone: Windows has no mode bit, a file's extension marking it there.
+#[cfg(unix)]
 #[tested]
 fn executable_nu_file_denied() {
     let t = testing::test!({ .using_temp_dir() });

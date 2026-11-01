@@ -224,7 +224,8 @@ fn step_dead_pid_refused(
     _p: (),
 ) -> testing::StepState<(), ()> {
     clear_pins();
-    // pid 0 is never a real process. Refusing at pin time rather than accepting
+    // pid 0 never names a process a pin can follow: the kernel's on Unix, the idle
+    // process on Windows, which the table lists. Refusing at pin time rather than accepting
     // and reaping a tick later matters because the two outcomes are
     // indistinguishable to the caller a second afterwards, and only one of them is
     // honest about what happened.

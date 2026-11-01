@@ -45,7 +45,7 @@ pub(crate) fn render_dir(
     if dst.path.exists() && !dst.path.is_dir() {
         return Err(SoakError::DestinationNotDirectory { dst: dst.path.to_path_buf(), span: dst.span });
     }
-    let source = src.path.canonicalize()
+    let source = dunce::canonicalize(src.path)
         .map_err(|e| CorkError::path_io(e, src.path, PathOp::DirMeta, src.span))?;
     let destination = resolve(dst.path)
         .map_err(|e| CorkError::path_io(e, dst.path, PathOp::DirMeta, dst.span))?;
@@ -174,7 +174,7 @@ fn resolve(path: &Path) -> io::Result<PathBuf> {
     let mut missing: Vec<&std::ffi::OsStr> = Vec::new();
     let mut existing = path;
     loop {
-        match existing.canonicalize() {
+        match dunce::canonicalize(existing) {
             Ok(canonical) => {
                 return Ok(missing.iter().rev().fold(canonical, |resolved, name| resolved.join(name)));
             },

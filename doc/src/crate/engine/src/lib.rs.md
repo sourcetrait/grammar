@@ -13,6 +13,11 @@ The system's own data is cereal data, so the engine takes `::serde`,
 The contract's types are nutype's, as its values are nuval's; the indices are
 written and read as NUON through nuval's serde support.
 
+## use std::os::unix::fs::MetadataExt
+Unix alone, as `std::os::unix` is: its one reader, `plugins.rs`'s
+`changed_time`, takes the inode's ctime from it there, and on Windows reads
+the change time through `GetFileInformationByHandleEx` instead.
+
 ## mod equip
 The equips by concept, so no file holds them all: `store`, the repository, its
 index, its paths, its locks, and the builtins' install; `lifecycle`, an equip's

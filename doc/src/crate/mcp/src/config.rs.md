@@ -170,7 +170,9 @@ outside the homes.
 `$HOME` read per call rather than through `BASE_DIRS`: `BaseDirs` snapshots
 its environment at first construction, and `expand_path` runs inside
 `set_cli_env_path` before the CliEnv overrides land, so touching the LazyLock
-here would freeze pre-override state into every later path.
+here would freeze pre-override state into every later path. Windows sets no
+`HOME` of its own, so there `USERPROFILE`, the user's profile directory, stands
+behind it.
 
 ## fn var_default
 A UENV home stands in for itself with the standard variable behind it, then
@@ -186,7 +188,8 @@ here.
 
 ## fn spec_default
 The four homes the XDG base directory spec defines, each at its default under
-`$HOME`, and `TMPDIR` at `/tmp`, and nothing beyond them. Hardcoded in the mcp
+`$HOME`, and `TMPDIR` at the platform's temporary directory (`home.rs`'s
+`tmp_default`), and nothing beyond them. Hardcoded in the mcp
 for now: the expansion eventually lives in sourcetrait_agnostic, whose `XdgDir`
 keeps its default constants private (ExpandOntoAgnostic).
 

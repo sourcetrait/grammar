@@ -26,6 +26,11 @@ The worker's start, its lock and its scratch, and its shutdown.
 The session on stdin and stdout: the MCP's hello answered, its requests served,
 and its end.
 
+## mod tk
+tokio's names under one path, its stop events by platform: tokio's Unix
+signals on Unix and its Windows console events on Windows, each the form
+`session.rs`'s `Stops` takes there.
+
 ## pub use
 The runtime and its identity, the worker's scratch, the instance's types, the
 session's end, the error and its kind, and, with `service`, grammar-ssh's entry.

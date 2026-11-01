@@ -2,6 +2,7 @@
 //! default, the help text's example, the glob forms, and a relative `dir`.
 
 use std::fs;
+#[cfg(unix)]
 use std::os::unix::fs::symlink;
 use std::path::Path;
 
@@ -34,7 +35,9 @@ fn write(path: &Path, bytes: usize) {
 }
 
 /// Files come before directories, each with its size; symlinks show their
-/// targets; `.git` is ignored by default.
+/// targets; `.git` is ignored by default. Unix alone: on Windows a symlink takes
+/// a privilege a plain session lacks.
+#[cfg(unix)]
 #[tested]
 fn renders_files_before_dirs_with_sizes_symlinks_and_default_git_ignore() {
     let t = testing::test!({ .using_temp_dir() });

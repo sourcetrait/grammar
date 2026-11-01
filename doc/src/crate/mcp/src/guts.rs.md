@@ -119,9 +119,13 @@ of its whole lifecycle; that test is a binary of its own, since the lock is the
 namespace's.
 
 ### fn host_lock_held
-Tried, not read: a non-blocking lock on a fresh open of the file conflicts with the
-controller's even within one process, because a `flock` belongs to the open file
-description, and the attempt releases at once when it succeeds.
+Tried, not read: `File::try_lock` on a fresh open of the file is the namespace
+lock's own lock on each platform, `flock` on Unix and `LockFileEx` on Windows,
+and it conflicts with the controller's even within one process, because a
+`flock` belongs to the open file description and a `LockFileEx` lock to its
+handle; the attempt releases at once when it succeeds, the file closing. A
+read-only open serves: a `flock` takes a descriptor of any mode, and
+`LockFileEx` a handle with read access.
 
 ## fn clear_config_pins
 The pin registry is process-global, so a test that pins has to be able to put it

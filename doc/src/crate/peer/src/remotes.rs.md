@@ -50,11 +50,20 @@ read would refuse: a new entry without its `cert` is refused here.
 Comments written above the entry go with it, `toml_edit` keeping a table's
 leading decor as the table's own.
 
+## const REMOTES_LOCK
+The file an edit locks on Windows, beside the remotes file and never removed.
+
+## fn lock_target
+On Unix the remotes file's directory, opened as it is. Windows opens no
+directory as a plain file and locks none, so there a file beside the remotes
+file, `remotes.lock`, takes the lock, which no rename of the remotes file
+touches either.
+
 ## fn edit_remotes
 Two hosts may share the file, `grammar` and `grammar-test` starting in one
-directory, so the read, the edit, and the write run under an exclusive `flock`
-on the file's directory: a lock on the file itself would not survive the rename
-that replaces it. The new text is written to a temporary file in the same
+directory, so the read, the edit, and the write run under an exclusive lock on
+`lock_target`'s file: a lock on the remotes file itself would not survive the
+rename that replaces it. The new text is written to a temporary file in the same
 directory, synced, given the old file's permissions, and renamed over it, so a
 reader sees the old file or the new one, never a torn write. It is public: the
 MCP's engine commands write their entries through it, so a channel's write and

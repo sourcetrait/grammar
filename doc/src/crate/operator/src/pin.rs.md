@@ -65,7 +65,9 @@ quantity does.
 ## fn pin
 The pid is proven live FIRST. A pin against an already-dead process is refused rather
 than created and reaped a tick later, because those two outcomes look identical to the
-caller a second afterwards and only one of them is honest about what happened.
+caller a second afterwards and only one of them is honest about what happened. Pid 0 is
+refused before the table is asked: it is the kernel's on Unix and the idle process on
+Windows, whose table lists it, and neither is a process a pin can follow.
 
 ## fn reap_pins
 Called on the watchdog tick AND again before any read of the effective config - so a

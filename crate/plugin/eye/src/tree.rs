@@ -89,7 +89,7 @@ pub(crate) fn wrap(name: &str) -> String {
 /// A symlink's line: its canonical target, a file's with its size.
 fn symlink_label(name: &str, path: &Path) -> String {
     let name = wrap(name);
-    match fs::canonicalize(path) {
+    match dunce::canonicalize(path) {
         Ok(target) => match fs::metadata(&target) {
             Ok(metadata) if metadata.is_dir() => format!("{name} -> {}/", target.display()),
             Ok(metadata) => {

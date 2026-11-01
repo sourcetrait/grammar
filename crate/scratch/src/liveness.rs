@@ -32,11 +32,12 @@ pub trait Probe {
     fn keeps_pid_namespaces(&self) -> bool;
 }
 
-/// The host's table: its process records, then a null signal where they fail.
+/// The host's process records, then on Unix a null signal where they fail.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct HostProbe;
 
 impl Probe for HostProbe {
+    #[cfg(unix)]
     fn process(
         &self,
         pid: u32,
@@ -57,6 +58,24 @@ impl Probe for HostProbe {
             Err(nix::errno::Errno::ESRCH) => ProcessAnswer::Absent,
             Err(nix::errno::Errno::EPERM) => ProcessAnswer::Denied,
             _ => ProcessAnswer::Unreadable,
+        }
+    }
+
+    #[cfg(not(unix))]
+    fn process(
+        &self,
+        pid: u32,
+    ) -> ProcessAnswer {
+        let table = sourcetrait_process::processes();
+        if table.is_empty() {
+            return ProcessAnswer::Unreadable;
+        }
+        match table.into_iter().find(|process| process.pid == pid) {
+            Some(process) => ProcessAnswer::Started {
+                start: process.start_time,
+                zombie: process.zombie,
+            },
+            None => ProcessAnswer::Absent,
         }
     }
 

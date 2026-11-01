@@ -48,7 +48,9 @@ is simply empty.
 
 ## fn bundled_plugins
 Canonicalized, because the registry records the path `plugin add` resolved, and
-the staleness test compares against it.
+the staleness test compares against it. dunce canonicalizes, so on Windows the
+registry holds the plain path, never std's verbatim `\\?\` form, which the
+plugin's own process and a reader of the registry would both meet.
 
 ## fn ensure_plugin_registry
 Registration spawns each plugin to read its signatures, so it runs only for a
@@ -60,10 +62,21 @@ namespace.
 CHANGE TIME, NOT MODIFICATION TIME. An OptZst unpacks every file at mtime 0,
 its archive reproducible, so a plugin's mtime predates any registry and a
 plugin replaced in place kept its old signatures: measured, a host restarted
-over a replaced plugin dated at the epoch left the registry unwritten. The kernel sets ctime whenever a file is written, copied, unpacked,
-or renamed into place, and no archive can carry one, so a changed plugin
-always counts as newer than the registry, at the cost of one more
-registration after a mere `chmod`.
+over a replaced plugin dated at the epoch left the registry unwritten.
+
+On Unix it is the inode's ctime. The kernel sets ctime whenever a file is
+written, copied, unpacked, or renamed into place, and no archive can carry
+one, so a changed plugin always counts as newer than the registry, at the cost
+of one more registration after a mere `chmod`.
+
+On Windows it is `FILE_BASIC_INFO.ChangeTime`, read from the opened file by
+`GetFileInformationByHandleEx`: stable std reads no change time there, its
+`MetadataExt::change_time` nightly-only. It is the NTFS change time, which a
+write and a metadata change both move, as ctime does, so an attribute change
+costs the same one more registration a `chmod` does.
+
+Where the change time can't be read, on either platform, the plugin counts as
+changed and registers again.
 
 ## fn register_plugins
 NUSHELL'S OWN `plugin add`, evaluated on a stateful base, rather than a second

@@ -6637,6 +6637,7 @@ dependencies = [
 name = "sourcetrait_grammar_engine"
 version = "0.0.0-10"
 dependencies = [
+ "dunce",
  "indoc",
  "nix",
  "nu-cmd-extra",
@@ -6660,12 +6661,14 @@ dependencies = [
  "sourcetrait_process",
  "tokio",
  "toml 1.1.8+spec-1.1.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
 name = "sourcetrait_grammar_eye"
 version = "0.0.0-10"
 dependencies = [
+ "dunce",
  "ignore",
  "nu-glob",
  "nu-path",
@@ -6695,7 +6698,6 @@ dependencies = [
  "clap",
  "directories",
  "futures-util",
- "nix",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
@@ -6787,6 +6789,7 @@ dependencies = [
 name = "sourcetrait_grammar_scratch"
 version = "0.0.0-10"
 dependencies = [
+ "getrandom 0.4.3",
  "nix",
  "nutype",
  "nuval",
@@ -6799,6 +6802,7 @@ dependencies = [
 name = "sourcetrait_grammar_soak"
 version = "0.0.0-10"
 dependencies = [
+ "dunce",
  "humantime",
  "liquid",
  "nu-path",
@@ -6830,6 +6834,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "toml 1.1.8+spec-1.1.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6857,6 +6862,7 @@ name = "sourcetrait_process"
 version = "0.0.0-2"
 dependencies = [
  "libc",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6888,6 +6894,7 @@ name = "sourcetrait_testing"
 version = "0.0.0-3"
 dependencies = [
  "anyhow",
+ "dunce",
  "env_logger",
  "function_name",
  "indexmap",

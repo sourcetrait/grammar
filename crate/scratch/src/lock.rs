@@ -1,7 +1,8 @@
 //! The namespace lock: one engine a namespace, held from a start to its end.
 use crate::*;
 use std::io::{Seek, SeekFrom};
-use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt;
 
 /// The lock's file in the namespace's data home.
 pub const LOCK_FILE: &str = "host.lock";
@@ -77,7 +78,10 @@ impl std::error::Error for LockError {}
 /// The namespace's lock, held while it lives; its drop releases the lock.
 #[derive(Debug)]
 pub struct NamespaceLock {
+    #[cfg(unix)]
     file: nix::fcntl::Flock<fs::File>,
+    #[cfg(not(unix))]
+    file: fs::File,
     path: PathBuf,
 }
 
@@ -91,22 +95,28 @@ impl NamespaceLock {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|e| unavailable(e.to_string()))?;
         }
-        let file = fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .mode(0o600)
-            .custom_flags((OFlag::O_NOFOLLOW | OFlag::O_NONBLOCK).bits())
+        let mut options = fs::OpenOptions::new();
+        options.read(true).write(true).create(true).truncate(false);
+        let file = private_file(no_follow(&mut options))
             .open(path)
             .map_err(|e| unavailable(format!("it does not open as a plain file: {e}")))?;
         let meta = file.metadata().map_err(|e| unavailable(e.to_string()))?;
         if !meta.file_type().is_file() {
             return Err(unavailable("it is not a regular file".to_string()));
         }
+        #[cfg(unix)]
         if meta.uid() != current_uid() {
             return Err(unavailable(format!("UID {} owns it", meta.uid())));
         }
+        Self::lock(file, path)
+    }
+
+    /// The opened lock taken exclusive by `flock`, without waiting.
+    #[cfg(unix)]
+    fn lock(
+        file: fs::File,
+        path: &Path,
+    ) -> Result<Self, LockError> {
         match nix::fcntl::Flock::lock(file, nix::fcntl::FlockArg::LockExclusiveNonblock) {
             Ok(file) => Ok(Self {
                 file,
@@ -116,7 +126,32 @@ impl NamespaceLock {
                 path: path.to_path_buf(),
                 holder: holder_of(&mut file),
             }),
-            Err((_, errno)) => Err(unavailable(errno.to_string())),
+            Err((_, errno)) => Err(LockError::Unavailable {
+                path: path.to_path_buf(),
+                reason: errno.to_string(),
+            }),
+        }
+    }
+
+    /// The opened lock taken exclusive by the system's file lock, without waiting.
+    #[cfg(not(unix))]
+    fn lock(
+        mut file: fs::File,
+        path: &Path,
+    ) -> Result<Self, LockError> {
+        match file.try_lock() {
+            Ok(()) => Ok(Self {
+                file,
+                path: path.to_path_buf(),
+            }),
+            Err(fs::TryLockError::WouldBlock) => Err(LockError::Held {
+                path: path.to_path_buf(),
+                holder: holder_of(&mut file),
+            }),
+            Err(fs::TryLockError::Error(e)) => Err(LockError::Unavailable {
+                path: path.to_path_buf(),
+                reason: e.to_string(),
+            }),
         }
     }
 
@@ -144,11 +179,14 @@ impl NamespaceLock {
     }
 }
 
-/// A holder's record as its lock holds it, on one line and bounded.
+/// A holder's record, one line and bounded, or why it can't be read.
 fn holder_of(file: &mut fs::File) -> String {
     let mut text = String::new();
-    if file.seek(SeekFrom::Start(0)).is_ok() {
-        let _ = Read::by_ref(file).take(HOLDER_MAX).read_to_string(&mut text);
+    let read = file
+        .seek(SeekFrom::Start(0))
+        .and_then(|_| Read::by_ref(file).take(HOLDER_MAX).read_to_string(&mut text));
+    if let Err(e) = read {
+        return format!("a holder whose record can't be read: {e}");
     }
     let line = text.split_whitespace().collect::<Vec<_>>().join(" ");
     if line.is_empty() {

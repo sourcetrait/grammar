@@ -8,18 +8,29 @@ namespace's files in one place.
 ## const DATA, const CACHE
 The MCP takes these two roots from `directories`: the UENV variable, else XDG's
 on Linux, and on macOS the platform's, where `directories` reads no XDG variable
-and answers `Library/Application Support` and `Library/Caches` under `HOME`. The
-worker takes them the same way: it serves the MCP's namespace, so it finds the
-equips and definitions where the MCP keeps them, and XDG's defaults would part
-the two on macOS. `tests/instance_homes.rs` holds the two to `directories`
-under one environment.
+and answers `Library/Application Support` and `Library/Caches` under `HOME`. On
+Windows `directories` answers the roaming and the local application data
+folders, which the worker reads as their variables, `APPDATA` and
+`LOCALAPPDATA`, each a session's own; XDG's variables count for neither there.
+The worker takes them the same way: it serves the MCP's namespace, so it finds
+the equips and definitions where the MCP keeps them, and XDG's defaults would
+part the two on macOS and Windows. `tests/instance_homes.rs` holds the two to
+`directories` under one environment.
+
+## const TMP
+On Windows the temporary home is `TMP`, then `TEMP`, the order Windows' own
+`GetTempPath2W` reads them in, where Unix's is `TMPDIR`, then `/tmp`.
+
+## enum Default
+`UnderHome` and `Absolute` serve Unix's defaults, `Var` Windows' second
+temporary variable; each platform keeps only the kinds it uses.
 
 ## struct InstanceHomes
 ### fn resolve
 The environment is data, so a test resolves homes without touching the real
 ones, and the caller decides whose environment it is. Each home is its UENV
-variable, then the standard one behind it, then its default: `/tmp` for the
-temporary home, and the data and cache homes as above. The runtime home has no
+variable, then the standard one behind it, then its default: `/tmp` or `TEMP`
+for the temporary home, and the data and cache homes as above. The runtime home has no
 default, since a guessed one could sit where another user writes; without one
 the transient scratch falls back beside the bulk one (`runtime/scratch.rs`).
 

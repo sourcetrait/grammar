@@ -12,11 +12,17 @@ name the same one.
 
 ## struct HostProbe
 ### fn process
-The process table first (`sourcetrait_process`): a record gives the pid's
-start. Where none is found the table can't say why, an exit or a refusal, so a
-null signal asks: `ESRCH` means no process holds the pid, `EPERM` that the
-signal was refused, and a success that a process holds it whose record can't be
-read. The signal sends nothing.
+On Unix, the process table first (`sourcetrait_process`): a record gives the
+pid's start. Where none is found the table can't say why, an exit or a
+refusal, so a null signal asks: `ESRCH` means no process holds the pid,
+`EPERM` that the signal was refused, and a success that a process holds it
+whose record can't be read. The signal sends nothing.
+
+Elsewhere no signal asks, and the whole table is read. On Windows it holds
+every user's processes, so a pid it lacks is held by no process and is absent.
+A table that reads empty is a failed read, since it would hold this very
+process, and is unreadable. No answer there is denied, and none is a zombie: a
+Windows process leaves the table when it exits.
 
 ## enum Liveness
 Three answers, since a sweep may act on a proof alone: an answer short of one is

@@ -23,7 +23,6 @@ test-hooks = ["sourcetrait_grammar_engine/test-hooks"]
 clap.workspace = true
 directories.workspace = true
 futures-util.workspace = true
-nix.workspace = true
 nu-engine.workspace = true
 nu-parser.workspace = true
 nu-protocol.workspace = true

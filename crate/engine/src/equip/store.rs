@@ -28,8 +28,7 @@ enum StoredType {
     Earlier(EarlierType),
 }
 
-/// An index type as an earlier build wrote it, read so its index loads
-/// until the rig is committed again.
+/// An index type as an earlier build wrote it, loading until the next commit.
 #[derive(ser::Deserialize)]
 enum EarlierType {
     Scalar(EarlierScalar),
@@ -419,10 +418,18 @@ fn configure_repo(dir: &std::path::Path) -> io::Result<()> {
     Ok(())
 }
 
+/// A git command run in `dir`, taking paths past 260 characters on Windows.
+pub(crate) fn git_command(dir: &std::path::Path) -> process::Command {
+    let mut git = process::Command::new("git");
+    #[cfg(windows)]
+    git.args(["-c", "core.longpaths=true"]);
+    git.current_dir(dir);
+    git
+}
+
 pub(crate) fn run_git(dir: &std::path::Path, args: &[&str]) -> io::Result<()> {
-    let out = process::Command::new("git")
+    let out = git_command(dir)
         .args(args)
-        .current_dir(dir)
         .output()
         .map_err(|e| io::Error::other(format!("git: {e}")))?;
     if !out.status.success() {

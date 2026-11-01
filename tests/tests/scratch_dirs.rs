@@ -4,19 +4,24 @@
 //! definition, removed at an ordinary end, and swept once their owner is gone;
 //! each Channel open makes an inbox beside the transient one.
 
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+#[cfg(unix)]
 use std::time::Duration;
 
+#[cfg(unix)]
 use nix::sys::signal::Signal;
 use sourcetrait_grammar_tests::{Host, envelope, run_output_env};
 use sourcetrait_common::testing::prelude::*;
 
 static TESTING: testing::Module = testing::module!(Integration, { .using_temp_dir() });
 
-/// A test's own directory, private as the platform's are.
+/// A test's own directory, private as the platform's are: its mode 0700 on
+/// Unix, its parent's access on Windows.
 fn private_dir(dir: PathBuf) -> PathBuf {
     std::fs::create_dir_all(&dir).expect("a base directory");
+    #[cfg(unix)]
     std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700))
         .expect("the base's mode");
     dir
@@ -81,15 +86,18 @@ fn open_inbox(host: &mut Host) -> PathBuf {
 }
 
 /// A directory's permission bits.
+#[cfg(unix)]
 fn mode(dir: &Path) -> u32 {
     std::fs::metadata(dir).expect("the directory exists").permissions().mode() & 0o777
 }
 
-/// A private directory in `base`, under the sweep's prefix, marked by its host.
+/// A private directory in `base`, under the sweep's prefix, marked by its host,
+/// its mode held on Unix.
 fn assert_scratch(dir: &Path, base: &Path, pid: u32) {
     assert_eq!(dir.parent(), Some(base), "{} sits in {}", dir.display(), base.display());
     let meta = std::fs::metadata(dir).expect("the scratch directory exists");
     assert!(meta.is_dir(), "{} is a directory", dir.display());
+    #[cfg(unix)]
     assert_eq!(
         meta.permissions().mode() & 0o777,
         0o700,
@@ -207,6 +215,8 @@ fn a_missing_temporary_directory_fails_the_start() {
     assert!(!missing.exists(), "{} is never made", missing.display());
 }
 
+/// Unix alone, whose signal it sends.
+#[cfg(unix)]
 #[tested]
 fn sigterm_removes_both_directories() {
     let t = testing::test!({ .using_temp_dir() });
@@ -228,7 +238,8 @@ fn sigterm_removes_both_directories() {
 ///
 /// It is named for the host's nom, private, and the inbox itself, an
 /// attachment landing in it; a close removes it, a taken name falls back to a
-/// random one, and the host's end removes what it made and nothing else.
+/// random one, and the host's end removes what it made and nothing else. The
+/// mode and the signalled end on Unix alone.
 #[tested]
 fn each_open_makes_the_channel_inbox_in_the_transient_base() {
     let t = testing::test!({ .using_temp_dir() });
@@ -243,6 +254,7 @@ fn each_open_makes_the_channel_inbox_in_the_transient_base() {
 
     let inbox = open_inbox(&mut host);
     assert_eq!(inbox, named, "the inbox is named for the host's nom in the transient base");
+    #[cfg(unix)]
     assert_eq!(mode(&inbox), 0o700, "only its owner may enter {}", inbox.display());
     host.interface("interface channel sync");
     host.interface("interface channel ready");
@@ -269,14 +281,16 @@ fn each_open_makes_the_channel_inbox_in_the_transient_base() {
     assert_eq!(fallback.parent(), Some(run.as_path()), "beside it in the transient base");
     let name = fallback.file_name().and_then(|name| name.to_str()).unwrap_or_default();
     assert!(name.starts_with("grammar.channel."), "under the inbox's prefix; got {name}");
-    assert_eq!(mode(&fallback), 0o700, "only its owner may enter {}", fallback.display());
-
-    let status = host
-        .signal_and_wait(Signal::SIGTERM, Duration::from_secs(15))
-        .expect("a signalled host should exit rather than hang");
-    assert_eq!(status.code(), Some(128 + Signal::SIGTERM as i32), "the handler ran");
-    assert!(!fallback.exists(), "the host's end removes {}", fallback.display());
-    assert!(named.is_dir(), "and leaves {}, which it never made", named.display());
+    #[cfg(unix)]
+    {
+        assert_eq!(mode(&fallback), 0o700, "only its owner may enter {}", fallback.display());
+        let status = host
+            .signal_and_wait(Signal::SIGTERM, Duration::from_secs(15))
+            .expect("a signalled host should exit rather than hang");
+        assert_eq!(status.code(), Some(128 + Signal::SIGTERM as i32), "the handler ran");
+        assert!(!fallback.exists(), "the host's end removes {}", fallback.display());
+        assert!(named.is_dir(), "and leaves {}, which it never made", named.display());
+    }
 }
 
 /// A dead host's directories go at the next start.

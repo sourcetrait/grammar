@@ -5,9 +5,12 @@ use std::path::PathBuf;
 
 use sourcetrait_grammar_ssh::*;
 
+/// The standard variable behind `UENV_USR_TMP` on this platform.
+const TMP_STANDARD: &str = if cfg!(windows) { "TMP" } else { "TMPDIR" };
+
 /// The worker's own effective UID.
 fn uid() -> u32 {
-    nix::unistd::geteuid().as_raw()
+    sourcetrait_grammar_scratch::current_uid()
 }
 
 /// A scratch tree of homes and a workdir: each made, and the environment naming them.
@@ -70,7 +73,7 @@ fn a_uenv_home_comes_before_its_standard_variable_and_its_default() {
     let mut env = homes.env.clone();
     let standard = homes.path("tmpdir");
     std::fs::create_dir_all(&standard).unwrap();
-    env.insert("TMPDIR".to_string(), standard.to_string_lossy().into_owned());
+    env.insert(TMP_STANDARD.to_string(), standard.to_string_lossy().into_owned());
     assert_eq!(InstanceHomes::resolve(&env).unwrap().tmp, homes.path("tmp"), "UENV first");
     env.insert("UENV_USR_TMP".to_string(), String::new());
     let resolved = InstanceHomes::resolve(&env).unwrap();

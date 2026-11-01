@@ -176,7 +176,10 @@ fn an_unset_variable_fails_the_load() {
 fn the_xdg_homes_carry_spec_defaults() {
     // The expansion context falls back to these when a variable is unset or empty;
     // every other variable has none and stays a load error.
-    let home = PathBuf::from(std::env::var("HOME").expect("HOME set"));
+    let home = std::env::var("HOME")
+        .or_else(|e| if cfg!(windows) { std::env::var("USERPROFILE") } else { Err(e) })
+        .map(PathBuf::from)
+        .expect("HOME set, or Windows' USERPROFILE");
     for (var, home_relative) in [
         ("XDG_CACHE_HOME", ".cache"),
         ("XDG_CONFIG_HOME", ".config"),
@@ -220,10 +223,11 @@ fn a_uenv_home_stands_in_front_of_its_standard_variable() {
         None,
         "a UENV tree with no standard variable stands alone",
     );
+    let tmp = if cfg!(unix) { PathBuf::from("/tmp") } else { std::env::temp_dir() };
     assert_eq!(
         crate::config::spec_default("TMPDIR"),
-        Some(PathBuf::from("/tmp")),
-        "TMPDIR defaults to /tmp",
+        Some(tmp),
+        "TMPDIR defaults to /tmp on Unix, the system's temporary directory elsewhere",
     );
 }
 

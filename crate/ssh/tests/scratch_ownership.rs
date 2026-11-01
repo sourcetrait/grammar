@@ -1,6 +1,7 @@
 //! The worker's scratch: private, marked, swept of dead owners, its own to remove.
 
 use std::io::{BufRead, BufReader, Write};
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -84,6 +85,7 @@ fn the_worker_scratch_is_private_marked_and_its_own_to_remove() {
     for (dir, base) in [(scratch.tmp(), &homes.tmp), (scratch.transient(), &runtime)] {
         assert_eq!(dir.parent(), Some(base.as_path()));
         assert!(dir.file_name().unwrap().to_str().unwrap().starts_with("grammar-ssh."));
+        #[cfg(unix)]
         assert_eq!(std::fs::metadata(dir).unwrap().permissions().mode() & 0o777, 0o700);
         let owner = Owner::read(dir, current_uid()).expect("its marker");
         assert_eq!((owner.uid, owner.pid), (current_uid(), std::process::id()));

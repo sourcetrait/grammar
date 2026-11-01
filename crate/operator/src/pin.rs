@@ -102,7 +102,7 @@ pub fn pin(
         ));
     };
     let value = validate(key, value)?;
-    let Some(start_time) = sourcetrait_process::start_time(pid) else {
+    let Some(start_time) = (pid != 0).then(|| sourcetrait_process::start_time(pid)).flatten() else {
         return Err(format!("process {pid} is not running; nothing to pin to"));
     };
     pins().insert(

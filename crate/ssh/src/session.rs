@@ -175,12 +175,14 @@ async fn write_loop<W>(
 }
 
 /// The stop signals a session ends on, each by its name.
+#[cfg(unix)]
 struct Stops {
     term: tk::Signal,
     int: tk::Signal,
     hup: tk::Signal,
 }
 
+#[cfg(unix)]
 impl Stops {
     /// The three stop signals taken, none where the process can't take them.
     fn take() -> Option<Self> {
@@ -204,6 +206,40 @@ impl Stops {
             _ = self.term.recv() => "SIGTERM",
             _ = self.int.recv() => "SIGINT",
             _ = self.hup.recv() => "SIGHUP",
+        }
+    }
+}
+
+/// The console events a session ends on: break, Ctrl-C, and the console's close.
+#[cfg(windows)]
+struct Stops {
+    brk: tk::CtrlBreak,
+    c: tk::CtrlC,
+    close: tk::CtrlClose,
+}
+
+#[cfg(windows)]
+impl Stops {
+    /// The three console events taken, none where the process can't take them.
+    fn take() -> Option<Self> {
+        fn taken<T>(event: io::Result<T>) -> Option<T> {
+            event
+                .inspect_err(|e| eprintln!("grammar-ssh: a stop event can't be taken: {e}"))
+                .ok()
+        }
+        Some(Self {
+            brk: taken(tk::ctrl_break())?,
+            c: taken(tk::ctrl_c())?,
+            close: taken(tk::ctrl_close())?,
+        })
+    }
+
+    /// The next console event's name.
+    async fn next(&mut self) -> &'static str {
+        tk::select! {
+            _ = self.brk.recv() => "CTRL_BREAK",
+            _ = self.c.recv() => "CTRL_C",
+            _ = self.close.recv() => "CTRL_CLOSE",
         }
     }
 }

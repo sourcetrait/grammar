@@ -70,7 +70,6 @@ pub(crate) mod tk {
         io::{AsyncRead, AsyncWrite, Stdin, stdin},
         runtime,
         select,
-        signal::unix::{Signal, SignalKind, signal},
         spawn,
         sync::{
             Semaphore,
@@ -79,6 +78,12 @@ pub(crate) mod tk {
         },
         task::{JoinHandle, JoinSet, spawn_blocking},
         time::{sleep, timeout},
+    };
+    #[cfg(unix)]
+    pub(crate) use tokio::signal::unix::{Signal, SignalKind, signal};
+    #[cfg(windows)]
+    pub(crate) use tokio::signal::windows::{
+        CtrlBreak, CtrlC, CtrlClose, ctrl_break, ctrl_c, ctrl_close,
     };
 }
 

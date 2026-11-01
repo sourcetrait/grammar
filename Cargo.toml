@@ -33,7 +33,9 @@ bitcode = { package = "sourcetrait_cereal_bitcode", path = "../common/crates/sou
 chrono = { version = "0.4.45", default-features = false, features = ["serde", "std", "unstable-locales"] }
 clap = { version = "4", features = ["derive"] }
 directories = { version = "6" }
+dunce = { version = "1" }
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+getrandom = { version = "0.4" }
 humantime = { version = "2" }
 ignore = { version = "0.4" }
 indoc = { version = "2" }
@@ -60,6 +62,7 @@ tokio-util = { version = "0.7", features = ["codec"] }
 toml = { version = "1" }
 toml_edit = { version = "0.25" }
 walkdir = { version = "2" }
+windows-sys = { version = "0.59" }
 zstd = { version = "0.14" }
 
 nu-cmd-extra = { version = "0.116.1" }

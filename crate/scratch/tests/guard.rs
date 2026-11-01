@@ -1,5 +1,6 @@
 //! The guard: a marker read, an owner's liveness proven, and the sweep's verdicts.
 
+#[cfg(unix)]
 use std::os::unix::fs::{PermissionsExt, symlink};
 use std::path::{Path, PathBuf};
 
@@ -61,10 +62,12 @@ fn nuon(uid: u32, pid: u32) -> String {
     format!("{{uid: {uid}, pid: {pid}, start: 100, boot: {BOOT:?}, pidns: {PIDNS:?}, nonce: {:?}}}", "ab".repeat(16))
 }
 
-/// A directory `name` under `base`, 0700, its marker `file` holding any `text`.
+/// A directory `name` under `base`, 0700 on Unix, its marker `file` holding any
+/// `text`.
 fn marked(base: &Path, name: &str, file: &str, text: Option<&str>) -> PathBuf {
     let dir = base.join(name);
     std::fs::create_dir(&dir).unwrap();
+    #[cfg(unix)]
     std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
     if let Some(text) = text {
         std::fs::write(dir.join(file), text).unwrap();
@@ -110,7 +113,10 @@ fn the_host_probe_proves_this_process_alive_and_a_reaped_child_dead() {
     assert_eq!(liveness(&me, &HostProbe), Liveness::Alive);
     let reused = Owner { start: me.start - 1, ..me.clone() };
     assert!(matches!(liveness(&reused, &HostProbe), Liveness::Dead(_)), "this pid under another start");
+    #[cfg(unix)]
     let mut child = std::process::Command::new("true").spawn().expect("a child");
+    #[cfg(windows)]
+    let mut child = std::process::Command::new("cmd").args(["/c", "exit"]).spawn().expect("a child");
     let pid = child.id();
     child.wait().expect("reaped");
     let gone = Owner { pid, ..me };
@@ -123,6 +129,7 @@ fn a_marker_reads_back_and_a_predecessors_takes_its_directorys_uid() {
     let me = Owner::current().unwrap();
     let dir = OwnedDir::create(root.path(), "t.", &me).expect("an owned directory");
     assert_eq!(Owner::read(dir.path(), current_uid()), Ok(me));
+    #[cfg(unix)]
     assert_eq!(std::fs::metadata(dir.path()).unwrap().permissions().mode() & 0o777, 0o700);
     let legacy = marked(root.path(), "t.legacy", "owner", Some("4242 100\n"));
     assert_eq!(
@@ -131,6 +138,8 @@ fn a_marker_reads_back_and_a_predecessors_takes_its_directorys_uid() {
     );
 }
 
+/// The symlink and the FIFO markers on Unix alone: Windows has no FIFO, and a
+/// symlink there takes a privilege a plain session lacks.
 #[test]
 fn a_malformed_or_unplain_marker_names_no_owner() {
     let root = tempfile::tempdir().unwrap();
@@ -152,20 +161,28 @@ fn a_malformed_or_unplain_marker_names_no_owner() {
         let read = Owner::read(&marked(base, name, file, Some(&text)), uid);
         assert!(matches!(read, Err(MarkerError::Malformed(_))), "{name}: {read:?}");
     }
-    let target = base.join("target.nuon");
-    std::fs::write(&target, nuon(uid, 4242)).unwrap();
-    let linked = marked(base, "linked", "owner.nuon", None);
-    symlink(&target, linked.join("owner.nuon")).unwrap();
-    let fifo = marked(base, "fifo", "owner.nuon", None);
-    nix::unistd::mkfifo(&fifo.join("owner.nuon"), nix::sys::stat::Mode::S_IRWXU).unwrap();
     let nested = marked(base, "nested", "owner.nuon", None);
     std::fs::create_dir(nested.join("owner.nuon")).unwrap();
-    for dir in [linked, fifo, nested] {
+    #[cfg_attr(not(unix), allow(unused_mut))]
+    let mut unplain = vec![nested];
+    #[cfg(unix)]
+    {
+        let target = base.join("target.nuon");
+        std::fs::write(&target, nuon(uid, 4242)).unwrap();
+        let linked = marked(base, "linked", "owner.nuon", None);
+        symlink(&target, linked.join("owner.nuon")).unwrap();
+        let fifo = marked(base, "fifo", "owner.nuon", None);
+        nix::unistd::mkfifo(&fifo.join("owner.nuon"), nix::sys::stat::Mode::S_IRWXU).unwrap();
+        unplain.extend([linked, fifo]);
+    }
+    for dir in unplain {
         let read = Owner::read(&dir, uid);
         assert!(matches!(read, Err(MarkerError::Unreadable(_))), "{}: {read:?}", dir.display());
     }
 }
 
+/// The symlink on Unix alone: on Windows one takes a privilege a plain session
+/// lacks.
 #[test]
 fn the_sweep_removes_a_proven_dead_owners_directory_alone() {
     let root = tempfile::tempdir().unwrap();
@@ -180,21 +197,27 @@ fn the_sweep_removes_a_proven_dead_owners_directory_alone() {
     let file = base.join("g.file");
     std::fs::write(&file, "").unwrap();
     let target = marked(base, "elsewhere", "owner.nuon", Some(&nuon(uid, 4246)));
-    let link = base.join("g.link");
-    symlink(&target, &link).unwrap();
+    #[cfg_attr(not(unix), allow(unused_mut))]
+    let mut reported = vec![legacy.clone(), unmarked.clone(), malformed.clone(), foreign.clone(), file.clone()];
+    #[cfg(unix)]
+    {
+        let link = base.join("g.link");
+        symlink(&target, &link).unwrap();
+        reported.push(link);
+    }
     let report = sweep(base, "g.", uid, &probe(ProcessAnswer::Absent));
     assert_eq!(report.removed, vec![dead.clone()], "the dead owner's directory goes");
     assert!(!dead.exists());
     for stays in [&legacy, &unmarked, &malformed, &foreign, &other, &file, &target] {
         assert!(stays.exists(), "{} stays", stays.display());
     }
-    assert!(link.symlink_metadata().is_ok(), "the symlink stays");
     let kept: Vec<&Path> = report.kept.iter().map(|kept| kept.path.as_path()).collect();
-    for reported in [&legacy, &unmarked, &malformed, &foreign, &file, &link] {
+    for reported in &reported {
+        assert!(reported.symlink_metadata().is_ok(), "{} stays", reported.display());
         assert!(kept.contains(&reported.as_path()), "{} is reported", reported.display());
     }
     assert!(!kept.contains(&other.as_path()), "another prefix's is never judged");
-    assert_eq!(report.diagnostics().len(), 6, "{:?}", report.diagnostics());
+    assert_eq!(report.diagnostics().len(), reported.len(), "{:?}", report.diagnostics());
 }
 
 #[test]
@@ -205,7 +228,9 @@ fn the_sweep_keeps_what_another_uid_owns_and_what_it_cant_prove() {
     let dir = marked(base, "g.held", "owner.nuon", Some(&nuon(uid, 4242)));
     let report = sweep(base, "g.", uid.wrapping_add(1), &probe(ProcessAnswer::Absent));
     assert!(dir.exists(), "another UID's directory stays");
-    assert!(report.kept[0].reason.contains("owns it"), "{:?}", report.kept);
+    // Unix judges the directory's own UID first; Windows, which keeps none, the marker's.
+    let judged = if cfg!(unix) { "owns it" } else { "its marker names UID" };
+    assert!(report.kept[0].reason.contains(judged), "{:?}", report.kept);
     for answer in [ProcessAnswer::Denied, ProcessAnswer::Unreadable] {
         let report = sweep(base, "g.", uid, &probe(answer));
         assert!(dir.exists(), "{answer:?} proves nothing");

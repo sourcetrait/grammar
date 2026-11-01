@@ -2,10 +2,14 @@
 
 mod support;
 
+#[cfg(unix)]
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
+#[cfg(unix)]
 use std::time::Duration;
 
-use support::{TestInstance, exit_within, open, runtime};
+#[cfg(unix)]
+use support::exit_within;
+use support::{TestInstance, open, runtime};
 
 use sourcetrait_grammar_protocol::LIMITS_DEFAULT;
 
@@ -21,27 +25,38 @@ fn two_namespaces_start_apart() {
     });
 }
 
+/// The lock's inode and record are read on Unix alone: Windows' lock covers the
+/// whole file, so no other process reads it while it is held.
 #[test]
 fn a_killed_workers_lock_passes_to_its_restart() {
     let instance = TestInstance::new("fixture");
+    #[cfg_attr(not(unix), allow(unused_variables))]
     let lock = instance.load("default").paths.lock;
     runtime().block_on(async {
         let (mut killed, opened) = open(&instance, "default", LIMITS_DEFAULT).await;
         let (session, _events) = opened.expect("the first worker");
+        #[cfg(unix)]
         let inode = std::fs::metadata(&lock).unwrap().ino();
         let killed_nom = session.worker().nom.clone();
         killed.kill().await.expect("killed");
+        #[cfg_attr(not(unix), allow(unused_variables))]
         let (restarted, opened) = open(&instance, "default", LIMITS_DEFAULT).await;
         let (session, _events) = opened.expect("the restart takes the released lock");
-        assert_eq!(std::fs::metadata(&lock).unwrap().ino(), inode, "the lock's inode kept");
-        let record = std::fs::read_to_string(&lock).unwrap();
-        assert!(record.contains(&format!("pid: {}", restarted.id().unwrap())), "{record}");
-        assert!(record.contains("holder: grammar-ssh"), "{record}");
+        #[cfg(unix)]
+        {
+            assert_eq!(std::fs::metadata(&lock).unwrap().ino(), inode, "the lock's inode kept");
+            let record = std::fs::read_to_string(&lock).unwrap();
+            assert!(record.contains(&format!("pid: {}", restarted.id().unwrap())), "{record}");
+            assert!(record.contains("holder: grammar-ssh"), "{record}");
+        }
         assert_ne!(session.worker().nom, killed_nom, "a fresh nom");
         assert_eq!(TestInstance::worker_dirs(&instance.home("tmp")).len(), 1, "the killed worker's scratch swept");
     });
 }
 
+/// Unix alone: a directory's mode is what makes it refuse new entries there,
+/// and Windows' read-only attribute doesn't stop a directory taking them.
+#[cfg(unix)]
 #[test]
 fn a_failed_start_refuses_its_hello_and_releases_its_lock() {
     let instance = TestInstance::new("fixture");

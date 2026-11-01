@@ -17,6 +17,6 @@ pub(crate) fn canonical(
     head: nu::Span,
 ) -> Result<PathBuf, nu::LabeledError> {
     let expanded = expand(engine, raw)?;
-    fs::canonicalize(&expanded)
+    dunce::canonicalize(&expanded)
         .map_err(|error| labeled_error(format!("{}: {error}", expanded.display()), head))
 }

@@ -2,6 +2,7 @@
 //! skipped, nested files and negations, git's scope, and the shared render.
 
 use std::fs;
+#[cfg(unix)]
 use std::os::unix::fs::symlink;
 use std::path::Path;
 
@@ -103,7 +104,9 @@ fn a_subdirectory_takes_the_gitignore_files_above_it() {
     assert!(!rendered.contains("a.log"), "got:\n{rendered}");
 }
 
-/// With nothing ignored, `eye git` renders exactly what `eye dir` renders.
+/// With nothing ignored, `eye git` renders exactly what `eye dir` renders, the
+/// symlinks on Unix alone: on Windows a symlink takes a privilege a plain
+/// session lacks.
 #[tested]
 fn renders_as_eye_dir_renders_when_nothing_is_ignored() {
     let t = testing::test!({ .using_temp_dir() });
@@ -113,9 +116,12 @@ fn renders_as_eye_dir_renders_when_nothing_is_ignored() {
     write(&root.join("sp ace.txt"), "space");
     write(&root.join("apple").join("inner.txt"), "inner");
     fs::create_dir(root.join("empty")).unwrap();
-    symlink("a.txt", root.join("link_f")).unwrap();
-    symlink("apple", root.join("link_d")).unwrap();
-    symlink("nowhere", root.join("link_broken")).unwrap();
+    #[cfg(unix)]
+    {
+        symlink("a.txt", root.join("link_f")).unwrap();
+        symlink("apple", root.join("link_d")).unwrap();
+        symlink("nowhere", root.join("link_broken")).unwrap();
+    }
 
     assert_eq!(tree("git", root), tree("dir", root));
 }

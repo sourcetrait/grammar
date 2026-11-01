@@ -88,6 +88,12 @@ PER-REPO configuration only. Nothing here leaks into the user's global git confi
 `commit.gpgSign` being set locally is what makes every lifecycle commit signed implicitly
 rather than by remembering a flag.
 
+## fn git_command
+Every git the store and the lifecycle run starts here. On Windows it passes
+`core.longpaths=true` on the command line, so git writes objects past
+`MAX_PATH`, 260 characters, under a deep data home, and so `git init` takes it
+too, before the repository has a config to carry it.
+
 ## fn load_rig_source
 Every reader that needs the source alone, the commit, the source check, and the scaffold,
 reads it here rather than through `load_index`, so an index whose entries this build no

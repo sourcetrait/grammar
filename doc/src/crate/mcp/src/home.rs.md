@@ -11,9 +11,12 @@ environment, set alike on every machine the user works on, while the standard
 variables are whatever a machine's login sets. A UENV tree with no standard
 variable, such as `UENV_USR_SECRET`, is not a home the host reads.
 
-## const TMP_DEFAULT
+## fn tmp_default
 Where the temporary directory sits when neither `UENV_USR_TMP` nor `TMPDIR`
-names one, as Rust's own `temp_dir` has it.
+names one: `/tmp` on Unix, and elsewhere Rust's `temp_dir`, on Windows the
+system's own `GetTempPath2W`, `TMP`, then `TEMP`, then the user's profile. A
+fixed `/tmp` on Windows would name `\tmp` on the current drive, which no
+Windows system keeps.
 
 ## static BASE_DIRS
 `directories::BaseDirs` honors `$XDG_CACHE_HOME` and `$XDG_DATA_HOME`, and with

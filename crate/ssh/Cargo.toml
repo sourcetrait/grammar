@@ -42,7 +42,6 @@ test-hooks = ["sourcetrait_grammar_engine/test-hooks"]
 [dependencies]
 clap = { workspace = true, optional = true }
 futures-util.workspace = true
-nix.workspace = true
 serde.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
@@ -53,6 +52,12 @@ sourcetrait_grammar_engine.workspace = true
 sourcetrait_grammar_operator.workspace = true
 sourcetrait_grammar_protocol.workspace = true
 sourcetrait_grammar_scratch.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+nix.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = ["Win32_System_Console"] }
 
 [dev-dependencies]
 directories.workspace = true

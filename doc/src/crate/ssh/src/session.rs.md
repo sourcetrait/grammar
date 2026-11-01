@@ -2,11 +2,11 @@
 
 The worker's one session, on its stdin and stdout. A worker serves one session
 and ends with it: the end of its stdin, the MCP's close, an idle window with no
-frame, or a stop signal ends the session, cancels its calls, drains them for
-`DRAIN_DEADLINE`, removes the session's call cache entries, and returns, the
-runtime's shutdown then removing the scratch and releasing the lock. Nothing
-the session made outlives it, as a command's work ends with its SSH session
-(User).
+frame, or a stop signal, a console event on Windows, ends the session, cancels
+its calls, drains them for `DRAIN_DEADLINE`, removes the session's call cache
+entries, and returns, the runtime's shutdown then removing the scratch and
+releasing the lock. Nothing the session made outlives it, as a command's work
+ends with its SSH session (User).
 
 ## enum SessionEnd
 How the session ended, logged as the worker stops; every end is an ordinary
@@ -37,8 +37,18 @@ Frames go in queue order; the writer ends once nothing can queue, the session
 over and every request's task gone.
 
 ## struct Stops
-SIGTERM, SIGINT, and SIGHUP end the session as its end does, so a worker a
-user or a service stops leaves no call running.
+On Unix, SIGTERM, SIGINT, and SIGHUP end the session as its end does, so a
+worker a user or a service stops leaves no call running.
+
+On Windows the console's events stand in for them: `CTRL_BREAK` as TERM,
+`CTRL_C` as INT, and `CTRL_CLOSE` as HUP. Once taken, break and Ctrl-C no
+longer end the process at once, as the console's default handler would. After
+a close event the system ends the process within the console's close time-out,
+five seconds by default, while an end may spend `DRAIN_DEADLINE` draining its
+calls and as long again on its writer, so a close can cut the end off before
+the runtime's shutdown removes the scratch and releases the lock. A process
+without a console receives none of these events, and its session ends by its
+stream, the MCP's close, or the idle window.
 
 ## struct Served
 The ids in flight and the calls' nonces. A request whose id is in flight ends

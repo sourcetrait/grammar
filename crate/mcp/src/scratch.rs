@@ -1,5 +1,6 @@
 //! The host's own scratch directories: one for bulk, one transient, a process.
 use crate::*;
+#[cfg(unix)]
 use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 
 /// A scratch directory's name prefix, which the sweep matches.
@@ -8,7 +9,8 @@ const SCRATCH_PREFIX: &str = "grammar-mcp.";
 /// A Channel inbox's name prefix, the host's nom or a random suffix after it.
 const CHANNEL_PREFIX: &str = "grammar.channel.";
 
-/// A scratch directory's mode: its owner's alone.
+/// A scratch directory's mode on Unix, its owner's alone.
+#[cfg(unix)]
 const SCRATCH_MODE: u32 = 0o700;
 
 /// This process's scratch directories, made once at startup.
@@ -67,14 +69,14 @@ pub(crate) fn make_channel_dir(nom: &str) -> Result<PathBuf, String> {
         .and_then(Path::parent)
         .ok_or_else(|| "the host has no scratch directory".to_string())?;
     let named = base.join(format!("{CHANNEL_PREFIX}{nom}"));
-    let dir = match fs::DirBuilder::new().mode(SCRATCH_MODE).create(&named) {
+    #[cfg_attr(not(unix), allow(unused_mut))]
+    let mut builder = fs::DirBuilder::new();
+    #[cfg(unix)]
+    builder.mode(SCRATCH_MODE);
+    let dir = match builder.create(&named) {
         Ok(()) => named,
-        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => tempfile::Builder::new()
-            .prefix(CHANNEL_PREFIX)
-            .permissions(fs::Permissions::from_mode(SCRATCH_MODE))
-            .tempdir_in(base)
-            .map_err(|e| format!("make a Channel inbox in {}: {e}", base.display()))?
-            .keep(),
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => private_tempdir(base, CHANNEL_PREFIX)
+            .map_err(|e| format!("make a Channel inbox in {}: {e}", base.display()))?,
         Err(e) => return Err(format!("make {}: {e}", named.display())),
     };
     CHANNEL_DIRS.lock().unwrap_or_else(|e| e.into_inner()).push(dir.clone());
@@ -110,9 +112,9 @@ fn remove_dir(dir: &Path) {
     }
 }
 
-/// The temporary directory: `UENV_USR_TMP`, else `TMPDIR`, else `/tmp`.
+/// The temporary directory: `UENV_USR_TMP`, else `TMPDIR`, else the platform's.
 fn tmp_base() -> PathBuf {
-    home_var("UENV_USR_TMP").unwrap_or_else(|| PathBuf::from(TMP_DEFAULT))
+    home_var("UENV_USR_TMP").unwrap_or_else(tmp_default)
 }
 
 /// The runtime directory: `UENV_USR_TRANSIENT`, else `XDG_RUNTIME_DIR`.
@@ -120,19 +122,24 @@ fn runtime_base() -> Option<PathBuf> {
     home_var("UENV_USR_TRANSIENT")
 }
 
-/// One scratch directory in `base`, mode 0700 from creation, its owner marked.
+/// One scratch directory in `base` under the sweep's prefix, its owner marked.
 fn make_dir(base: &Path) -> Result<PathBuf, String> {
     let made = match sourcetrait_grammar_scratch::Owner::current() {
         Ok(owner) => {
             sourcetrait_grammar_scratch::OwnedDir::create(base, SCRATCH_PREFIX, &owner).map(|dir| dir.path().to_path_buf())
         }
-        Err(_) => tempfile::Builder::new()
-            .prefix(SCRATCH_PREFIX)
-            .permissions(fs::Permissions::from_mode(SCRATCH_MODE))
-            .tempdir_in(base)
-            .map(|dir| dir.keep()),
+        Err(_) => private_tempdir(base, SCRATCH_PREFIX),
     };
     made.map_err(|e| format!("make a scratch directory in {}: {e}", base.display()))
+}
+
+/// A kept directory in `base` named `prefix` and a random suffix.
+fn private_tempdir(base: &Path, prefix: &str) -> io::Result<PathBuf> {
+    let mut builder = tempfile::Builder::new();
+    builder.prefix(prefix);
+    #[cfg(unix)]
+    builder.permissions(fs::Permissions::from_mode(SCRATCH_MODE));
+    builder.tempdir_in(base).map(|dir| dir.keep())
 }
 
 /// Sweep `base` of scratch whose owner is proven gone, reporting what it keeps.

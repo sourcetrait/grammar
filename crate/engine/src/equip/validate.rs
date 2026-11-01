@@ -172,10 +172,26 @@ impl Zone {
     }
 }
 
+/// Whether a file runs as a program: any execute bit set.
+#[cfg(unix)]
 fn is_executable(path: &std::path::Path) -> bool {
     fs::metadata(path)
         .map(|m| std::os::unix::fs::PermissionsExt::mode(&m.permissions()) & 0o111 != 0)
         .unwrap_or(false)
+}
+
+/// Whether a file runs as a program: its extension is one `PATHEXT` names.
+#[cfg(not(unix))]
+fn is_executable(path: &std::path::Path) -> bool {
+    /// `PATHEXT`'s value where the environment holds none.
+    const DEFAULT_PATHEXT: &str = ".COM;.EXE;.BAT;.CMD";
+    let Some(ext) = path.extension().and_then(|e| e.to_str()) else {
+        return false;
+    };
+    let pathext = std::env::var("PATHEXT").unwrap_or_else(|_| DEFAULT_PATHEXT.to_string());
+    pathext
+        .split(';')
+        .any(|known| known.trim_start_matches('.').eq_ignore_ascii_case(ext))
 }
 
 fn ext_lower(path: &std::path::Path) -> Option<String> {
@@ -322,7 +338,10 @@ impl SelfView {
         for kind in kinds {
             let link = view.base.join(EQUIP_DIR).join(equip).join(kind);
             fs::create_dir_all(link.parent()?).ok()?;
+            #[cfg(unix)]
             std::os::unix::fs::symlink(source_dir.join(kind), &link).ok()?;
+            #[cfg(windows)]
+            std::os::windows::fs::symlink_dir(source_dir.join(kind), &link).ok()?;
         }
         Some(view)
     }

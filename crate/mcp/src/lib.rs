@@ -74,7 +74,7 @@ pub(crate) use crate::{
         default_work_dir, expand_defaults, expand_path,
     },
     home::{
-        TMP_DEFAULT, base_dirs, check_base_dirs, env_dir, home_var, home_vars, uenv_partner,
+        base_dirs, check_base_dirs, env_dir, home_var, home_vars, tmp_default, uenv_partner,
         uenv_standard,
     },
     scratch::{

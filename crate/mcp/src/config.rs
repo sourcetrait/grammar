@@ -287,9 +287,11 @@ pub(crate) fn expand_path(raw: &Path) -> Result<PathBuf, String> {
     .map_err(|e| format!("expand {}: ${}: {}", raw.display(), e.var_name, e.cause))
 }
 
-/// `$HOME`, read per call: the tilde source and the spec defaults' base.
+/// `$HOME`, else Windows' `USERPROFILE`, read per call: the tilde's source.
 fn home_dir() -> Option<String> {
-    std::env::var("HOME").ok()
+    std::env::var("HOME")
+        .ok()
+        .or_else(|| cfg!(windows).then(|| std::env::var("USERPROFILE").ok()).flatten())
 }
 
 /// An unset variable's stand-in: a UENV home's standard variable, else a default.
@@ -312,10 +314,10 @@ pub(crate) fn expand_defaults() -> Vec<ExpandDefault> {
         .collect()
 }
 
-/// The default for an unset standard home: the XDG spec's, and `TMPDIR`'s `/tmp`.
+/// The default for an unset standard home: the XDG spec's, and `TMPDIR`'s own.
 pub(crate) fn spec_default(var: &str) -> Option<PathBuf> {
     let home_relative = match var {
-        "TMPDIR" => return Some(PathBuf::from(TMP_DEFAULT)),
+        "TMPDIR" => return Some(tmp_default()),
         "XDG_CACHE_HOME" => ".cache",
         "XDG_CONFIG_HOME" => ".config",
         "XDG_DATA_HOME" => ".local/share",

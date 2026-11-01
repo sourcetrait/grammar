@@ -18,6 +18,7 @@ name = "nu_plugin_eye"
 path = "src/main.rs"
 
 [dependencies]
+dunce.workspace = true
 ignore.workspace = true
 nu-glob.workspace = true
 nu-path.workspace = true

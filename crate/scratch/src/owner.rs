@@ -1,6 +1,5 @@
 //! A scratch directory's owner: the marker naming the process that made it.
 use crate::*;
-use std::os::unix::fs::OpenOptionsExt;
 
 /// The marker's file in its directory.
 pub(crate) const MARKER_FILE: &str = "owner.nuon";
@@ -22,8 +21,9 @@ const BOOT_ID: &str = "/proc/sys/kernel/random/boot_id";
 #[cfg(target_os = "linux")]
 const PID_NAMESPACE: &str = "/proc/self/ns/pid";
 
-/// The source of a nonce's random bytes.
-const URANDOM: &str = "/dev/urandom";
+/// Windows' System process, running from boot, its creation time the boot's.
+#[cfg(windows)]
+const WINDOWS_SYSTEM_PID: u32 = 4;
 
 /// The process that made a scratch directory, as its marker names it.
 #[derive(Debug, Clone, PartialEq, Eq, ser::Serialize, ser::Deserialize)]
@@ -83,12 +83,9 @@ impl Owner {
         dir: &Path,
     ) -> io::Result<()> {
         let text = nuval::to_nuon(self, NuonStyle::Default).map_err(|e| io::Error::other(e.to_string()))?;
-        let mut file = fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .custom_flags(OFlag::O_NOFOLLOW.bits())
-            .open(dir.join(MARKER_FILE))?;
+        let mut options = fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        let mut file = private_file(no_follow(&mut options)).open(dir.join(MARKER_FILE))?;
         file.write_all(format!("{text}\n").as_bytes())
     }
 
@@ -115,9 +112,16 @@ impl Owner {
     }
 }
 
-/// The effective UID this process runs as.
+/// The effective UID this process runs as, 0 on Windows, which names users by SID.
 pub fn current_uid() -> u32 {
-    nix::unistd::geteuid().as_raw()
+    #[cfg(unix)]
+    {
+        nix::unistd::geteuid().as_raw()
+    }
+    #[cfg(not(unix))]
+    {
+        0
+    }
 }
 
 /// This machine's running boot, apart from every other boot; none where unread.
@@ -145,7 +149,11 @@ pub(crate) fn current_boot() -> Option<String> {
         let id = std::str::from_utf8(&buf[..len]).ok()?.trim_end_matches('\0').trim();
         (!id.is_empty()).then(|| id.to_string())
     }
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    #[cfg(windows)]
+    {
+        sourcetrait_process::process(WINDOWS_SYSTEM_PID).map(|system| system.start_time.to_string())
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
     {
         None
     }
@@ -163,19 +171,18 @@ pub(crate) fn current_pid_namespace() -> Option<String> {
     }
 }
 
-/// Sixteen random bytes as lower-case hex.
+/// Sixteen random bytes from the system's generator, as lower-case hex.
 fn random_nonce() -> io::Result<String> {
     let mut bytes = [0u8; 16];
-    fs::File::open(URANDOM)?.read_exact(&mut bytes)?;
+    getrandom::fill(&mut bytes).map_err(|e| io::Error::other(e.to_string()))?;
     Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
 }
 
 /// A marker's text: no symlink followed, never waited on, plain, and bounded.
 fn read_marker(path: &Path) -> Result<Option<String>, MarkerError> {
-    let opened = fs::OpenOptions::new()
-        .read(true)
-        .custom_flags((OFlag::O_NOFOLLOW | OFlag::O_NONBLOCK).bits())
-        .open(path);
+    let mut options = fs::OpenOptions::new();
+    options.read(true);
+    let opened = no_follow(&mut options).open(path);
     let file = match opened {
         Ok(file) => file,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),

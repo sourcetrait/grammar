@@ -2,6 +2,7 @@
 use crate::*;
 
 /// The temporary home's default where neither of its variables names one.
+#[cfg(not(windows))]
 const TMP_DEFAULT: &str = "/tmp";
 
 /// One home: its UENV variable, the standard one behind it, and its default.
@@ -15,23 +16,43 @@ struct HomeSpec {
 /// Where a home falls back to when neither variable names it.
 enum Default {
     /// A directory beneath `HOME`.
+    #[cfg(not(windows))]
     UnderHome(&'static str),
     /// An absolute directory of its own.
+    #[cfg(not(windows))]
     Absolute(&'static str),
+    /// A third variable, as Windows reads `TEMP` after `TMP`.
+    #[cfg(windows)]
+    Var(&'static str),
     /// None: the home stays unresolved.
     Unset,
 }
 
+/// The temporary home: its UENV variable, else `TMPDIR`, else `/tmp`.
+#[cfg(not(windows))]
 const TMP: HomeSpec = HomeSpec { name: "tmp", uenv: "UENV_USR_TMP", standard: Some("TMPDIR"), default: Default::Absolute(TMP_DEFAULT) };
+
+/// The temporary home: its UENV variable, else `TMP`, else `TEMP`, Windows' order.
+#[cfg(windows)]
+const TMP: HomeSpec = HomeSpec { name: "tmp", uenv: "UENV_USR_TMP", standard: Some("TMP"), default: Default::Var("TEMP") };
+
 const RUNTIME: HomeSpec = HomeSpec { name: "runtime", uenv: "UENV_USR_TRANSIENT", standard: Some("XDG_RUNTIME_DIR"), default: Default::Unset };
 
 /// The data home: its UENV variable, else XDG's, as the MCP resolves it.
-#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+#[cfg(not(any(target_os = "macos", target_os = "ios", windows)))]
 const DATA: HomeSpec = HomeSpec { name: "data", uenv: "UENV_USR_DATA", standard: Some("XDG_DATA_HOME"), default: Default::UnderHome(".local/share") };
 
 /// The cache home: its UENV variable, else XDG's, as the MCP resolves it.
-#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+#[cfg(not(any(target_os = "macos", target_os = "ios", windows)))]
 const CACHE: HomeSpec = HomeSpec { name: "cache", uenv: "UENV_USR_CACHE", standard: Some("XDG_CACHE_HOME"), default: Default::UnderHome(".cache") };
+
+/// The data home: its UENV variable, else `APPDATA`, as the MCP resolves it.
+#[cfg(windows)]
+const DATA: HomeSpec = HomeSpec { name: "data", uenv: "UENV_USR_DATA", standard: Some("APPDATA"), default: Default::Unset };
+
+/// The cache home: its UENV variable, else `LOCALAPPDATA`, as the MCP resolves it.
+#[cfg(windows)]
+const CACHE: HomeSpec = HomeSpec { name: "cache", uenv: "UENV_USR_CACHE", standard: Some("LOCALAPPDATA"), default: Default::Unset };
 
 /// The data home: its UENV variable, else the platform's, as the MCP resolves it.
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -106,6 +127,7 @@ fn resolve_home(
     let chosen = match named(env, spec.uenv, diagnostics).or_else(|| spec.standard.and_then(|standard| named(env, standard, diagnostics))) {
         Some(path) => Some(path),
         None => match spec.default {
+            #[cfg(not(windows))]
             Default::UnderHome(rel) => match named(env, "HOME", diagnostics) {
                 Some(home) => Some(home.join(rel)),
                 None => {
@@ -115,7 +137,10 @@ fn resolve_home(
                     });
                 }
             },
+            #[cfg(not(windows))]
             Default::Absolute(path) => Some(PathBuf::from(path)),
+            #[cfg(windows)]
+            Default::Var(var) => named(env, var, diagnostics),
             Default::Unset => None,
         },
     };

@@ -15,7 +15,12 @@ fn the_engine_homes_are_the_mcps_own() {
     std::fs::create_dir_all(&tmp).unwrap();
     env.insert("UENV_USR_TMP".to_string(), tmp.to_string_lossy().into_owned());
     env.insert("HOME".to_string(), home.to_string_lossy().into_owned());
-    let xdg = [("XDG_DATA_HOME", root.path().join("xdg-data")), ("XDG_CACHE_HOME", root.path().join("xdg-cache"))];
+    // On Windows both read the known folders, the worker through their variables.
+    #[cfg(windows)]
+    for var in ["APPDATA", "LOCALAPPDATA"] {
+        env.insert(var.to_string(), std::env::var(var).expect("Windows names it"));
+    }
+    let xdg =[("XDG_DATA_HOME", root.path().join("xdg-data")), ("XDG_CACHE_HOME", root.path().join("xdg-cache"))];
     for with_xdg in [false, true] {
         unsafe {
             std::env::set_var("HOME", &home);

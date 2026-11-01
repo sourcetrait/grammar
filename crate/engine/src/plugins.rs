@@ -56,7 +56,7 @@ pub(crate) fn bundled_plugins() -> Vec<PathBuf> {
                     .and_then(|name| name.to_str())
                     .is_some_and(|name| name.starts_with(PLUGIN_PREFIX))
         })
-        .filter_map(|path| path.canonicalize().ok())
+        .filter_map(|path| dunce::canonicalize(&path).ok())
         .collect();
     found.sort();
     found
@@ -88,18 +88,50 @@ fn needs_registration(
     registered_at: Option<SystemTime>,
 ) -> bool {
     let listed = contents.is_some_and(|c| c.plugins.iter().any(|item| item.filename == bin));
-    let changed_at = fs::metadata(bin).ok().map(|metadata| changed_time(&metadata));
+    let changed_at = changed_time(bin);
     match (listed, registered_at, changed_at) {
         (true, Some(registered), Some(changed)) => changed > registered,
         _ => true,
     }
 }
 
-/// When a file last changed on this filesystem, which no archive can set.
-fn changed_time(metadata: &fs::Metadata) -> SystemTime {
+/// When `path` last changed here: its inode's ctime, which no copy can set.
+#[cfg(unix)]
+fn changed_time(path: &Path) -> Option<SystemTime> {
+    let metadata = fs::metadata(path).ok()?;
     let seconds = u64::try_from(metadata.ctime()).unwrap_or(0);
     let nanos = u32::try_from(metadata.ctime_nsec()).unwrap_or(0);
-    UNIX_EPOCH + Duration::new(seconds, nanos)
+    Some(UNIX_EPOCH + Duration::new(seconds, nanos))
+}
+
+/// When `path` last changed here: its NTFS change time, which no copy can set.
+#[cfg(windows)]
+fn changed_time(path: &Path) -> Option<SystemTime> {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{FILE_BASIC_INFO, FileBasicInfo, GetFileInformationByHandleEx};
+    /// 100 ns intervals from 1601, Windows' epoch, to 1970.
+    const EPOCH_GAP: u64 = 116_444_736_000_000_000;
+    let file = fs::File::open(path).ok()?;
+    let mut info = FILE_BASIC_INFO {
+        CreationTime: 0,
+        LastAccessTime: 0,
+        LastWriteTime: 0,
+        ChangeTime: 0,
+        FileAttributes: 0,
+    };
+    let read = unsafe {
+        GetFileInformationByHandleEx(
+            file.as_raw_handle(),
+            FileBasicInfo,
+            (&mut info as *mut FILE_BASIC_INFO).cast(),
+            std::mem::size_of::<FILE_BASIC_INFO>() as u32,
+        )
+    };
+    if read == 0 {
+        return None;
+    }
+    let ticks = u64::try_from(info.ChangeTime).ok()?.checked_sub(EPOCH_GAP)?;
+    Some(UNIX_EPOCH + Duration::from_nanos(ticks.saturating_mul(100)))
 }
 
 /// Run nushell's own `plugin add` for each binary, into `registry`.

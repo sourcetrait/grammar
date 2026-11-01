@@ -75,7 +75,7 @@ pub(crate) use crate::{
         },
         store::{
             EQUIP_DIR, EQUIP_KINDS, KIND_LIB, KIND_RIG, META_FILE, check_equip_name, equip_dir,
-            index_to_nuon, is_valid_equip, is_valid_ident, is_valid_module_path, keypair_dir,
+            git_command, index_to_nuon, is_valid_equip, is_valid_ident, is_valid_module_path, keypair_dir,
             lib_meta_path, load_lib_index, load_rig_source, meta_to_nuon, rig_docs_dir, run_git,
         },
         validate::{HELP_WORDS, NAME_DENYLIST, is_reserved_term, validate_equip_source},
@@ -117,7 +117,6 @@ pub(crate) use std::{
     fs,
     io::{self, Write},
     ops::ControlFlow,
-    os::unix::fs::MetadataExt,
     panic::{AssertUnwindSafe, catch_unwind},
     path::{Path, PathBuf},
     process,
@@ -127,6 +126,8 @@ pub(crate) use std::{
     },
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
+#[cfg(unix)]
+pub(crate) use std::os::unix::fs::MetadataExt;
 
 pub(crate) mod nu {
     pub(crate) use nu_cmd_lang::create_default_context;
