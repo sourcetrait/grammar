@@ -55,6 +55,14 @@ Every position or slice the validator or the lint takes from a parse is measured
 here, which is what stays right when the engine holds files of its own, the standard
 library's first.
 
+The lookup goes by the name `parse` files the text under, `expand_to_real_path` of
+the name it was handed, never that name itself. The expansion rebuilds the path from
+its components, so on Windows a path holding both separators, an equip's
+`author/name` joined under a backslashed root, is filed with backslashes alone. A
+lookup by the given name found nothing there, the start fell to 0, every span read
+the wrong text, and the reserved-term scan passed a rig holding `main`. A name the
+working set doesn't hold is a defect, asserted in debug builds so the tests catch it.
+
 ## fn span_text
 `None` for a span outside the file, so a span placed elsewhere reads as nothing rather
 than as some other file's text.

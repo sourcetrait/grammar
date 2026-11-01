@@ -1,7 +1,8 @@
 //! External teardown: a timed-out eval's external child is reaped (the timeout ->
 //! cancel -> tree-kill path), and so is that child's own child. In-process:
 //! `nu_timeout` drives the real dispatch, and the reap is asserted by scanning the
-//! processes' command lines, from /proc on Linux and from `ps` elsewhere.
+//! processes' command lines: from /proc on Linux, from `ps` on the other Unixes, and
+//! from PowerShell's process query on Windows.
 
 use std::time::{Duration, Instant};
 
@@ -25,12 +26,28 @@ fn any_cmdline_contains(marker: &str) -> bool {
 }
 
 /// Any command line `ps` lists containing `marker`.
-#[cfg(not(target_os = "linux"))]
+#[cfg(all(unix, not(target_os = "linux")))]
 fn any_cmdline_contains(marker: &str) -> bool {
     let out = std::process::Command::new("ps")
         .args(["-A", "-o", "args="])
         .output()
         .expect("run ps");
+    String::from_utf8_lossy(&out.stdout).lines().any(|line| line.contains(marker))
+}
+
+/// Any command line Windows' process table holds containing `marker`, read by
+/// PowerShell's CIM query, Windows having no `ps`.
+#[cfg(windows)]
+fn any_cmdline_contains(marker: &str) -> bool {
+    let out = std::process::Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "Get-CimInstance Win32_Process | ForEach-Object { $_.CommandLine }",
+        ])
+        .output()
+        .expect("run powershell");
     String::from_utf8_lossy(&out.stdout).lines().any(|line| line.contains(marker))
 }
 
@@ -51,33 +68,46 @@ fn wait_until_gone(marker: &str, secs: u64) -> bool {
 #[test]
 fn timed_out_external_is_reaped() {
     let s = TestServer::new();
-    // The eval blocks on `^sleep 31337`; the 500ms timeout triggers cancel + a
-    // tree-kill of the tracked external, which also unblocks the waiting thread.
+    // The eval blocks on an external that runs for hours, `sleep 31337` on Unix and,
+    // Windows having no sleep, a `ping` of 31337 echoes there; the 500ms timeout
+    // triggers cancel + a tree-kill of the tracked external, which also unblocks the
+    // waiting thread.
+    let external = if cfg!(windows) { "^ping -n 31337 127.0.0.1" } else { "^sleep 31337" };
     let env = s.execute_timeout(
-        "def execute [data: nothing]: nothing -> record<out: int> {\n    ^sleep 31337\n    { out: 0 }\n}",
+        &format!(
+            "def execute [data: nothing]: nothing -> record<out: int> {{\n    {external}\n    {{ out: 0 }}\n}}"
+        ),
         "null",
         Some("500ms"),
     );
     assert_eq!(error_kind(&env), Some("thread::timeout"), "got {env}");
     assert!(
         wait_until_gone("31337", 10),
-        "the timed-out `sleep 31337` external should be reaped by the tree-kill",
+        "the timed-out external marked 31337 should be reaped by the tree-kill",
     );
 }
 
 #[test]
 fn timed_out_external_tree_is_reaped() {
     let s = TestServer::new();
-    // The tracked external is `xargs`; the `sleep 31338` it starts is its own child,
-    // which only the tree-kill's walk of the process table reaches.
+    // The tracked external starts the long-running one as its own child, which only
+    // the tree-kill's walk of the process table reaches: `xargs` starting
+    // `sleep 31338` on Unix, `cmd` starting a `ping` of 31338 echoes on Windows.
+    let external = if cfg!(windows) {
+        "^cmd /c ping -n 31338 127.0.0.1"
+    } else {
+        "'31338' | ^xargs sleep"
+    };
     let env = s.execute_timeout(
-        "def execute [data: nothing]: nothing -> record<out: int> {\n    '31338' | ^xargs sleep\n    { out: 0 }\n}",
+        &format!(
+            "def execute [data: nothing]: nothing -> record<out: int> {{\n    {external}\n    {{ out: 0 }}\n}}"
+        ),
         "null",
         Some("500ms"),
     );
     assert_eq!(error_kind(&env), Some("thread::timeout"), "got {env}");
     assert!(
         wait_until_gone("31338", 10),
-        "the `sleep 31338` the timed-out `xargs` started should be reaped with it",
+        "the child marked 31338 the timed-out external started should be reaped with it",
     );
 }

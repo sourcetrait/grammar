@@ -63,16 +63,28 @@ fn env_mutation_persists_across_stateful_calls(_t: &testing::Testable<'_, '_, '_
 
 fn cd_persists_across_stateful_calls(_t: &testing::Testable<'_, '_, '_>) {
     let s = TESTING.harness();
+    // A directory each platform has: /tmp on Unix, the user's temp dir on Windows,
+    // its trailing separator dropped as `cd` drops it.
+    let target = if cfg!(windows) {
+        let temp: std::path::PathBuf = std::env::temp_dir().components().collect();
+        temp.to_str().expect("a UTF-8 path").to_string()
+    } else {
+        "/tmp".to_string()
+    };
     let first = s.execute(
         "def --env execute [data: record<target: string>]: nothing -> record<cwd: string> {\n    cd $data.target\n    { cwd: (pwd) }\n}",
-        "{target: /tmp}",
+        &format!("{{target: {target:?}}}"),
     );
     assert!(!has_error(&first), "got {first}");
     let second = s.execute(
         "def --env execute [data: nothing]: nothing -> record<cwd: string> { { cwd: $env.PWD } }",
         "null",
     );
-    assert_eq!(second["result"], nuon(r#"{cwd: "/tmp"}"#), "cd should propagate; got {second}");
+    assert_eq!(
+        second["result"],
+        nuon(&format!("{{cwd: {target:?}}}")),
+        "cd should propagate; got {second}",
+    );
 }
 
 /// env and `cd` carry over, which is the stateful lane's purpose; a def made inside
@@ -126,13 +138,20 @@ fn stateful_state_does_not_leak_into_the_pool(_t: &testing::Testable<'_, '_, '_>
 fn a_stateful_cd_does_not_move_the_host_process_cwd(_t: &testing::Testable<'_, '_, '_>) {
     let s = TESTING.harness();
     let before = std::env::current_dir().expect("read the process cwd");
+    // A directory each platform has, never the process cwd: /etc on Unix, the system
+    // root on Windows.
+    let dir = if cfg!(windows) {
+        std::env::var("SystemRoot").expect("Windows names its system root")
+    } else {
+        "/etc".to_string()
+    };
     let env = s.execute(
         "def --env execute [data: record<dir: string>]: nothing -> record<pwd: string> {\n    cd $data.dir\n    { pwd: $env.PWD }\n}",
-        "{dir: /etc}",
+        &format!("{{dir: {dir:?}}}"),
     );
     assert_eq!(
         env["result"],
-        nuon(r#"{pwd: "/etc"}"#),
+        nuon(&format!("{{pwd: {dir:?}}}")),
         "cd should still set $env.PWD; got {env}",
     );
     let after = std::env::current_dir().expect("read the process cwd");

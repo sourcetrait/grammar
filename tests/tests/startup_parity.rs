@@ -103,8 +103,17 @@ impl Parity {
         } else {
             home
         };
-        let (dirs, _) = resolve_paths(&TestEnv::new(vars).with_home_dir(home), &overrides)
-            .expect("nushell resolves the pinned env");
+        let env = TestEnv::new(vars).with_home_dir(home);
+        // Windows' vendor autoload dirs open with ProgramData's, which nushell and the
+        // host read from the system, never from a variable this env pins.
+        #[cfg(windows)]
+        let env = match <nu_config::SystemEnv as nu_config::EnvAccess>::program_data_dir(
+            &nu_config::SystemEnv,
+        ) {
+            Some(dir) => env.with_program_data_dir(dir),
+            None => env,
+        };
+        let (dirs, _) = resolve_paths(&env, &overrides).expect("nushell resolves the pinned env");
         Self {
             host,
             dirs,

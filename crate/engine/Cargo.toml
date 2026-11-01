@@ -26,6 +26,7 @@ nu-command.workspace = true
 nu-config.workspace = true
 nu-engine.workspace = true
 nu-parser.workspace = true
+nu-path.workspace = true
 nu-plugin-engine.workspace = true
 nu-protocol.workspace = true
 nu-std.workspace = true

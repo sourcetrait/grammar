@@ -60,38 +60,56 @@ fn call_source(
         .expect("a call source builds")
 }
 
+/// The call's target as the build joins it, quoted as the string the source carries:
+/// `"/ns/equip/acme/util/rig/net/ping"` on Unix, each join a backslash on Windows.
+fn target(root: &Path, rig: &str, module_path: &str, name: &str) -> String {
+    let path = root.join(rig).join("rig").join(module_path).join(name);
+    format!("{:?}", path.to_str().expect("a UTF-8 path"))
+}
+
 #[test]
 fn call_source_takes_the_data_literal() {
     let got = call_source("sourcetrait/calc", "math", "double", "{x: 6}", None);
-    let expected = "overlay use --prefix \"/ns/equip/sourcetrait/calc/rig/math/double\" as __call\n__call {x: 6}\n";
+    let expected = format!(
+        "overlay use --prefix {} as __call\n__call {{x: 6}}\n",
+        target(root(), "sourcetrait/calc", "math", "double"),
+    );
     assert_eq!(got, expected);
 }
 
 #[test]
 fn call_source_nested_module_path() {
     let got = call_source("sourcetrait/calc", "math/trig", "sin", "{x: 1}", None);
-    let expected = "overlay use --prefix \"/ns/equip/sourcetrait/calc/rig/math/trig/sin\" as __call\n__call {x: 1}\n";
+    let expected = format!(
+        "overlay use --prefix {} as __call\n__call {{x: 1}}\n",
+        target(root(), "sourcetrait/calc", "math/trig", "sin"),
+    );
     assert_eq!(got, expected);
 }
 
 #[test]
 fn call_source_keeps_an_empty_record_and_passes_null_as_given() {
+    let ping = target(root(), "acme/util", "net", "ping");
     let empty = call_source("acme/util", "net", "ping", "{}", None);
-    assert_eq!(empty, "overlay use --prefix \"/ns/equip/acme/util/rig/net/ping\" as __call\n__call {}\n");
+    assert_eq!(empty, format!("overlay use --prefix {ping} as __call\n__call {{}}\n"));
     let null = call_source("acme/util", "net", "ping", "null", None);
-    assert_eq!(null, "overlay use --prefix \"/ns/equip/acme/util/rig/net/ping\" as __call\n__call null\n");
+    assert_eq!(null, format!("overlay use --prefix {ping} as __call\n__call null\n"));
 }
 
 #[test]
 fn call_source_passes_the_timeout_to_a_main_that_takes_it() {
     let got = call_source("acme/util", "net", "ping", "null", Some("30sec"));
-    assert_eq!(got, "overlay use --prefix \"/ns/equip/acme/util/rig/net/ping\" as __call\n__call null 30sec\n");
+    let ping = target(root(), "acme/util", "net", "ping");
+    assert_eq!(got, format!("overlay use --prefix {ping} as __call\n__call null 30sec\n"));
 }
 
 #[test]
 fn call_source_keyword_named_target_is_aliased() {
     let got = call_source("sourcetrait/demo", "almost/rpg", "run", "{x: 6}", None);
-    let expected = "overlay use --prefix \"/ns/equip/sourcetrait/demo/rig/almost/rpg/run\" as __call\n__call {x: 6}\n";
+    let expected = format!(
+        "overlay use --prefix {} as __call\n__call {{x: 6}}\n",
+        target(root(), "sourcetrait/demo", "almost/rpg", "run"),
+    );
     assert_eq!(got, expected);
     assert!(
         !expected.contains("\nrun "),
@@ -102,7 +120,9 @@ fn call_source_keyword_named_target_is_aliased() {
 /// A root holding a space still names one path, the target a string literal.
 #[test]
 fn call_source_quotes_a_root_holding_a_space() {
-    let got = build_call_source(Path::new("/my ns/equip"), "acme/util", "net", "ping", "{}", None)
+    let root = Path::new("/my ns/equip");
+    let got = build_call_source(root, "acme/util", "net", "ping", "{}", None)
         .expect("a call source builds");
-    assert_eq!(got, "overlay use --prefix \"/my ns/equip/acme/util/rig/net/ping\" as __call\n__call {}\n");
+    let ping = target(root, "acme/util", "net", "ping");
+    assert_eq!(got, format!("overlay use --prefix {ping} as __call\n__call {{}}\n"));
 }

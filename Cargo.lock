@@ -6647,6 +6647,7 @@ dependencies = [
  "nu-config",
  "nu-engine",
  "nu-parser",
+ "nu-path",
  "nu-plugin-engine",
  "nu-protocol",
  "nu-std",

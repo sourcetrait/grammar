@@ -38,8 +38,12 @@ fn a_result_type_mismatch_surfaces() {
 #[test]
 fn external_command_runs() {
     let s = TESTING.harness();
+    // An external each platform carries: printf on Unix, cmd's echo on Windows.
+    let external = if cfg!(windows) { "^cmd /c echo hello" } else { "^printf hello" };
     let env = s.execute(
-        "def execute [data: nothing]: nothing -> record<out: string> { { out: (^printf hello | str trim) } }",
+        &format!(
+            "def execute [data: nothing]: nothing -> record<out: string> {{ {{ out: ({external} | str trim) }} }}"
+        ),
         "null",
     );
     assert_eq!(env["result"], nuon("{out: hello}"), "got {env}");

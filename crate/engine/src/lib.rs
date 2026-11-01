@@ -142,6 +142,7 @@ pub(crate) mod nu {
     pub(crate) use nu_engine::command_prelude::Call;
     pub(crate) use nu_parser::parse;
     pub(crate) use nu_parser::{FlatShape, flatten_block};
+    pub(crate) use nu_path::expand_to_real_path;
     pub(crate) use nu_plugin_engine::load_plugin_file;
     pub(crate) use nu_protocol::{
         BlockId, ByteStreamSource, ByteStreamType, Category, CollectionColumns, Config, DeclId,

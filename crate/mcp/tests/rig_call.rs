@@ -1,4 +1,6 @@
 
+use std::path::Path;
+
 use sourcetrait_grammar_mcp::guts::{
     TestServer, error_kind, has_error, nuon, rig_block, valid_function_source, write_source,
 };
@@ -202,7 +204,7 @@ fn inspect_returns_function_doc() {
     assert!(
         doc["src"]
             .as_str()
-            .is_some_and(|p| p.ends_with("/equip/sourcetrait/inspectlib/rig/math/double/mod.nu")),
+            .is_some_and(|p| Path::new(p).ends_with("equip/sourcetrait/inspectlib/rig/math/double/mod.nu")),
         "src is the COMMITTED canonical mod.nu holding main; got {env}",
     );
     assert!(
@@ -233,7 +235,7 @@ fn inspect_rig_root_and_module() {
     assert!(
         lib["result"]["doc"]["srcdir"]
             .as_str()
-            .is_some_and(|p| p.ends_with("/equip/sourcetrait/inspectlib2/rig")),
+            .is_some_and(|p| Path::new(p).ends_with("equip/sourcetrait/inspectlib2/rig")),
         "a rig carries srcdir - the committed directory it lives in; got {lib}",
     );
     let m = s.inspect("sourcetrait/inspectlib2:math");

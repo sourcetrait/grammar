@@ -922,8 +922,12 @@ fn scan_reserved_terms(
     engine: &ParseEngine,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    for comp in rel.split('/') {
-        let bare = comp.strip_suffix(".nu").unwrap_or(comp);
+    for comp in std::path::Path::new(rel).components() {
+        let std::path::Component::Normal(comp) = comp else {
+            continue;
+        };
+        let comp = comp.to_string_lossy();
+        let bare = comp.strip_suffix(".nu").unwrap_or(&comp);
         if is_reserved_term(bare) {
             diagnostics.push(Diagnostic::error(
                 "rig::reserved",

@@ -105,7 +105,9 @@ shared modules many times without any cycle.
 
 ## fn scan_reserved_terms
 `main` may appear ONLY as a call target's exported sentinel. The scan checks path components
-first, then walks `flatten_block` FlatShape tokens.
+first, then walks `flatten_block` FlatShape tokens. The components are the platform's own
+reading of the path, so a Windows path holding either separator yields each name; a split on
+`/` alone read `main\mod.nu` there as one name and let a module named `main` through.
 
 Why those two shapes and no others: `VarDecl` catches let/mut/const names and `String`
 catches def/module/alias names, record keys, cell-path members and barewords - EXCEPT a

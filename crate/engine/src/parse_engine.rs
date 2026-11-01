@@ -116,11 +116,12 @@ impl LintEngine {
     }
 }
 
-/// Where `fname`'s text begins in the span space its working set shares.
+/// Where `fname`'s text begins in span space, under the name nushell files it by.
 pub fn file_start(working_set: &nu::StateWorkingSet, fname: &str) -> usize {
-    working_set
-        .get_span_for_filename(fname)
-        .map_or(0, |span| span.start)
+    let filed = nu::expand_to_real_path(fname);
+    let span = working_set.get_span_for_filename(&filed.to_string_lossy());
+    debug_assert!(span.is_some(), "no file in the working set is named {}", filed.display());
+    span.map_or(0, |span| span.start)
 }
 
 /// The text `span` covers in `text`, which begins at `text_start` in span space.
