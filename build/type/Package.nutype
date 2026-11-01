@@ -1,0 +1,5 @@
+record<
+    name: string,
+    title: string,
+    summary: string
+>

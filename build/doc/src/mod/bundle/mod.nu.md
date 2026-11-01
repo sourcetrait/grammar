@@ -1,6 +1,6 @@
 # bundle/mod.nu
 
-What grammar's release holds, as against how an OptZip is packed.
+What grammar's release holds, as against how an OptZst is packed.
 
 ## const SSH_CRATE
 The remote worker, `grammar-ssh`, ships in one tree with the MCP, built from the
@@ -54,18 +54,25 @@ would hand the package whatever an earlier build left there whenever the
 environment names another, as the build container's does.
 
 ## def layout
-One home for every product (User): `bin/` holds each product's binary and
-nushell's, `mcp/` the MCP's own parts, its skills, and what the products share
-sits at the top, `plugin/` and `equip/`; `ssh/`, grammar-ssh's own, is made
-when it has any. Each binary finds the shared parts beside its `bin/`.
-The binaries come from the target directory the build used (`target_dir`).
-The tree is emptied and rebuilt rather than updated, so a file dropped from
-the release cannot linger in it. `plugin/` keeps its plugins apart by kind:
-`core/` nushell's, `grammar/` the workspace's own; `rig/`, for custom
-plugins, is the MCP's to read when one exists. `equip/` holds each builtin's
-equip as its source holds it, the host's install taking its `lib/` and
-`rig/`. `chmod u=rwX,go=rX` leaves directories and executables at 0755 and
-everything else at 0644, the modes the archive records.
+One home for every product (User): `bin/` holds each product's binary, `mcp/`
+the MCP's own parts, its skills, and what the products share sits at the top,
+`nu/`, `plugin/`, and `equip/`; `ssh/`, grammar-ssh's own, is made when it has
+any. nushell's binary sits in `nu/bin/`, apart from the products', so an
+install links every entry of `bin/` and no other shell's `nu` is shadowed.
+Each binary finds the shared parts beside its `bin/`. The binaries come from
+the target directory the build used (`target_dir`), each with its target's
+executable suffix. The tree is emptied and rebuilt rather than updated, so a
+file dropped from the release cannot linger in it. `plugin/` keeps its plugins
+apart by kind: `core/` nushell's, `grammar/` the workspace's own; `rig/`, for
+custom plugins, is the MCP's to read when one exists. `equip/` holds each
+builtin's equip as its source holds it, the host's install taking its `lib/`
+and `rig/`. On Unix, `chmod u=rwX,go=rX` leaves directories and executables at
+0755 and everything else at 0644, the modes the archive records; Windows keeps
+no such modes.
+
+## def exe_suffix
+Rust names a binary for its target: `.exe` on Windows, nothing elsewhere; the
+layout names every binary it copies by it.
 
 ## def plugin_targets
 A plugin is any workspace binary named `nu_plugin_*`, the prefix the MCP

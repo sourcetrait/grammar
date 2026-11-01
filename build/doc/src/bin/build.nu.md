@@ -15,6 +15,11 @@ link and directly.
 The same real path, three levels up, so the script builds the repository it
 lives in from any working directory.
 
+## const PACKAGE
+The package's record, `build/package.nuon`, is the one source of its name:
+the build's message, the tree's record, the package's file name, and the
+package tar all take the name from it, checked by `optzst package_record`.
+
 ## const BUILD_RECORD
 What `--pack` needs of the build, its name, semver, os, and arch, written
 beside the tree, so the packing machine needs neither the build's cargo
@@ -35,5 +40,6 @@ server, in a one-time container (`build/container/run.bash`).
 
 ## def pack_tree
 The tree is packed as a whole build packs its own, so a split release's
-package is the same OptZip; it lands beside the tree, in the directory the
-build left.
+package is the same OptZst; it lands beside the tree, in the directory the
+build left. A tree whose record names another package than `package.nuon` is
+refused, the two having come from different checkouts.

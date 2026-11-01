@@ -159,7 +159,7 @@ fn the_soak_and_eye_plugins_register_list_and_run() {
 }
 
 /// A bundled plugin replaced in place re-registers though it is dated at the
-/// epoch, as an OptZip unpacks every file: the registry follows the file's
+/// epoch, as an OptZst unpacks every file: the registry follows the file's
 /// change, not its modification time.
 #[tested]
 fn a_replaced_plugin_re_registers_whatever_its_mtime() {

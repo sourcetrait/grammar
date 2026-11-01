@@ -15,8 +15,9 @@ Tested with:
 
 Building
 --------------------------------------------------------------------------------
-`nu build.nu` builds the release, a signed OptZip in `target/pkg/` carrying the
-MCP, nushell, their plugins, and the grammar and gram equips.
+`nu build.nu` builds the release, a signed OptZst in `target/pkg/` carrying the
+MCP, nushell, their plugins, and the grammar and gram equips, with
+`install.bash` and `install.ps1` to place it.
 
 It requires gram's repository cloned beside this one, as `gram`: `ext/gram`
 links to it, and the package carries its equip.

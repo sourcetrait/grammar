@@ -35,7 +35,7 @@ actual change.
 
 ## fn plugin_dir
 A sibling resolved from the executable, the environment first. The default is
-the OptZip layout, `bin/grammar-mcp` beside `plugin/`; a cargo target dir has no
+the OptZst layout, `bin/grammar-mcp` beside `plugin/`; a cargo target dir has no
 `plugin/`, so a dev or test host carries no plugins unless the override names a
 directory. No layout is guessed between the two.
 
@@ -57,7 +57,7 @@ written - a new install, a rebuilt plugin, or another binary's turn at the
 namespace.
 
 ## fn changed_time
-CHANGE TIME, NOT MODIFICATION TIME. An OptZip unpacks every file at mtime 0,
+CHANGE TIME, NOT MODIFICATION TIME. An OptZst unpacks every file at mtime 0,
 its archive reproducible, so a plugin's mtime predates any registry and a
 plugin replaced in place kept its old signatures: measured, a host restarted
 over a replaced plugin dated at the epoch left the registry unwritten. The kernel sets ctime whenever a file is written, copied, unpacked,

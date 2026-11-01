@@ -89,30 +89,35 @@ export def package_semver [root: path, profile: string]: nothing -> string {
 
 # Assemble the package's tree in `pkg/<profile>` in cargo's target directory; returns it.
 #
-# `bin/` holds nushell, the MCP, and the worker, `plugin/core/` nushell's core
-# plugins from `nu_root`, the install nushell made, `plugin/grammar/` the
-# workspace's own, `equip/` the builtins' sources, and `mcp/skill/` the MCP's
-# skills.
-export def layout [root: path, profile: string, nu_root: path]: nothing -> path {
+# `bin/` holds the MCP and the worker, `nu/bin/` nushell, `plugin/core/`
+# nushell's core plugins from `nu_root`, the install nushell made,
+# `plugin/grammar/` the workspace's own, `equip/` the builtins' sources, and
+# `mcp/skill/` the MCP's skills. Each binary takes `os`'s executable suffix.
+export def layout [root: path, profile: string, nu_root: path, os: string]: nothing -> path {
+    let exe: string = (exe_suffix $os)
     let target: path = (target_dir $root)
     let built: path = ($target | path join $profile)
     let tree: path = ($target | path join 'pkg' $profile)
     if ($tree | path exists) {
         rm --recursive $tree
     }
-    mkdir ($tree | path join 'bin')
-    cp ($nu_root | path join 'bin' 'nu') ($tree | path join 'bin' 'nu')
-    cp ($built | path join 'grammar-mcp') ($tree | path join 'bin' 'grammar-mcp')
-    cp ($built | path join 'grammar-ssh') ($tree | path join 'bin' 'grammar-ssh')
+    let bin: path = ($tree | path join 'bin')
+    mkdir $bin
+    for product in ['grammar-mcp' 'grammar-ssh'] {
+        cp ($built | path join $"($product)($exe)") ($bin | path join $"($product)($exe)")
+    }
+    let nu_bin: path = ($tree | path join 'nu' 'bin')
+    mkdir $nu_bin
+    cp ($nu_root | path join 'bin' $"nu($exe)") ($nu_bin | path join $"nu($exe)")
     let core: path = ($tree | path join 'plugin' 'core')
     mkdir $core
     for plugin in $CORE_PLUGINS {
-        cp ($nu_root | path join 'bin' $plugin) ($core | path join $plugin)
+        cp ($nu_root | path join 'bin' $"($plugin)($exe)") ($core | path join $"($plugin)($exe)")
     }
     let grammar: path = ($tree | path join 'plugin' 'grammar')
     mkdir $grammar
     for plugin in (plugin_targets $root | get bin) {
-        cp ($built | path join $plugin) ($grammar | path join $plugin)
+        cp ($built | path join $"($plugin)($exe)") ($grammar | path join $"($plugin)($exe)")
     }
     for equip in $EQUIPS {
         let dest: path = ($tree | path join 'equip' 'sourcetrait' $equip.name)
@@ -124,8 +129,15 @@ export def layout [root: path, profile: string, nu_root: path]: nothing -> path 
         mkdir $dest
         cp ($root | path join 'agent' 'skill' $skill 'SKILL.md') $dest
     }
-    ^chmod -R 'u=rwX,go=rX' $tree
+    if $os != 'windows' {
+        ^chmod -R 'u=rwX,go=rX' $tree
+    }
     $tree
+}
+
+# An os's executable suffix: `.exe` on Windows, none elsewhere.
+export def exe_suffix [os: string]: nothing -> string {
+    if $os == 'windows' { '.exe' } else { '' }
 }
 
 # cargo's flags for a profile: `flag` for `release`, none for `debug`.
