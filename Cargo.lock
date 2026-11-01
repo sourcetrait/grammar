@@ -4379,7 +4379,7 @@ dependencies = [
 
 [[package]]
 name = "nutype"
-version = "0.0.0-9"
+version = "0.0.0-10"
 dependencies = [
  "nu-cmd-lang",
  "nu-engine",
@@ -4395,7 +4395,7 @@ dependencies = [
 
 [[package]]
 name = "nuval"
-version = "0.0.0-9"
+version = "0.0.0-10"
 dependencies = [
  "chrono",
  "miette 7.6.0",
@@ -6590,7 +6590,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_channel"
-version = "0.0.0-9"
+version = "0.0.0-10"
 dependencies = [
  "nu-engine",
  "nu-protocol",
@@ -6606,7 +6606,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_client"
-version = "0.0.0-9"
+version = "0.0.0-10"
 dependencies = [
  "futures-util",
  "ring",
@@ -6622,7 +6622,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_engine"
-version = "0.0.0-9"
+version = "0.0.0-10"
 dependencies = [
  "indoc",
  "nix",
@@ -6651,7 +6651,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_eye"
-version = "0.0.0-9"
+version = "0.0.0-10"
 dependencies = [
  "ignore",
  "nu-glob",
@@ -6665,7 +6665,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_interface"
-version = "0.0.0-9"
+version = "0.0.0-10"
 dependencies = [
  "nu-engine",
  "nu-parser",
@@ -6677,7 +6677,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_mcp"
-version = "0.0.0-9"
+version = "0.0.0-10"
 dependencies = [
  "clap",
  "directories",
@@ -6715,7 +6715,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_operator"
-version = "0.0.0-9"
+version = "0.0.0-10"
 dependencies = [
  "nix",
  "rkyv",
@@ -6729,7 +6729,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_peer"
-version = "0.0.0-9"
+version = "0.0.0-10"
 dependencies = [
  "futures-util",
  "nu-engine",
@@ -6755,7 +6755,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_protocol"
-version = "0.0.0-9"
+version = "0.0.0-10"
 dependencies = [
  "futures-util",
  "nutype",
@@ -6772,7 +6772,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_scratch"
-version = "0.0.0-9"
+version = "0.0.0-10"
 dependencies = [
  "nix",
  "nutype",
@@ -6784,7 +6784,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_soak"
-version = "0.0.0-9"
+version = "0.0.0-10"
 dependencies = [
  "humantime",
  "liquid",
@@ -6800,7 +6800,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_ssh"
-version = "0.0.0-9"
+version = "0.0.0-10"
 dependencies = [
  "clap",
  "directories",
@@ -6821,7 +6821,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_tests"
-version = "0.0.0-9"
+version = "0.0.0-10"
 dependencies = [
  "futures-util",
  "nix",
