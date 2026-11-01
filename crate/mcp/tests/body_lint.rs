@@ -74,5 +74,7 @@ fn a_well_known_system_path_passes() {
         "def execute [data: nothing]: nothing -> record<seen: bool> { { seen: ('/dev/null' | path exists) } }",
         "null",
     );
-    assert_eq!(env["result"], nuon("{seen: true}"), "got {env}");
+    // The lint lets the path through on every platform; Windows has no /dev/null to see.
+    let seen = if cfg!(unix) { "{seen: true}" } else { "{seen: false}" };
+    assert_eq!(env["result"], nuon(seen), "got {env}");
 }

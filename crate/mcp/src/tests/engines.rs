@@ -1,8 +1,15 @@
 use crate::*;
 use crate::engines::{SshResolved, address_of, parse_engines, parse_known_keys, parse_ssh_g};
 
+/// An entry's key line, its file absolute on this platform, as the MCP's local
+/// path must be.
+#[cfg(not(windows))]
+const KEY_LINE: &str = "key = '/keys/worker'";
+#[cfg(windows)]
+const KEY_LINE: &str = r"key = 'C:\keys\worker'";
+
 /// A pinned host key's OpenSSH line, its key test-only.
-const HOST_KEY: &str = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJdD7y3aLq454yWBdwLWbieU1ebz9/cu7/QEXn9OIeZJ example";
+const HOST_KEY: &str ="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJdD7y3aLq454yWBdwLWbieU1ebz9/cu7/QEXn9OIeZJ example";
 
 /// An `[[engine]]` entry's fields, each valid, `alias` given.
 fn engine_fields(alias: &str) -> Vec<String> {
@@ -10,7 +17,7 @@ fn engine_fields(alias: &str) -> Vec<String> {
         format!("alias = \"{alias}\""),
         "address = \"build.example\"".to_string(),
         "user = \"worker\"".to_string(),
-        "key = \"/keys/worker\"".to_string(),
+        KEY_LINE.to_string(),
         format!("known_hosts = [\"{HOST_KEY}\"]"),
         "command = \"/opt/grammar/bin/grammar-ssh\"".to_string(),
         "id = \"fixture\"".to_string(),
@@ -62,7 +69,7 @@ fn an_entry_opens_on_its_fields_and_the_mcps_defaults() {
         "alias = \"build\"".to_string(),
         "address = \"build.example:2222\"".to_string(),
         "user = \"worker\"".to_string(),
-        "key = \"/keys/worker\"".to_string(),
+        KEY_LINE.to_string(),
         format!("known_hosts = [\"{HOST_KEY}\"]"),
     ];
     let endpoint = one_entry(&engine_text(&least)).endpoint(&defaults()).expect("the required fields alone");
