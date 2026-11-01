@@ -6453,6 +6453,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sourcetrait_acl"
+version = "0.0.0-2"
+dependencies = [
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "sourcetrait_agnostic"
 version = "0.0.0-3"
 dependencies = [
@@ -6983,6 +6990,7 @@ dependencies = [
  "rcgen",
  "serde",
  "snafu 0.8.9",
+ "sourcetrait_acl",
  "time",
  "toml 0.8.23",
 ]

@@ -4,9 +4,10 @@
 //! Channel client, proving the transport end to end: the Channel's connect,
 //! verify, and receive, the A->B->A echo, the Connected and Disconnected
 //! notices, the synchronous listen and connect, each remote's state in
-//! `interface remote channel list`, the remotes file read and edited live, and the
-//! oversized event's spill. Keys are one-off and trusted directly, so this
-//! needs no OS trust store and runs unattended.
+//! `interface remote channel list`, the remotes file read and edited live, the
+//! oversized event's spill, and one host holding two links at once. Keys are
+//! one-off and trusted directly, so this needs no OS trust store and runs
+//! unattended.
 //!
 //! The remote channels are the MCP's own: a host here is the server, its bare
 //! entry, and a definition on its engine drives the cases that send.
@@ -521,6 +522,107 @@ fn remote_send_with_returns_its_event_id() {
         .expect("B should receive the relayed test/Files");
     assert!(relayed.event.contains("files-1"), "the relayed event carries the payload; got {relayed:?}");
     assert!(relayed.attached.is_some(), "the relayed packet names its delivery dir; got {relayed:?}");
+}
+
+/// A host linked to two peers at once, an alias each: a send to each by its nom
+/// is delivered, a send from each is received, and closing one link leaves the
+/// other live.
+#[tested]
+fn a_host_holds_two_links_at_once() {
+    let t = testing::test!({ .using_temp_dir() });
+    let root = t.temp_dir();
+    let cert_hub = generate_keys("hub", &root.join("cert_hub"));
+    let cert_a = generate_keys("a", &root.join("cert_a"));
+    let cert_c = generate_keys("c", &root.join("cert_c"));
+    let listen_a = format!("127.0.0.1:{}", free_port());
+    let listen_c = loop {
+        let port = format!("127.0.0.1:{}", free_port());
+        if port != listen_a {
+            break port;
+        }
+    };
+
+    let hub_dir = root.join("host_hub");
+    let remotes = remote_listener_as("peer_a", &listen_a, &cert_a.public_key)
+        + &remote_listener_as("peer_c", &listen_c, &cert_c.public_key);
+    write_host_config(&hub_dir, &cert_hub, &remotes);
+    let host_hub = Host::spawn_in(
+        &root.join("scratch_hub"),
+        &["--id", "link_hub", "--namespace", "default"],
+        &hub_dir,
+    );
+    let mut hub = Consumer::attach(host_hub, &cert_hub.ca);
+    let nom_hub = mcp_nom(&mut hub);
+
+    let mut spokes = Vec::new();
+    for (name, keys, listen) in [("a", &cert_a, &listen_a), ("c", &cert_c, &listen_c)] {
+        let dir = root.join(format!("host_{name}"));
+        write_host_config(&dir, keys, &remote_connector(listen, &cert_hub.public_key));
+        let host = Host::spawn_in(
+            &root.join(format!("scratch_{name}")),
+            &["--id", &format!("link_{name}"), "--namespace", "default"],
+            &dir,
+        );
+        let mut spoke = Consumer::attach(host, &keys.ca);
+        let nom = mcp_nom(&mut spoke);
+        spokes.push((spoke, nom));
+    }
+    let [(mut a, nom_a), (mut c, nom_c)] = <[(Consumer, String); 2]>::try_from(spokes)
+        .unwrap_or_else(|_| panic!("two spokes"));
+
+    for alias in ["peer_a", "peer_c"] {
+        let listened = hub.host.interface(&format!("interface remote channel listen '{alias}'"));
+        assert!(!has_error_path(&listened), "the hub listens on {alias}; got {listened}");
+    }
+    for (spoke, nom) in [(&mut a, &nom_a), (&mut c, &nom_c)] {
+        let connected = spoke.host.interface("interface remote channel connect 'peer'");
+        assert!(!has_error_path(&connected), "the connect is synchronous; got {connected}");
+        hub.await_packet(
+            |p| p.model == "remote/channel/Connected" && p.event.contains(nom.as_str()),
+            Duration::from_secs(15),
+        )
+        .expect("the hub sees Connected for each spoke");
+    }
+    assert_eq!(remote_row(&mut hub, "peer_a")["remote_mcp_nom"], nom_a, "peer_a's link is A's");
+    assert_eq!(remote_row(&mut hub, "peer_c")["remote_mcp_nom"], nom_c, "peer_c's link is C's");
+
+    for (spoke, nom, note) in [(&mut a, &nom_a, "to-a"), (&mut c, &nom_c, "to-c")] {
+        remote_send(&mut hub, nom, "test/Ping", &format!("note: \"{note}\""));
+        let got = spoke
+            .await_packet(
+                |p| p.model == "test/Ping" && p.from == format!("remote/channel/{nom_hub}"),
+                Duration::from_secs(15),
+            )
+            .expect("each spoke receives the hub's send to its nom");
+        assert!(got.event.contains(note), "each send reaches its own spoke; got {got:?}");
+    }
+    for (spoke, nom, note) in [(&mut a, &nom_a, "from-a"), (&mut c, &nom_c, "from-c")] {
+        remote_send(spoke, &nom_hub, "test/Pong", &format!("note: \"{note}\""));
+        let got = hub
+            .await_packet(
+                |p| p.model == "test/Pong" && p.from == format!("remote/channel/{nom}"),
+                Duration::from_secs(15),
+            )
+            .expect("the hub receives each spoke's send");
+        assert!(got.event.contains(note), "each send names its own spoke; got {got:?}");
+    }
+
+    let close = hub.host.interface("interface remote channel close 'peer_a'");
+    assert!(!has_error_path(&close), "the hub closes A's link; got {close}");
+    a.await_packet(|p| p.model == "remote/channel/Disconnected", Duration::from_secs(15))
+        .expect("A sees its link close");
+    hub.await_packet(|p| p.model == "remote/channel/Disconnected", Duration::from_secs(15))
+        .expect("the hub sees A's link close");
+    assert_eq!(remote_row(&mut hub, "peer_a")["state"], "closed", "A's link is closed");
+    assert_eq!(remote_row(&mut hub, "peer_c")["state"], "open", "C's link stays open");
+    remote_send(&mut hub, &nom_c, "test/Ping", "note: \"after\"");
+    let after = c
+        .await_packet(
+            |p| p.model == "test/Ping" && p.event.contains("after"),
+            Duration::from_secs(15),
+        )
+        .expect("C's link still carries the hub's send after A's closed");
+    assert_eq!(after.from, format!("remote/channel/{nom_hub}"), "the send is the hub's; got {after:?}");
 }
 
 // ---- helpers ----

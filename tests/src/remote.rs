@@ -93,16 +93,26 @@ pub fn write_host_config(cwd: &Path, identity: &GeneratedKeys, remote: &str) -> 
 
 /// A `[[channel]]` entry, `peer`, its connect dialing `peer_addr`.
 pub fn remote_connector(peer_addr: &str, peer_public: &Path) -> String {
-    format!(
-        "\n[[channel]]\nalias = \"peer\"\naddress = \"{peer_addr}\"\ncert = '{pk}'\n",
-        pk = peer_public.display(),
-    )
+    remote_connector_as("peer", peer_addr, peer_public)
 }
 
 /// A `[[channel]]` entry, `peer`, its listen binding `listen`.
 pub fn remote_listener(listen: &str, peer_public: &Path) -> String {
+    remote_listener_as("peer", listen, peer_public)
+}
+
+/// A `[[channel]]` entry named `alias`, its connect dialing `peer_addr`.
+pub fn remote_connector_as(alias: &str, peer_addr: &str, peer_public: &Path) -> String {
     format!(
-        "\n[[channel]]\nalias = \"peer\"\nlisten = \"{listen}\"\ncert = '{pk}'\n",
+        "\n[[channel]]\nalias = \"{alias}\"\naddress = \"{peer_addr}\"\ncert = '{pk}'\n",
+        pk = peer_public.display(),
+    )
+}
+
+/// A `[[channel]]` entry named `alias`, its listen binding `listen`.
+pub fn remote_listener_as(alias: &str, listen: &str, peer_public: &Path) -> String {
+    format!(
+        "\n[[channel]]\nalias = \"{alias}\"\nlisten = \"{listen}\"\ncert = '{pk}'\n",
         pk = peer_public.display(),
     )
 }
