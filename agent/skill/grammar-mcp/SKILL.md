@@ -108,13 +108,11 @@ missing, and ends with its session, opened at the first call or a connect.
 3. Each call on it names `host: <alias>`.
 
 ## SEQUENCE: DeployRemoteGrammarEngine
-1. The package in this host's home's `zst/`, the home
-   `$nu.current-exe | path dirname | path dirname`, for a host of the same os
-   and arch.
+1. The package for the host's os and arch in `$UENV_USR_CACHE/grammar/zst/`,
+   which holds the latest release's alone.
 2. Over ssh: the package copied to the host, its three members extracted, and
    its record checked, `sha256sum --check grammar.tar.sha256`.
-3. The host's `<opt>/grammar` emptied, `grammar.tar` unpacked into it, and the
-   package copied into its `zst/`.
+3. The host's `<opt>/grammar` emptied and `grammar.tar` unpacked into it.
 4. Its `bin/grammar-mcp` and `bin/grammar-ssh` linked from the user's local
    bin.
 5. OpenRemoteGrammarEngine, `--command` naming its `bin/grammar-ssh` where the
