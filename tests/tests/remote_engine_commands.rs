@@ -17,6 +17,9 @@ const END_WAIT: Duration = Duration::from_secs(30);
 /// A definition answering the process it ran in.
 const PID: &str = "def execute [data: nothing]: nothing -> record<pid: int> { {pid: $nu.pid} }";
 
+/// A definition answering its worker's workdir and process.
+const WHERE: &str = "def execute [data: nothing]: nothing -> record<work_dir: string, pid: int> { {work_dir: $env.EQUIP_WORK_DIR, pid: $nu.pid} }";
+
 /// A host started in `root`'s agent directory, its remotes file not yet written.
 fn bare_host(root: &Path) -> Host {
     let agent = root.join("agent");
@@ -113,11 +116,40 @@ fn an_entry_set_whole_opens_closes_and_is_unset() {
 
     open_run_close(&mut host, "lab");
 
+    let opened = answered(&interface_within(&mut host, "interface remote engine connect 'lab'"));
+    let first = worker_pid(&opened);
+    let moved = worker.root().join("moved");
+    std::fs::create_dir_all(&moved).expect("a second workdir");
+    let changed = answered(&host.interface(&format!(
+        "interface remote engine set 'lab' --workdir {}",
+        nu_literal(&moved.display().to_string()),
+    )));
+    assert_eq!(changed["workdir"], moved.display().to_string().as_str(), "{changed}");
+    assert_eq!(changed["state"], "open", "a set leaves the open session standing: {changed}");
+    let before = answered(&host.call("execute", json!({"host": "lab", "definition": WHERE, "data": "null"})));
+    assert_eq!(before["pid"], i64::from(first), "the open session serves on: {before}");
+    assert_eq!(before["work_dir"], endpoint.workdir.as_str(), "on the entry it opened on: {before}");
+    let _ = answered(&host.interface("interface remote engine close 'lab'"));
+    let id = host.request("execute", json!({"host": "lab", "definition": WHERE, "data": "null"}));
+    let after = answered(&host.read_id_within(id, CONNECT));
+    assert_eq!(after["work_dir"], moved.display().to_string().as_str(), "the next session takes the change: {after}");
+    assert_ne!(after["pid"], i64::from(first), "a new worker: {after}");
+
+    let live = answered(&host.interface("interface remote engine get 'lab'"));
+    let second = worker_pid(&live);
     let unset = answered(&host.interface("interface remote engine unset 'lab'"));
     assert!(unset.is_nothing(), "{unset}");
-    assert_eq!(answered(&host.interface("interface remote engine list")), nuon("[]"));
+    let orphan = answered(&host.interface("interface remote engine list"));
+    assert_eq!(orphan[0]["alias"], "lab", "an unset leaves the live session listed: {orphan}");
+    assert_eq!(orphan[0]["configured"], false, "{orphan}");
+    assert_eq!(orphan[0]["state"], "open", "{orphan}");
+    assert!(alive(second), "the worker lives on past the unset");
     let unknown = host.call("execute", json!({"host": "lab", "definition": PID, "data": "null"}));
-    assert_eq!(envelope_error_kind(&unknown).as_deref(), Some("host::unknown"), "{unknown}");
+    assert_eq!(envelope_error_kind(&unknown).as_deref(), Some("host::unknown"), "no call routes to it: {unknown}");
+    let closed = answered(&host.interface("interface remote engine close 'lab'"));
+    assert!(closed.is_nothing(), "{closed}");
+    assert!(eventually(END_WAIT, || !alive(second)), "its close ends the worker");
+    assert_eq!(answered(&host.interface("interface remote engine list")), nuon("[]"));
 }
 
 #[test]

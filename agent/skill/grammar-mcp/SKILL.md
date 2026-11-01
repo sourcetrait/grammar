@@ -139,6 +139,20 @@ Connect to a remote channel's peer; blocks on the connect.
 `remote channel connect [alias: string, --address: string]: nothing -> nothing`
 Close an open mTLS link to a remote grammar host.
 `remote channel close [alias: string]: nothing -> nothing`
+List the remote engines, configured and live: each one's entry and state.
+`remote engine list []: nothing -> table`
+One remote engine's entry and state.
+`remote engine get [alias: string]: nothing -> record`
+Make or change a remote engine's entry in `remotes.toml`.
+`remote engine set [alias: string, --host: string, --port: int, --user: string, --key: string, --host-keys: list<string>, --command: string, --id: string, --namespace: string, --workdir: string]: nothing -> record`
+Remove a remote engine's entry from `remotes.toml`; a live session stays.
+`remote engine unset [alias: string]: nothing -> nothing`
+Open a remote engine's session and start its worker now.
+`remote engine connect [alias: string]: nothing -> record`
+Close a remote engine's session; its worker ends with it.
+`remote engine close [alias: string]: nothing -> nothing`
+Make or change a remote engine's entry from an ssh configuration's host.
+`remote engine import [alias: string, --from: string, --ssh-config: string]: nothing -> record`
 ### Equip
 Register a new equip at its source and seed its rig.
 `equip new [source: string]: nothing -> record`
