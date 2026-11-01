@@ -92,9 +92,9 @@ fn timed_out_external_tree_is_reaped() {
     let s = TestServer::new();
     // The tracked external starts the long-running one as its own child, which only
     // the tree-kill's walk of the process table reaches: `xargs` starting
-    // `sleep 31338` on Unix, `cmd` starting a `ping` of 31338 echoes on Windows.
+    // `sleep 31338` on Unix, PowerShell starting a `ping` of 31338 echoes on Windows.
     let external = if cfg!(windows) {
-        "^cmd /c ping -n 31338 127.0.0.1"
+        "^powershell -NoProfile -NonInteractive -Command 'ping -n 31338 127.0.0.1'"
     } else {
         "'31338' | ^xargs sleep"
     };

@@ -38,8 +38,13 @@ fn a_result_type_mismatch_surfaces() {
 #[test]
 fn external_command_runs() {
     let s = TESTING.harness();
-    // An external each platform carries: printf on Unix, cmd's echo on Windows.
-    let external = if cfg!(windows) { "^cmd /c echo hello" } else { "^printf hello" };
+    // An external each platform carries: printf on Unix, PowerShell on Windows, whose
+    // flags take no leading slash for the path lint to read as a hard-coded path.
+    let external = if cfg!(windows) {
+        "^powershell -NoProfile -NonInteractive -Command 'Write-Output hello'"
+    } else {
+        "^printf hello"
+    };
     let env = s.execute(
         &format!(
             "def execute [data: nothing]: nothing -> record<out: string> {{ {{ out: ({external} | str trim) }} }}"

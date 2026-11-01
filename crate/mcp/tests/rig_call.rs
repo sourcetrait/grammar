@@ -243,7 +243,7 @@ fn inspect_rig_root_and_module() {
     assert!(
         m["result"]["doc"]["src"]
             .as_str()
-            .is_some_and(|p| p.ends_with("/equip/sourcetrait/inspectlib2/rig/math/mod.nu")),
+            .is_some_and(|p| Path::new(p).ends_with("equip/sourcetrait/inspectlib2/rig/math/mod.nu")),
         "a module carries src - its committed mod.nu; got {m}",
     );
 }
