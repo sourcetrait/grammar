@@ -170,18 +170,18 @@ impl TransportError {
     /// The stable kind the frontend's envelope reports.
     pub fn kind(&self) -> &'static str {
         match self {
-            Self::VersionMismatch { .. } => "daemon::version_mismatch",
-            Self::SchemaMismatch { .. } => "daemon::schema_mismatch",
-            Self::CodecMismatch { .. } => "daemon::codec_mismatch",
-            Self::WrongWorker { .. } => "daemon::wrong_worker",
-            Self::ConnectFailed { .. } => "daemon::connect_failed",
-            Self::HostKeyRejected { .. } => "daemon::host_key_rejected",
-            Self::AuthenticationFailed { .. } => "daemon::authentication_failed",
-            Self::Unavailable { .. } => "daemon::unavailable",
-            Self::Busy => "daemon::busy",
-            Self::InvalidFrame { .. } => "daemon::invalid_frame",
-            Self::ResultTooLarge { .. } => "daemon::result_too_large",
-            Self::SessionLost { .. } => "daemon::session_lost",
+            Self::VersionMismatch { .. } => "remote::engine::version_mismatch",
+            Self::SchemaMismatch { .. } => "remote::engine::schema_mismatch",
+            Self::CodecMismatch { .. } => "remote::engine::codec_mismatch",
+            Self::WrongWorker { .. } => "remote::engine::wrong_worker",
+            Self::ConnectFailed { .. } => "remote::engine::connect_failed",
+            Self::HostKeyRejected { .. } => "remote::engine::host_key_rejected",
+            Self::AuthenticationFailed { .. } => "remote::engine::authentication_failed",
+            Self::Unavailable { .. } => "remote::engine::unavailable",
+            Self::Busy => "remote::engine::busy",
+            Self::InvalidFrame { .. } => "remote::engine::invalid_frame",
+            Self::ResultTooLarge { .. } => "remote::engine::result_too_large",
+            Self::SessionLost { .. } => "remote::engine::session_lost",
         }
     }
 

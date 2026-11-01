@@ -53,8 +53,11 @@ Every tool takes `host`, required, User's ruling: an agent working beside remote
 possibly several, names where each call runs rather than leaving it to a default it might
 assume wrongly. Each tool routes it right after minting its nonce, so an unknown alias
 is refused, nonce and all, before the tool's own checks. `local` is the MCP's engine and
-each `[[engine]]` alias a remote one (`config.rs`); the match is exact, so a case or a
-space makes another alias.
+each `[[engine]]` alias in the remotes file a remote one, the file read at each call
+(`engines.rs`), so an entry set or unset holds from the next call. An alias the file
+lacks is `host::unknown`; an entry still missing a field is refused as
+`remote::engine::invalid_params`, naming what it lacks. The match is exact, so a case
+or a space makes another alias.
 
 ## fn NuSh::value
 `execute`, `rerun`, and `call` share it. The request carries `Host::Local` either way:
@@ -64,7 +67,8 @@ request (`server/controller.rs`).
 
 ## fn remote_value
 A worker's answer is the engine's own value answer, or a refusal the worker made before
-its engine took the request; the transport's errors answer under their `daemon::` kinds.
+its engine took the request; the transport's errors answer under their `remote::engine::`
+kinds.
 
 ## fn unexpected
 An answer of another command's kind is the engine breaking its own protocol, so it is

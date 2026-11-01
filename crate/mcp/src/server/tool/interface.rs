@@ -105,7 +105,25 @@ impl NuSh {
         match command {
             InterfaceCommand::Channel(command) => face.run_channel(nonce, command).await,
             InterfaceCommand::Peer(command) => face.run_peer(nonce, command).await,
+            InterfaceCommand::RemoteEngine(command) => self.run_remote_engine(nonce, command).await,
             InterfaceCommand::Engine(command) => self.run_engine(nonce, &route, command).await,
+        }
+    }
+
+    /// A remote engine command, run on the MCP whatever the tool's host.
+    async fn run_remote_engine(
+        &self,
+        nonce: datum::Nonce,
+        command: RemoteEngineCommand,
+    ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
+        match command {
+            RemoteEngineCommand::List => self.engine_list(nonce).await,
+            RemoteEngineCommand::Get(p) => self.engine_get(nonce, p).await,
+            RemoteEngineCommand::Set(p) => self.engine_set(nonce, p).await,
+            RemoteEngineCommand::Unset(p) => self.engine_unset(nonce, p).await,
+            RemoteEngineCommand::Connect(p) => self.engine_connect(nonce, p).await,
+            RemoteEngineCommand::Close(p) => self.engine_close(nonce, p).await,
+            RemoteEngineCommand::Import(p) => self.engine_import(nonce, p).await,
         }
     }
 

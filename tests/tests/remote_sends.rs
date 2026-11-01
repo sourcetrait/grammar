@@ -25,14 +25,14 @@ fn execute_on(host: &mut Host, on: &str, definition: &str) -> Value {
     host.read_id_within(id, FIRST_CALL)
 }
 
-/// A host started in `root`'s agent directory, its config `identity` then `engines`.
+/// A host started in `root`'s agent directory, its config `identity`, its remotes file `engines`.
 fn host_with(root: &Path, identity: Option<&GeneratedKeys>, engines: &[Endpoint]) -> Host {
     let agent = root.join("agent");
     let identity = identity
-        .map(|keys| format!("[identity]\ncert = \"{}\"\nkey = \"{}\"\n\n", keys.public_key.display(), keys.private_key.display()))
+        .map(|keys| format!("[identity]\ncert = \"{}\"\nkey = \"{}\"\n", keys.public_key.display(), keys.private_key.display()))
         .unwrap_or_default();
-    let engines: String = engines.iter().map(engine_toml).collect();
-    write_source(&agent, ".grammar/config.toml", &format!("{identity}{engines}"));
+    write_source(&agent, ".grammar/config.toml", &identity);
+    write_source(&agent, ".grammar/remotes.toml", &engines.iter().map(engine_toml).collect::<String>());
     Host::spawn_in(&root.join("scratch"), &[], &agent)
 }
 
@@ -120,7 +120,7 @@ fn a_workers_emergency_reaches_the_mcps_policy_under_its_host() {
     let worker = TestWorker::new();
     let root = tempfile::tempdir().expect("a scratch root");
     let agent = root.path().join("agent");
-    write_source(&agent, ".grammar/config.toml", &engine_toml(&sshd.endpoint("lab", &worker)));
+    write_source(&agent, ".grammar/remotes.toml", &engine_toml(&sshd.endpoint("lab", &worker)));
     let mut host = Host::spawn_in(&root.path().join("scratch"), &["--id", "probe"], &agent);
     let hang = "def execute [data: nothing]: nothing -> record<out: int> {\n__test_hang\n{ out: 0 }\n}";
     let id = host.request("execute", json!({"host": "lab", "definition": hang, "data": "null", "timeout": "500ms"}));

@@ -54,11 +54,16 @@ pub(crate) mod tku {
 }
 
 pub use crate::{
-    endpoint::{ENGINE_NAMESPACE, Endpoint, SSH_PORT},
+    endpoint::{
+        ENGINE_NAMESPACE, Endpoint, SSH_PORT, check_alias, check_host_keys, check_instance,
+        check_key, check_path, check_port, check_word,
+    },
     session::{Responder, Session, SessionEvent},
     ssh::{RemoteSession, open},
     system::{
-        FromRemote, RemoteAsk, RemoteEmergency, RemoteHandle, RemoteRequest, RemoteResponse,
-        RemoteSysConfig, RemoteSysParams, RemoteSysPaths, RemoteSystem, ToRemote,
+        CloseSessionRequest, ConnectAnswer, ConnectRequest, FromRemote, RemoteAsk, RemoteEmergency,
+        RemoteHandle, RemoteRequest, RemoteResponse, RemoteSysConfig, RemoteSysParams,
+        RemoteSysPaths, RemoteSystem, SessionClosed, SessionPhase, SessionState, SessionStates,
+        StatesRequest, ToRemote,
     },
 };

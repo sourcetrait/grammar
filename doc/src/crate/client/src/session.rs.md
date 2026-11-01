@@ -33,8 +33,8 @@ that never comes.
 ## struct Shared
 The requests in flight and the session's end, under one lock each. The end
 lets every waiter go by dropping its sender, so a request in flight answers
-`daemon::session_lost` with the end's reason, its outcome unknown, and nothing
-resubmits it.
+`remote::engine::session_lost` with the end's reason, its outcome unknown,
+and nothing resubmits it.
 
 ### fn end
 The first reason stands; a later end, the writer's and the reader's both

@@ -12,6 +12,7 @@ pub const KIND_INTERFACE: &str = "interface::invalid";
 pub enum InterfaceCommand {
     Channel(ChannelCommand),
     Peer(PeerCommand),
+    RemoteEngine(RemoteEngineCommand),
     Engine(EngineInterfaceCommand),
 }
 
@@ -35,6 +36,18 @@ pub enum PeerCommand {
     Listen(RemoteListenParams),
     Connect(RemoteConnectParams),
     Close(RemoteChannelCloseParams),
+}
+
+/// The remote engines' seven commands, the MCP's own.
+#[derive(Debug)]
+pub enum RemoteEngineCommand {
+    List,
+    Get(RemoteAliasParams),
+    Set(RemoteEngineSetParams),
+    Unset(RemoteAliasParams),
+    Connect(RemoteAliasParams),
+    Close(RemoteAliasParams),
+    Import(RemoteEngineImportParams),
 }
 
 /// The engine's commands: info, help, the processes, the purviews, the equips.
@@ -290,6 +303,17 @@ fn texts(
     }
 }
 
+/// An optional list-of-strings flag, absent when not given, so an empty one stays.
+fn optional_texts(
+    literals: &mut Literals,
+    name: &str,
+) -> Option<Vec<String>> {
+    match literals.remove(name) {
+        Some((Literal::Texts(texts), _)) => Some(texts),
+        _ => None,
+    }
+}
+
 /// A whole-number flag in its parameter's range; absent when not given.
 fn count<T: TryFrom<i64>>(
     literals: &mut Literals,
@@ -328,7 +352,11 @@ fn command(
     };
     let channel = InterfaceCommand::Channel;
     let peer = InterfaceCommand::Peer;
+    let remote_engine = InterfaceCommand::RemoteEngine;
     let engine = InterfaceCommand::Engine;
+    let alias = |literals: &mut Literals| RemoteAliasParams {
+        alias: text(literals, "alias"),
+    };
     Ok(match kind {
         CommandKind::Info => engine(E::Info),
         CommandKind::Help => engine(E::Help(InspectParams {
@@ -385,6 +413,30 @@ fn command(
         CommandKind::RemoteClose => peer(PeerCommand::Close(RemoteChannelCloseParams {
             alias: text(literals, "alias"),
         })),
+        CommandKind::EngineList => remote_engine(RemoteEngineCommand::List),
+        CommandKind::EngineGet => remote_engine(RemoteEngineCommand::Get(alias(literals))),
+        CommandKind::EngineSet => remote_engine(RemoteEngineCommand::Set(RemoteEngineSetParams {
+            alias: text(literals, "alias"),
+            host: optional_text(literals, "host"),
+            port: count(literals, "port")?,
+            user: optional_text(literals, "user"),
+            key: optional_text(literals, "key"),
+            host_keys: optional_texts(literals, "host-keys"),
+            command: optional_text(literals, "command"),
+            id: optional_text(literals, "id"),
+            namespace: optional_text(literals, "namespace"),
+            workdir: optional_text(literals, "workdir"),
+        })),
+        CommandKind::EngineUnset => remote_engine(RemoteEngineCommand::Unset(alias(literals))),
+        CommandKind::EngineConnect => remote_engine(RemoteEngineCommand::Connect(alias(literals))),
+        CommandKind::EngineClose => remote_engine(RemoteEngineCommand::Close(alias(literals))),
+        CommandKind::EngineImport => {
+            remote_engine(RemoteEngineCommand::Import(RemoteEngineImportParams {
+                alias: text(literals, "alias"),
+                from: optional_text(literals, "from"),
+                ssh_config: optional_text(literals, "ssh-config"),
+            }))
+        }
         CommandKind::EquipNew => engine(E::EquipNew(source(literals))),
         CommandKind::EquipInstall => engine(E::EquipInstall(source(literals))),
         CommandKind::EquipCheck => engine(E::EquipCheck(source(literals))),

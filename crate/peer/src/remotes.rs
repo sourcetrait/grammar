@@ -7,12 +7,15 @@ pub const REMOTES_FILE: &str = "remotes.toml";
 /// The address a listen binds when neither the call nor the entry names one.
 const DEFAULT_LISTEN: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
 
-/// The file layer: its `[[channel]]` entries.
+/// The file layer: its `[[channel]]` entries beside the MCP's `[[engine]]` ones.
 #[derive(Debug, Default, ser::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RemotesToml {
     #[serde(default)]
     channel: Vec<RemoteToml>,
+    #[serde(default)]
+    #[allow(dead_code)]
+    engine: Vec<toml::Table>,
 }
 
 /// One `[[channel]]` entry (file layer): a peer by its alias.
@@ -230,7 +233,7 @@ fn alias_of(table: &toml_edit::Table) -> Option<&str> {
 }
 
 /// Rewrite the remotes file by `edit`, atomically, under a lock on its directory.
-pub(crate) fn edit_remotes(
+pub fn edit_remotes(
     path: &Path,
     edit: impl FnOnce(&str) -> Result<String, String>,
 ) -> Result<(), String> {

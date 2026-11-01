@@ -27,7 +27,7 @@ worker share one definition; the engine re-exports them.
 
 ## mod error
 The runtime's and the transport's errors, each rendering to the envelope's rows,
-the transport's under stable `daemon::` kinds.
+the transport's under stable `remote::engine::` kinds.
 
 ## pub mod fixture
 The v1 fixture driver, public as a module of its own, so a native test decodes

@@ -32,12 +32,22 @@ holds; User's own summaries stand where his draft has them.
 The deny name: what follows `interface `. A command is denied by the words an
 agent types after the head, never by an invented key.
 
+## const ENGINE_SET_FLAGS
+Each field of an engine's entry a flag of its own, every one optional, so a set
+changes what it names alone: the entry's model and nothing else (User), an
+import being a command of its own.
+
+## const ENGINE_IMPORT_FLAGS
+The ssh configuration's host and the file it lives in, each defaulting as
+`ssh` itself does: the engine's alias, and the user's configuration.
+
 ## const COMMANDS
 Ordered as the description lists them, grouped by topic. A topic's commands sit
 together because `render_signatures` opens a heading when the topic changes.
 `channel sync`, and `channel open`'s `mode`, are User's additions beyond the
 tools converted; `sync` sits after `open`, in the order of the handshake it
-serves.
+serves. The remote engine commands, User's, sit under the Remote topic after
+the remote channels', the same six verbs and `import`.
 
 ## fn render_command_list
 The tool's description's list, User's format: `# Command Signatures`, a `##`

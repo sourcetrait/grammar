@@ -22,6 +22,7 @@ renders its own packets with, so a remote spill reads as a local one.
 
 ## pub use
 What a controller names: the system, its handle, its parameters and paths;
-each request and answer; the remotes file's name, which the config sits beside;
-and `safe_dest`, which a sender's attachments are held to before they are read.
+each request and answer; the remotes file's name, which the config sits beside,
+and its locked edit, which the MCP's engine commands write through; and
+`safe_dest`, which a sender's attachments are held to before they are read.
 The links, the codec, and the verifier are the crate's own.

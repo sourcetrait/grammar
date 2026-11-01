@@ -34,5 +34,6 @@ path while `EQUIP_WORK_DIR` keeps the given one.
 ## fn refuse_with
 A worker that couldn't start still reads the MCP's hello and refuses it with
 its failure's kind and text, so the MCP reports a held namespace as
-`daemon::unavailable` naming `runtime::namespace_held`, not as a lost session.
-A runtime of its own is made for that, the worker's having never started.
+`remote::engine::unavailable` naming `runtime::namespace_held`, not as a lost
+session. A runtime of its own is made for that, the worker's having never
+started.

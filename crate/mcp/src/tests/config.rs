@@ -1,9 +1,9 @@
 use crate::*;
 use crate::config::ConfigToml;
 
-/// Build a runtime config from file text alone; the argument-owned values are
-/// placeholders, since the file surface is what these lock.
+/// A runtime config from file text alone, its argument-owned values placeholders.
 fn from_text(text: &str) -> Result<Config, String> {
+    // The placeholders stand in because the file surface is what these tests lock.
     let toml: ConfigToml = toml::from_str(text).map_err(|e| e.to_string())?;
     Config::from_toml(
         toml,
@@ -153,6 +153,13 @@ fn a_remote_in_the_config_file_is_rejected() {
 }
 
 #[test]
+fn an_engine_in_the_config_file_is_rejected() {
+    // The engines moved to `remotes.toml` beside the config; one left here is stale.
+    let err = from_text("[[engine]]\nalias = \"build\"\n").expect_err("an [[engine]] in the config file must fail");
+    assert!(err.contains("engine"), "got {err}");
+}
+
+#[test]
 fn an_unset_variable_fails_the_load() {
     // Expansion happens at the boundary, so an unresolvable path is a config error
     // rather than something that surfaces much later at first use. Only a home, a
@@ -218,83 +225,6 @@ fn a_uenv_home_stands_in_front_of_its_standard_variable() {
         Some(PathBuf::from("/tmp")),
         "TMPDIR defaults to /tmp",
     );
-}
-
-/// A pinned host key's OpenSSH line, its key test-only.
-const HOST_KEY: &str = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJdD7y3aLq454yWBdwLWbieU1ebz9/cu7/QEXn9OIeZJ example";
-
-/// An `[[engine]]` table whose fields are `fields`, each a TOML line.
-fn engine(fields: &[&str]) -> String {
-    format!("[[engine]]\n{}\n", fields.join("\n"))
-}
-
-/// An `[[engine]]` entry's fields, each valid, `alias` given.
-fn engine_fields(alias: &str) -> Vec<String> {
-    vec![
-        format!("alias = \"{alias}\""),
-        "host = \"build.example\"".to_string(),
-        "user = \"worker\"".to_string(),
-        "key = \"/keys/worker\"".to_string(),
-        format!("host_keys = [\"{HOST_KEY}\"]"),
-        "command = \"/opt/grammar/bin/grammard\"".to_string(),
-        "id = \"fixture\"".to_string(),
-        "workdir = \"/srv/work\"".to_string(),
-    ]
-}
-
-/// An `[[engine]]` table of `fields`, each a line.
-fn engine_text(fields: &[String]) -> String {
-    engine(&fields.iter().map(String::as_str).collect::<Vec<_>>())
-}
-
-#[test]
-fn an_engine_resolves_with_its_defaults_and_command_line() {
-    let config = from_text(&engine_text(&engine_fields("build"))).expect("a valid engine");
-    let [endpoint] = config.engines.as_slice() else {
-        panic!("one engine, not {:?}", config.engines);
-    };
-    assert_eq!((endpoint.port, endpoint.namespace.as_str()), (22, "default"), "the port and namespace default");
-    assert_eq!(
-        endpoint.command_line(),
-        "/opt/grammar/bin/grammard serve --id fixture --namespace default --workdir /srv/work",
-    );
-    assert!(from_text("").expect("valid").engines.is_empty(), "no engine unless the file names one");
-}
-
-#[test]
-fn an_engine_missing_a_field_or_breaking_a_rule_is_refused() {
-    let without = |field: &str| -> Vec<String> {
-        engine_fields("build").into_iter().filter(|line| !line.starts_with(&format!("{field} "))).collect()
-    };
-    for field in ["host", "user", "key", "host_keys", "command", "id", "workdir"] {
-        let err = from_text(&engine_text(&without(field))).expect_err(field);
-        assert!(err.contains(&format!("`{field}`")), "{field}: {err}");
-    }
-    let with = |line: &str| -> Vec<String> {
-        let field = line.split(' ').next().unwrap_or_default();
-        let mut fields: Vec<String> = engine_fields("build").into_iter().filter(|known| !known.starts_with(&format!("{field} "))).collect();
-        fields.push(line.to_string());
-        fields
-    };
-    for (line, says) in [
-        ("alias = \"local\"", "MCP's own engine"),
-        ("alias = \"../up\"", "not a name"),
-        ("port = 0", "zero"),
-        ("user = \"a user\"", "space"),
-        ("host_keys = []", "empty"),
-        ("host_keys = [\"not a key\"]", "OpenSSH public key"),
-        ("command = \"bin/grammard\"", "absolute"),
-        ("command = \"/opt/grammar $HOME/grammard\"", "login shell"),
-        ("workdir = \"/srv/work;reboot\"", "login shell"),
-        ("id = \"-x\"", "instance name"),
-    ] {
-        let err = from_text(&engine_text(&with(line))).expect_err(line);
-        assert!(err.contains(says), "{line}: {err}");
-    }
-    let twice = format!("{}{}", engine_text(&engine_fields("build")), engine_text(&engine_fields("build")));
-    assert!(from_text(&twice).expect_err("one alias twice").contains("twice"));
-    let stray = format!("{}stray = 1\n", engine_text(&engine_fields("build")));
-    assert!(from_text(&stray).is_err(), "an unknown field is refused");
 }
 
 #[test]

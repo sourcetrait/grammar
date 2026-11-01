@@ -132,16 +132,13 @@ impl McpController {
         Ok(remote)
     }
 
-    /// The remote engines' system on the config's engines, `route` answering asks.
+    /// The remote engines' system, `route` answering asks; a request brings its entry.
     async fn start_remote(
         &self,
         route: RemoteRoute,
     ) -> Result<(), String> {
         let paths = RemoteSysPaths::new(self.config.data_home(), self.config.cache_home());
-        let params = RemoteSysParams {
-            endpoints: self.config.engines.clone(),
-            limits: LIMITS_DEFAULT,
-        };
+        let params = RemoteSysParams { limits: LIMITS_DEFAULT };
         let remote = RemoteHandle::start(paths, params, route).await?;
         *held(&self.remote) = Some(Arc::new(remote));
         Ok(())
@@ -195,18 +192,50 @@ impl McpController {
         self.engine()?.control(command).await
     }
 
-    /// Sends a request to the remote engine `alias` names and awaits its response.
+    /// The remote engines' system, or the failure a stopped one answers.
+    fn remote_system(&self) -> Result<Arc<RemoteHandle>, TransportError> {
+        held(&self.remote).clone().ok_or_else(|| TransportError::Unavailable {
+            reason: "the remote engines' system has stopped".to_string(),
+        })
+    }
+
+    /// Sends a request to engine `alias`, on its entry as the remotes file holds it.
     pub(crate) async fn remote(
         &self,
         alias: &str,
         request: EngineRequest,
     ) -> Result<EngineResponse, TransportError> {
-        let Some(remote) = held(&self.remote).clone() else {
-            return Err(TransportError::Unavailable {
-                reason: "the remote engines' system has stopped".to_string(),
-            });
-        };
-        remote.request(alias, request).await
+        let remote = self.remote_system()?;
+        let endpoint = engine_endpoint(&self.config.remotes_file, alias)
+            .map_err(|reason| TransportError::Unavailable { reason })?;
+        remote.request(endpoint, request).await
+    }
+
+    /// Each remote engine's session state; none once the system has stopped.
+    pub(crate) async fn remote_states(&self) -> Vec<SessionState> {
+        match self.remote_system() {
+            Ok(remote) => remote.states().await,
+            Err(_) => Vec::new(),
+        }
+    }
+
+    /// `endpoint`'s session opened now, if none is open, and its state.
+    pub(crate) async fn remote_connect(
+        &self,
+        endpoint: Endpoint,
+    ) -> Result<SessionState, TransportError> {
+        self.remote_system()?.connect(endpoint).await
+    }
+
+    /// Engine `alias`'s session closed, its worker with it; whether one was open.
+    pub(crate) async fn remote_close(
+        &self,
+        alias: &str,
+    ) -> bool {
+        match self.remote_system() {
+            Ok(remote) => remote.close_session(alias).await,
+            Err(_) => false,
+        }
     }
 
     /// Sweep on TERM, INT, or HUP: the systems stopped, then the process's exit.

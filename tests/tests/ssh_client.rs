@@ -6,7 +6,8 @@ use std::time::Duration;
 
 use sourcetrait_common::{datum, subsys};
 use sourcetrait_grammar_client::{
-    FromRemote, RemoteHandle, RemoteSession, RemoteSysParams, RemoteSysPaths, RemoteSystem, open,
+    Endpoint, FromRemote, RemoteHandle, RemoteSession, RemoteSysParams, RemoteSysPaths, RemoteSystem,
+    SessionPhase, open,
 };
 use sourcetrait_grammar_protocol::{
     ControlAnswer, ControlRequest, EngineCommand, EngineRequest, EngineResponse, ExecuteRequest,
@@ -71,7 +72,7 @@ fn a_host_key_not_pinned_is_refused_before_authentication() {
     let mut endpoint = sshd.endpoint("lab", &worker);
     endpoint.host_keys = vec![stray.public.clone()];
     let refused = runtime().block_on(async { refusal(open(&endpoint, LIMITS_DEFAULT).await) });
-    assert_eq!(refused.kind(), "daemon::host_key_rejected", "{}", refused.message());
+    assert_eq!(refused.kind(), "remote::engine::host_key_rejected", "{}", refused.message());
     assert!(!sshd.log().contains("Accepted publickey"), "nothing authenticated: {}", sshd.log());
 }
 
@@ -82,7 +83,7 @@ fn a_key_the_host_does_not_authorize_is_refused() {
     let mut endpoint = sshd.endpoint("lab", &worker);
     endpoint.key = sshd.stranger_key.path();
     let refused = runtime().block_on(async { refusal(open(&endpoint, LIMITS_DEFAULT).await) });
-    assert_eq!(refused.kind(), "daemon::authentication_failed", "{}", refused.message());
+    assert_eq!(refused.kind(), "remote::engine::authentication_failed", "{}", refused.message());
     assert!(worker.scratch_dirs().is_empty(), "no worker started");
 }
 
@@ -165,10 +166,10 @@ impl subsys::Handler<RemoteSystem> for Bare {
 }
 
 /// Whether the worker lists a call in flight within 10 s, through the system.
-async fn in_flight(remote: &RemoteHandle) -> bool {
+async fn in_flight(remote: &RemoteHandle, endpoint: &Endpoint) -> bool {
     for _ in 0..100 {
         if let Ok(EngineResponse::Wire(FromEngineSys::Control(Ok(ControlAnswer::Processes(rows))))) =
-            remote.request("lab", control(EngineCommand::Processes)).await
+            remote.request(endpoint.clone(), control(EngineCommand::Processes)).await
             && !rows.is_empty()
         {
             return true;
@@ -179,10 +180,10 @@ async fn in_flight(remote: &RemoteHandle) -> bool {
 }
 
 /// The worker's pid as an eval on it reads it, through the system.
-async fn worker_pid(remote: &RemoteHandle) -> u32 {
+async fn worker_pid(remote: &RemoteHandle, endpoint: &Endpoint) -> u32 {
     let definition = "def execute [data: nothing]: nothing -> record<pid: int> { {pid: $nu.pid} }";
     let request = execute(datum::NonceGenerator::new().generate(), definition);
-    match remote.request("lab", request).await.expect("a response") {
+    match remote.request(endpoint.clone(), request).await.expect("a response") {
         EngineResponse::Wire(FromEngineSys::Value(ValueAnswer { result: Ok(value), .. })) => {
             match value.get("pid") {
                 Some(NuVal::Int(pid)) => *pid as u32,
@@ -200,29 +201,58 @@ fn a_lost_worker_answers_its_calls_lost_and_the_next_request_opens_a_session() {
     let endpoint = sshd.endpoint("lab", &worker);
     runtime().block_on(async {
         let paths = RemoteSysPaths::new(worker.home("data"), worker.home("cache"));
-        let params = RemoteSysParams {
-            endpoints: vec![endpoint],
-            limits: LIMITS_DEFAULT,
-        };
+        let params = RemoteSysParams { limits: LIMITS_DEFAULT };
         let remote = Arc::new(RemoteHandle::start(paths, params, Bare).await.expect("the system"));
-        let pid = worker_pid(&remote).await;
-        assert_eq!(worker_pid(&remote).await, pid, "one session serves both");
+        let pid = worker_pid(&remote, &endpoint).await;
+        assert_eq!(worker_pid(&remote, &endpoint).await, pid, "one session serves both");
         let call = tokio::spawn({
             let remote = remote.clone();
-            async move { remote.request("lab", execute(datum::NonceGenerator::new().generate(), SLEEP)).await }
+            let endpoint = endpoint.clone();
+            async move { remote.request(endpoint, execute(datum::NonceGenerator::new().generate(), SLEEP)).await }
         });
-        assert!(in_flight(&remote).await, "the call runs on the worker");
+        assert!(in_flight(&remote, &endpoint).await, "the call runs on the worker");
         nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid as i32), nix::sys::signal::Signal::SIGKILL)
             .expect("the worker killed");
         let answer = tokio::time::timeout(END_WAIT, call).await.expect("the call ends").unwrap();
         match answer {
-            Err(lost) => assert_eq!(lost.kind(), "daemon::session_lost", "{}", lost.message()),
+            Err(lost) => assert_eq!(lost.kind(), "remote::engine::session_lost", "{}", lost.message()),
             Ok(other) => panic!("the call's loss, not {other:?}"),
         }
-        let next = worker_pid(&remote).await;
+        let next = worker_pid(&remote, &endpoint).await;
         assert_ne!(next, pid, "a new session, a new worker");
         remote.close().await;
         assert!(holds_within(END_WAIT, || !alive(next)).await, "the close ends the worker");
+        RemoteHandle::stop(remote).await.expect("the system stops");
+    });
+}
+
+#[test]
+fn a_session_opens_on_its_entry_now_reports_its_state_and_closes_alone() {
+    let sshd = Sshd::start();
+    let worker = TestWorker::new();
+    let endpoint = sshd.endpoint("lab", &worker);
+    let mut stranger = sshd.endpoint("gate", &worker);
+    stranger.key = sshd.stranger_key.path();
+    runtime().block_on(async {
+        let paths = RemoteSysPaths::new(worker.home("data"), worker.home("cache"));
+        let remote = Arc::new(
+            RemoteHandle::start(paths, RemoteSysParams { limits: LIMITS_DEFAULT }, Bare).await.expect("the system"),
+        );
+        assert!(remote.states().await.is_empty(), "no session before a request or a connect");
+        let state = remote.connect(endpoint.clone()).await.expect("the session opens now");
+        assert_eq!(state.phase, SessionPhase::Open, "{state:?}");
+        let pid = state.worker_pid.expect("its worker's pid");
+        assert_eq!(worker_pid(&remote, &endpoint).await, pid, "a request takes the open session");
+        let refused = remote.connect(stranger).await.expect_err("an unauthorized key");
+        assert_eq!(refused.kind(), "remote::engine::authentication_failed", "{}", refused.message());
+        let states = remote.states().await;
+        let failed = states.iter().find(|state| state.alias == "gate").expect("the failed open's alias");
+        assert_eq!(failed.phase, SessionPhase::Closed, "{failed:?}");
+        assert!(failed.failure.as_deref().is_some_and(|f| f.starts_with("remote::engine::authentication_failed")), "{failed:?}");
+        assert!(remote.close_session("lab").await, "an open session closes");
+        assert!(holds_within(END_WAIT, || !alive(pid)).await, "its worker ends with it");
+        assert!(!remote.close_session("lab").await, "no session is left to close");
+        assert!(remote.states().await.iter().all(|state| state.phase == SessionPhase::Closed), "nothing open");
         RemoteHandle::stop(remote).await.expect("the system stops");
     });
 }

@@ -52,6 +52,13 @@ fn kind_name(kind: CommandKind) -> &'static str {
         K::RemoteListen => "remote channel listen",
         K::RemoteConnect => "remote channel connect",
         K::RemoteClose => "remote channel close",
+        K::EngineList => "remote engine list",
+        K::EngineGet => "remote engine get",
+        K::EngineSet => "remote engine set",
+        K::EngineUnset => "remote engine unset",
+        K::EngineConnect => "remote engine connect",
+        K::EngineClose => "remote engine close",
+        K::EngineImport => "remote engine import",
         K::EquipNew => "equip new",
         K::EquipInstall => "equip install",
         K::EquipCheck => "equip check",
@@ -63,9 +70,9 @@ fn kind_name(kind: CommandKind) -> &'static str {
 
 #[test]
 fn the_catalog_holds_the_baseline_commands() {
-    assert_eq!(COMMANDS.len(), 26);
+    assert_eq!(COMMANDS.len(), 33);
     let words: BTreeSet<&str> = COMMANDS.iter().map(|spec| spec.words()).collect();
-    assert_eq!(words.len(), 26, "a command's words repeat");
+    assert_eq!(words.len(), 33, "a command's words repeat");
     for spec in COMMANDS {
         assert_eq!(spec.words(), kind_name(spec.kind), "{}", spec.name);
         assert_eq!(spec.name, format!("{INTERFACE} {}", spec.words()));
@@ -76,7 +83,7 @@ fn the_catalog_holds_the_baseline_commands() {
     }
     let remote: Vec<&str> =
         COMMANDS.iter().filter(|spec| spec.topic == "Remote").map(|spec| spec.words()).collect();
-    assert_eq!(remote.len(), 7, "the seven remote channel commands");
+    assert_eq!(remote.len(), 14, "the seven remote channel commands and the seven remote engine ones");
     let topics: Vec<&str> = COMMANDS.iter().map(|spec| spec.topic).fold(Vec::new(), |mut seen, topic| {
         if seen.last() != Some(&topic) {
             seen.push(topic);
@@ -110,6 +117,13 @@ fn a_signature_line_names_each_parameter_and_the_result() {
     );
     let help = command_by_words("help").expect("help");
     assert_eq!(help.signature_text(), "help [namepath: string]: nothing -> record");
+    let engine = command_by_words("remote engine set").expect("engine set");
+    assert_eq!(
+        engine.signature_text(),
+        "remote engine set [alias: string, --host: string, --port: int, --user: string, --key: string, \
+         --host-keys: list<string>, --command: string, --id: string, --namespace: string, \
+         --workdir: string]: nothing -> record",
+    );
 }
 
 /// Every operator vector.
@@ -480,7 +494,7 @@ fn a_violations_refusal_reports_its_errors_alone() {
 #[test]
 fn a_transport_failure_keeps_what_never_ran_apart_from_what_may_have() {
     for (name, error) in transport_errors() {
-        assert!(error.kind().starts_with("daemon::"), "{name}");
+        assert!(error.kind().starts_with("remote::engine::"), "{name}");
         assert_eq!(error.clone().rows().len(), 1, "{name}");
     }
     let auth = TransportError::AuthenticationFailed { reason: "publickey".into() };

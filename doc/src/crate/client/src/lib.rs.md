@@ -6,7 +6,8 @@ sourcetrait_common alone, never the engine, the operator, or the daemon, so a
 product that drives a worker links it without an engine of its own.
 
 ## mod endpoint
-A remote engine's entry, held to its rules once, at the config's load.
+A remote engine's entry and its fields' checks, held before the remotes file
+is written and before a session opens.
 
 ## mod session
 The MCP's end of a session over any reader and writer, an SSH channel's or a
@@ -25,6 +26,6 @@ The remote engines as a subsys system under the MCP's controller.
 derives `Data` naming them.
 
 ## pub use
-The endpoint and its defaults, the session, its events and an ask's
-responder, the SSH open and its session, and the system with its messages,
-parameters, paths, and handle.
+The endpoint, its defaults, and its fields' checks, the session, its events
+and an ask's responder, the SSH open and its session, and the system with its
+messages, a session's state, parameters, paths, and handle.

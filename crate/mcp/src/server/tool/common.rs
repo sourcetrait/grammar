@@ -96,17 +96,24 @@ pub(crate) enum Route {
 }
 
 impl NuSh {
-    /// A tool's `host` as its route: `local`, a configured engine's alias, or unknown.
+    /// A tool's `host` as its route: `local`, a whole remote engine entry, or unknown.
     pub(crate) fn route(&self, alias: &str) -> GrammarMcpResult<Route> {
         if alias == LOCAL_HOST {
             return Ok(Route::Local);
         }
-        if self.controller.config.engines.iter().any(|engine| engine.alias == alias) {
-            return Ok(Route::Remote(alias.to_string()));
+        let entries = read_engines(&self.controller.config.remotes_file)
+            .map_err(|reason| GrammarMcpError::RemotesFile { reason })?;
+        match entries.into_iter().find(|entry| entry.alias == alias) {
+            Some(entry) => {
+                entry
+                    .endpoint()
+                    .map_err(|reason| GrammarMcpError::RemoteEngineInvalidParams { reason })?;
+                Ok(Route::Remote(alias.to_string()))
+            }
+            None => Err(GrammarMcpError::HostUnknown {
+                host: alias.to_string(),
+            }),
         }
-        Err(GrammarMcpError::HostUnknown {
-            host: alias.to_string(),
-        })
     }
 
     /// An eval's, a rerun's, or a call's value from the engine its route names.

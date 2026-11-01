@@ -49,7 +49,8 @@ naming a host its engine doesn't serve, which no tool sends.
 
 ## enum TransportError
 The path to a worker failing, never its engine's answer, each under a stable
-`daemon::` kind. The kinds split on whether anything ran. `ConnectFailed`,
+`remote::engine::` kind, beside the remote channels' `remote::channel::` (User).
+The kinds split on whether anything ran. `ConnectFailed`,
 `HostKeyRejected`, and `AuthenticationFailed` fail before any request is sent,
 `Busy` refuses one before the engine takes it, and a hello's mismatches before
 the session serves anything, so each is safe to retry. `SessionLost` is the

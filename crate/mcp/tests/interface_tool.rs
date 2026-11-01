@@ -125,6 +125,40 @@ fn every_command_answers_through_the_interface() {
     assert_eq!(error_kind(&missing), Some("remote::channel::invalid_params"), "got {missing}");
     let shut = s.interface("interface remote channel close 'nopeer'");
     assert_eq!(error_kind(&shut), Some("remote::channel::not_open"), "got {shut}");
+
+    let engines = s.interface("interface remote engine list");
+    assert_eq!(result_of(&engines), &nuon("[]"), "got {engines}");
+    let made = s.interface("interface remote engine set 'lab' --host 'lab.example' --port 2222");
+    assert_eq!(result_of(&made)["configured"], true, "got {made}");
+    assert_eq!(result_of(&made)["port"], 2222, "got {made}");
+    assert_eq!(result_of(&made)["state"], "closed", "got {made}");
+    assert_eq!(
+        result_of(&made)["missing"],
+        nuon("[user, key, host_keys, command, id, workdir]"),
+        "got {made}",
+    );
+    let got = s.interface("interface remote engine get 'lab'");
+    assert_eq!(result_of(&got), result_of(&made), "got {got}");
+    let listed = s.interface("interface remote engine list");
+    assert_eq!(result_of(&listed)[0], *result_of(&made), "got {listed}");
+    let incomplete = s.interface("interface remote engine connect 'lab'");
+    assert_eq!(error_kind(&incomplete), Some("remote::engine::invalid_params"), "got {incomplete}");
+    let routed = s.interface_on("lab", "interface info");
+    assert_eq!(error_kind(&routed), Some("remote::engine::invalid_params"), "got {routed}");
+    let refused = s.interface("interface remote engine set 'lab' --port 0");
+    assert_eq!(error_kind(&refused), Some("remote::engine::invalid_params"), "got {refused}");
+    let unset = s.interface("interface remote engine unset 'lab'");
+    assert!(result_of(&unset).is_nothing(), "got {unset}");
+    let emptied = s.interface("interface remote engine list");
+    assert_eq!(result_of(&emptied), &nuon("[]"), "got {emptied}");
+    let unknown = s.interface("interface remote engine get 'lab'");
+    assert_eq!(error_kind(&unknown), Some("remote::engine::invalid_params"), "got {unknown}");
+    let unopened = s.interface("interface remote engine connect 'lab'");
+    assert_eq!(error_kind(&unopened), Some("remote::engine::invalid_params"), "got {unopened}");
+    let unclosed = s.interface("interface remote engine close 'lab'");
+    assert_eq!(error_kind(&unclosed), Some("remote::engine::not_open"), "got {unclosed}");
+    let gone = s.interface("interface remote engine unset 'lab'");
+    assert_eq!(error_kind(&gone), Some("remote::engine::invalid_params"), "got {gone}");
 }
 
 #[test]

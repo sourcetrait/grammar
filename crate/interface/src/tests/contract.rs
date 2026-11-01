@@ -80,6 +80,15 @@ fn kind_of(command: &InterfaceCommand) -> CommandKind {
             PeerCommand::Connect(_) => CommandKind::RemoteConnect,
             PeerCommand::Close(_) => CommandKind::RemoteClose,
         },
+        InterfaceCommand::RemoteEngine(command) => match command {
+            RemoteEngineCommand::List => CommandKind::EngineList,
+            RemoteEngineCommand::Get(_) => CommandKind::EngineGet,
+            RemoteEngineCommand::Set(_) => CommandKind::EngineSet,
+            RemoteEngineCommand::Unset(_) => CommandKind::EngineUnset,
+            RemoteEngineCommand::Connect(_) => CommandKind::EngineConnect,
+            RemoteEngineCommand::Close(_) => CommandKind::EngineClose,
+            RemoteEngineCommand::Import(_) => CommandKind::EngineImport,
+        },
     }
 }
 
@@ -177,6 +186,45 @@ fn a_remote_takes_its_flags() {
         !refused("interface remote list").is_empty(),
         "the commands sit under `remote channel`"
     );
+}
+
+/// A remote engine command takes its flags: a port an int, the host keys a list.
+#[test]
+fn a_remote_engine_takes_its_flags() {
+    let set = "interface remote engine set 'lab' --host 'lab.example' --port 2222 \
+               --host-keys ['ssh-ed25519 AAAA one', 'ssh-rsa AAAA other'] --workdir '/srv/work'";
+    match parse(set) {
+        Ok(InterfaceCommand::RemoteEngine(RemoteEngineCommand::Set(p))) => {
+            assert_eq!(p.alias, "lab");
+            assert_eq!(p.host.as_deref(), Some("lab.example"));
+            assert_eq!(p.port, Some(2222));
+            assert_eq!(
+                p.host_keys,
+                Some(vec!["ssh-ed25519 AAAA one".to_string(), "ssh-rsa AAAA other".to_string()])
+            );
+            assert_eq!(p.workdir.as_deref(), Some("/srv/work"));
+            assert_eq!((p.user, p.key, p.command, p.id, p.namespace), (None, None, None, None, None));
+        }
+        other => panic!("got {other:?}"),
+    }
+    match parse("interface remote engine set 'lab' --host-keys []") {
+        Ok(InterfaceCommand::RemoteEngine(RemoteEngineCommand::Set(p))) => {
+            assert_eq!(p.host_keys, Some(Vec::new()), "an empty list given is kept, for the check");
+        }
+        other => panic!("got {other:?}"),
+    }
+    match parse("interface remote engine import 'lab' --from 'labssh' --ssh-config '/tmp/ssh/config'") {
+        Ok(InterfaceCommand::RemoteEngine(RemoteEngineCommand::Import(p))) => {
+            assert_eq!(p.alias, "lab");
+            assert_eq!(p.from.as_deref(), Some("labssh"));
+            assert_eq!(p.ssh_config.as_deref(), Some("/tmp/ssh/config"));
+        }
+        other => panic!("got {other:?}"),
+    }
+    assert!(!refused("interface remote engine set 'lab' --port -1").is_empty(), "a negative port");
+    assert!(!refused("interface remote engine set 'lab' --port 70000").is_empty(), "a port past u16");
+    assert!(!refused("interface remote engine set 'lab' --cert 'x'").is_empty(), "a channel's flag");
+    assert!(!refused("interface remote engine listen 'lab'").is_empty(), "no `listen` for an engine");
 }
 
 /// A text naming no command is refused as no `interface` command.

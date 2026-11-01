@@ -95,7 +95,7 @@ fn a_bad_preface_is_refused_at_its_first_wrong_byte() {
     // Five bytes are enough: the decoder does not wait for eight.
     let err = feed_bytewise(b"GRAMX").expect_err("refused");
     assert!(matches!(err, FrameError::BadPreface { at: 4, got: b'X' }), "{err}");
-    assert_eq!(err.transport().kind(), "daemon::invalid_frame");
+    assert_eq!(err.transport().kind(), "remote::engine::invalid_frame");
 }
 
 #[test]
@@ -199,7 +199,7 @@ fn the_codec_is_the_bitcode_the_lock_resolves() {
     assert!(check_codec(CODEC_ID).is_ok());
     for other in ["bitcode-0.6.9+zstd", "bitcode-0.6.8", ""] {
         let err = check_codec(other).expect_err("refused");
-        assert_eq!(err.transport().kind(), "daemon::codec_mismatch");
+        assert_eq!(err.transport().kind(), "remote::engine::codec_mismatch");
     }
 }
 

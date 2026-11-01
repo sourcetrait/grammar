@@ -30,17 +30,14 @@ One file an agent, under the directory the host starts in: an agent's client
 starts its host in the agent's own directory. The channel, the supervisor, and
 the identity sit together in it, read once at the start, and two agents on one
 machine never share one by accident. `--config` names another file in its
-place. The remotes live beside it in `remotes.toml` (`remotes.rs`), read at
-each use, so they change with no restart.
+place. The remote channels and engines live beside it in `remotes.toml`
+(`crate/peer`'s `remotes.rs`, and `engines.rs`), read at each use, so they
+change with no restart.
 
 ## struct ConfigToml
-The embedded base and the agent's file share this shape. A `[[remote]]` here
-is an unknown field, so a file from before the remotes moved fails loudly.
-
-## struct EngineConfigToml
-One remote engine, `[[engine]]`, the agent's file's alone: the base names
-none. Each field is optional here so a missing one is refused by its name at
-resolve, and `port` and `namespace` take their defaults there.
+The embedded base and the agent's file share this shape. A `[[remote]]` or an
+`[[engine]]` here is an unknown field, so a file from before either moved to
+the remotes file fails loudly.
 
 ## struct IdentityConfigToml
 The host's own key pair, one for everything it presents: the Channel's TLS and
@@ -86,12 +83,8 @@ neither runs without one.
 
 ### field remotes_file
 The config file's sibling, whichever file the config came from, so `--config`
-moves the remotes with it.
-
-### field engines
-The remote engines a tool's `host` names, each checked at load. They are read
-once, at the start, as the rest of the file is; the remote engines' system
-starts on them (`server/controller.rs`).
+moves the remotes with it. The peer links read its channels and the MCP its
+engines.
 
 ## struct ChannelConfig
 
@@ -112,15 +105,6 @@ command gets flagged. That is why erring permissive is right here.
 ## fn resolved_identity
 Both files are required and expanded at load, so a missing one or an
 unresolvable variable fails at startup with its name, not at the first open.
-
-## fn resolved_engines
-Each entry's required fields are present or refused by name, `port` defaults
-to 22 and `namespace` to `default`, and the key file expands as every other
-path here does. The command and the workdir are the host's paths, not this
-one's, so they never expand. Each entry is held to the client's `check`
-(`crate/client`'s `endpoint.rs`), and an alias may name one engine alone. An
-engine's alias and a remote channel's never meet in one command, so the two
-may share a name.
 
 ## fn merged_supervisor
 The operator reads the table, through `Config.supervisor`.

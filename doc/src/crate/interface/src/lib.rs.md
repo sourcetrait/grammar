@@ -13,6 +13,6 @@ evaluates, so the crate takes no evaluating engine of its own. nu-engine is a
 dependency for the feature pairing its manifest notes, never for its code.
 
 ## pub use
-The parse and its engine, the command's three groups, the refusal's kind, and
+The parse and its engine, the command's four groups, the refusal's kind, and
 each command's parameters. The literal arguments and the decls are the crate's
 own.

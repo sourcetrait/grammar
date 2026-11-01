@@ -64,17 +64,17 @@ fn a_valid_hello_is_accepted_under_the_worker_s_identity() {
 fn each_mismatch_is_refused() {
     let named = |id: &str, namespace: &str| Instance::new(id, namespace).expect("a valid instance");
     let cases = [
-        ("a major version", ClientHello { version: ProtocolVersion { major: 2, minor: 0 }, ..hello() }, "daemon::version_mismatch"),
-        ("a schema", ClientHello { schema: [0; 32], ..hello() }, "daemon::schema_mismatch"),
-        ("a codec", ClientHello { codec: "bitcode-0.7.0".to_string(), ..hello() }, "daemon::codec_mismatch"),
-        ("an id", ClientHello { expected: named("other", "default"), ..hello() }, "daemon::wrong_worker"),
-        ("a namespace", ClientHello { expected: named("fixture", "test"), ..hello() }, "daemon::wrong_worker"),
+        ("a major version", ClientHello { version: ProtocolVersion { major: 2, minor: 0 }, ..hello() }, "remote::engine::version_mismatch"),
+        ("a schema", ClientHello { schema: [0; 32], ..hello() }, "remote::engine::schema_mismatch"),
+        ("a codec", ClientHello { codec: "bitcode-0.7.0".to_string(), ..hello() }, "remote::engine::codec_mismatch"),
+        ("an id", ClientHello { expected: named("other", "default"), ..hello() }, "remote::engine::wrong_worker"),
+        ("a namespace", ClientHello { expected: named("fixture", "test"), ..hello() }, "remote::engine::wrong_worker"),
         (
             "a malformed name",
             ClientHello { expected: Instance { id: "../x".to_string(), namespace: "default".to_string() }, ..hello() },
-            "daemon::invalid_frame",
+            "remote::engine::invalid_frame",
         ),
-        ("a zero limit", ClientHello { requested: Limits { control: 0, ..LIMITS_DEFAULT }, ..hello() }, "daemon::invalid_frame"),
+        ("a zero limit", ClientHello { requested: Limits { control: 0, ..LIMITS_DEFAULT }, ..hello() }, "remote::engine::invalid_frame"),
     ];
     for (name, hello, kind) in cases {
         let HelloReply::Refused(error) = worker().reply(&hello) else { panic!("{name}: accepted") };
@@ -113,13 +113,13 @@ fn the_mcp_accepts_the_worker_it_expects() {
 fn the_mcp_refuses_each_wrong_reply() {
     let other = Instance::new("fixture", "test").expect("a valid instance");
     let cases = [
-        ("a major version", WorkerHello { version: ProtocolVersion { major: 0, minor: 9 }, ..reply() }, "daemon::version_mismatch"),
-        ("a schema", WorkerHello { schema: [1; 32], ..reply() }, "daemon::schema_mismatch"),
-        ("a codec", WorkerHello { codec: "bitcode-0.6.8".to_string(), ..reply() }, "daemon::codec_mismatch"),
-        ("an instance", WorkerHello { instance: other, ..reply() }, "daemon::wrong_worker"),
-        ("a nom not base62", WorkerHello { nom: "../nom".to_string(), ..reply() }, "daemon::invalid_frame"),
-        ("a raised limit", WorkerHello { effective: Limits { frame: FRAME_HARD, ..LIMITS_DEFAULT }, ..reply() }, "daemon::invalid_frame"),
-        ("a zero limit", WorkerHello { effective: Limits { calls: 0, ..LIMITS_DEFAULT }, ..reply() }, "daemon::invalid_frame"),
+        ("a major version", WorkerHello { version: ProtocolVersion { major: 0, minor: 9 }, ..reply() }, "remote::engine::version_mismatch"),
+        ("a schema", WorkerHello { schema: [1; 32], ..reply() }, "remote::engine::schema_mismatch"),
+        ("a codec", WorkerHello { codec: "bitcode-0.6.8".to_string(), ..reply() }, "remote::engine::codec_mismatch"),
+        ("an instance", WorkerHello { instance: other, ..reply() }, "remote::engine::wrong_worker"),
+        ("a nom not base62", WorkerHello { nom: "../nom".to_string(), ..reply() }, "remote::engine::invalid_frame"),
+        ("a raised limit", WorkerHello { effective: Limits { frame: FRAME_HARD, ..LIMITS_DEFAULT }, ..reply() }, "remote::engine::invalid_frame"),
+        ("a zero limit", WorkerHello { effective: Limits { calls: 0, ..LIMITS_DEFAULT }, ..reply() }, "remote::engine::invalid_frame"),
     ];
     for (name, worker, kind) in cases {
         let error = check_reply(HelloReply::Accepted(Box::new(worker)), &hello()).expect_err(name);
@@ -127,7 +127,7 @@ fn the_mcp_refuses_each_wrong_reply() {
     }
     // A refusal is the worker's own error, passed through.
     let refusal = HelloReply::Refused(TransportError::Unavailable { reason: "runtime::namespace_held".to_string() });
-    assert_eq!(check_reply(refusal, &hello()).expect_err("refused").kind(), "daemon::unavailable");
+    assert_eq!(check_reply(refusal, &hello()).expect_err("refused").kind(), "remote::engine::unavailable");
 }
 
 #[test]
@@ -141,7 +141,7 @@ fn the_mcp_holds_each_limit_to_the_hard_ceilings_whatever_it_asked() {
     ];
     for (name, effective) in past {
         let error = check_reply(HelloReply::Accepted(Box::new(WorkerHello { effective, ..reply() })), &asked).expect_err(name);
-        assert_eq!(error.kind(), "daemon::invalid_frame", "{name}");
+        assert_eq!(error.kind(), "remote::engine::invalid_frame", "{name}");
         assert!(error.message().contains(name), "{name}: {}", error.message());
     }
     let at_the_ceilings = WorkerHello { effective: LIMITS_HARD, ..reply() };

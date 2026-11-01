@@ -4,13 +4,16 @@ use crate::*;
 /// How long a stop waits for its requests to let the system go.
 const RELEASE_GRACE: Duration = Duration::from_secs(1);
 
-/// What the controller sends: a request, the close, or an ask's answer.
+/// What the controller sends: a request, a session command, or an ask's answer.
 #[cereal::derived(Data)]
 pub enum ToRemote {
     Request(RemoteRequest),
-    /// Every session closed, its requests answered `daemon::session_lost`.
+    /// Every session closed, its requests answered `remote::engine::session_lost`.
     Close,
     Answer(HostAnswer),
+    States,
+    Connect(Endpoint),
+    CloseSession(String),
 }
 
 /// What the system sends up: an answer, a worker's ask, or its emergency.
@@ -20,13 +23,126 @@ pub enum FromRemote {
     Closed,
     Ask(RemoteAsk),
     Emergency(RemoteEmergency),
+    States(SessionStates),
+    Connected(ConnectAnswer),
+    SessionClosed(SessionClosed),
 }
 
-/// A request of the engine an alias names.
+/// A request of the engine an entry names, its session opened on that entry.
 #[cereal::derived(Data)]
 pub struct RemoteRequest {
-    pub alias: String,
+    pub endpoint: Endpoint,
     pub request: EngineRequest,
+}
+
+/// A session's phase: none, opening, or open.
+#[cereal::derived(Data, Copy, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum SessionPhase {
+    Closed,
+    Opening,
+    Open,
+}
+
+/// One alias's session: its phase, its worker while open, its last open's failure.
+#[cereal::derived(Data, Eq)]
+pub struct SessionState {
+    pub alias: String,
+    pub phase: SessionPhase,
+    pub worker_nom: Option<String>,
+    pub worker_pid: Option<u32>,
+    pub failure: Option<String>,
+}
+
+/// The states request: every alias with a session or a failure to report.
+#[cereal::derived(Data, Copy, Eq)]
+pub struct StatesRequest;
+
+/// The states request's answer, by alias.
+#[cereal::derived(Data, Eq)]
+pub struct SessionStates(pub Vec<SessionState>);
+
+/// The connect request: a session opened on `endpoint` now, if none is open.
+#[cereal::derived(Data, Eq)]
+pub struct ConnectRequest {
+    pub endpoint: Endpoint,
+}
+
+/// The connect's answer: the session's state, or why it didn't open.
+#[cereal::derived(Data)]
+pub struct ConnectAnswer(pub Result<SessionState, TransportError>);
+
+/// The close of one alias's session.
+#[cereal::derived(Data, Eq)]
+pub struct CloseSessionRequest {
+    pub alias: String,
+}
+
+/// Whether the closed session was open.
+#[cereal::derived(Data, Copy, Eq)]
+pub struct SessionClosed(pub bool);
+
+impl subsys::Request<RemoteSystem> for StatesRequest {
+    type ResponseType = SessionStates;
+}
+
+impl From<StatesRequest> for ToRemote {
+    fn from(_: StatesRequest) -> Self {
+        Self::States
+    }
+}
+
+impl TryFrom<FromRemote> for SessionStates {
+    type Error = subsys::SubsysError;
+
+    fn try_from(v: FromRemote) -> subsys::SubsysResult<Self> {
+        match v {
+            FromRemote::States(states) => Ok(states),
+            _ => Err(subsys::SubsysError::ResponseType),
+        }
+    }
+}
+
+impl subsys::Request<RemoteSystem> for ConnectRequest {
+    type ResponseType = ConnectAnswer;
+}
+
+impl From<ConnectRequest> for ToRemote {
+    fn from(v: ConnectRequest) -> Self {
+        Self::Connect(v.endpoint)
+    }
+}
+
+impl TryFrom<FromRemote> for ConnectAnswer {
+    type Error = subsys::SubsysError;
+
+    fn try_from(v: FromRemote) -> subsys::SubsysResult<Self> {
+        match v {
+            FromRemote::Connected(answer) => Ok(answer),
+            _ => Err(subsys::SubsysError::ResponseType),
+        }
+    }
+}
+
+impl subsys::Request<RemoteSystem> for CloseSessionRequest {
+    type ResponseType = SessionClosed;
+}
+
+impl From<CloseSessionRequest> for ToRemote {
+    fn from(v: CloseSessionRequest) -> Self {
+        Self::CloseSession(v.alias)
+    }
+}
+
+impl TryFrom<FromRemote> for SessionClosed {
+    type Error = subsys::SubsysError;
+
+    fn try_from(v: FromRemote) -> subsys::SubsysResult<Self> {
+        match v {
+            FromRemote::SessionClosed(closed) => Ok(closed),
+            _ => Err(subsys::SubsysError::ResponseType),
+        }
+    }
 }
 
 /// A request's response from its host's worker, or why there is none.
@@ -118,10 +234,9 @@ impl TryFrom<ToRemote> for HostAnswer {
     }
 }
 
-/// The system's parameters: the engines, and the bounds each session asks.
+/// The system's parameters: each session's bounds; a request brings its entry.
 #[cereal::derived(Data, Eq)]
 pub struct RemoteSysParams {
-    pub endpoints: Vec<Endpoint>,
     pub limits: Limits,
 }
 
@@ -236,9 +351,9 @@ impl subsys::System for RemoteSystem {
         let hosts = self.hosts.clone();
         let tx = self.inner.channel.tx.clone();
         match msg {
-            ToRemote::Request(RemoteRequest { alias, request }) => {
+            ToRemote::Request(RemoteRequest { endpoint, request }) => {
                 tk::spawn(async move {
-                    let work = tk::spawn(async move { hosts.request(&alias, request).await });
+                    let work = tk::spawn(async move { hosts.request(&endpoint, request).await });
                     let response = work.await.unwrap_or_else(|e| {
                         Err(TransportError::Unavailable {
                             reason: format!("the request's task failed: {e}"),
@@ -251,6 +366,27 @@ impl subsys::System for RemoteSystem {
                 tk::spawn(async move {
                     let _ = tk::spawn(async move { hosts.close_all().await }).await;
                     respond(&tx, id, FromRemote::Closed).await;
+                });
+            }
+            ToRemote::States => {
+                respond(&tx, id, FromRemote::States(SessionStates(hosts.states()))).await;
+            }
+            ToRemote::Connect(endpoint) => {
+                tk::spawn(async move {
+                    let work = tk::spawn(async move { hosts.connect(&endpoint).await });
+                    let answer = work.await.unwrap_or_else(|e| {
+                        Err(TransportError::Unavailable {
+                            reason: format!("the connect's task failed: {e}"),
+                        })
+                    });
+                    respond(&tx, id, FromRemote::Connected(ConnectAnswer(answer))).await;
+                });
+            }
+            ToRemote::CloseSession(alias) => {
+                tk::spawn(async move {
+                    let work = tk::spawn(async move { hosts.close_session(&alias).await });
+                    let was_open = work.await.unwrap_or(false);
+                    respond(&tx, id, FromRemote::SessionClosed(SessionClosed(was_open))).await;
                 });
             }
             ToRemote::Answer(_) => {}
@@ -305,23 +441,24 @@ enum Slot {
     Open(Arc<RemoteSession>),
 }
 
-/// The configured engines and each one's session.
+/// Each alias's session and each alias's last failure to open one.
 struct Hosts {
-    endpoints: HashMap<String, Endpoint>,
     limits: Limits,
     slots: std::sync::Mutex<HashMap<String, Slot>>,
+    /// The last open's failure by alias, cleared when an open succeeds.
+    failures: std::sync::Mutex<HashMap<String, String>>,
     uplink: Uplink,
     /// Set once the close begins, after which no session opens.
     closing: AtomicBool,
 }
 
 impl Hosts {
-    /// The engines by alias, none of their sessions open.
+    /// No session open, each to open on the entry its first request brings.
     fn new(params: RemoteSysParams, uplink: Uplink) -> Self {
         Self {
-            endpoints: params.endpoints.into_iter().map(|endpoint| (endpoint.alias.clone(), endpoint)).collect(),
             limits: params.limits,
             slots: std::sync::Mutex::new(HashMap::new()),
+            failures: std::sync::Mutex::new(HashMap::new()),
             uplink,
             closing: AtomicBool::new(false),
         }
@@ -332,13 +469,75 @@ impl Hosts {
         self.slots.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// `request`'s response from `alias`'s worker, a session opened where none is.
-    async fn request(&self, alias: &str, request: EngineRequest) -> Result<EngineResponse, TransportError> {
-        self.session(alias).await?.request(request).await
+    /// The failures, a poisoned lock taken as it stands.
+    fn failures(&self) -> std::sync::MutexGuard<'_, HashMap<String, String>> {
+        self.failures.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// `alias`'s open session, or one opened, requests arriving meanwhile sharing it.
-    async fn session(&self, alias: &str) -> Result<Arc<RemoteSession>, TransportError> {
+    /// `request`'s response from `endpoint`'s worker, a session opened where none is.
+    async fn request(&self, endpoint: &Endpoint, request: EngineRequest) -> Result<EngineResponse, TransportError> {
+        self.session(endpoint).await?.request(request).await
+    }
+
+    /// `endpoint`'s session opened now where none is open, and its state.
+    async fn connect(&self, endpoint: &Endpoint) -> Result<SessionState, TransportError> {
+        let session = self.session(endpoint).await?;
+        Ok(open_state(&endpoint.alias, &session, None))
+    }
+
+    /// The alias's session, open or opening, closed; whether one was open.
+    async fn close_session(&self, alias: &str) -> bool {
+        let slot = self.slots().remove(alias);
+        match slot {
+            Some(Slot::Open(session)) => {
+                let live = !session.has_ended();
+                session.close().await;
+                live
+            }
+            Some(Slot::Opening(opening)) => match opening.await {
+                Ok(session) => {
+                    session.close().await;
+                    true
+                }
+                Err(_) => false,
+            },
+            None => false,
+        }
+    }
+
+    /// Every alias with a session or an open's failure, by alias.
+    fn states(&self) -> Vec<SessionState> {
+        let slots = self.slots();
+        let failures = self.failures();
+        let aliases: std::collections::BTreeSet<&String> = slots.keys().chain(failures.keys()).collect();
+        aliases
+            .into_iter()
+            .map(|alias| {
+                let failure = failures.get(alias).cloned();
+                match slots.get(alias) {
+                    Some(Slot::Open(session)) if !session.has_ended() => open_state(alias, session, failure),
+                    Some(Slot::Opening(_)) => SessionState {
+                        alias: alias.clone(),
+                        phase: SessionPhase::Opening,
+                        worker_nom: None,
+                        worker_pid: None,
+                        failure,
+                    },
+                    _ => SessionState {
+                        alias: alias.clone(),
+                        phase: SessionPhase::Closed,
+                        worker_nom: None,
+                        worker_pid: None,
+                        failure,
+                    },
+                }
+            })
+            .collect()
+    }
+
+    /// The entry's open session, or one opened on it that requests meanwhile share.
+    async fn session(&self, endpoint: &Endpoint) -> Result<Arc<RemoteSession>, TransportError> {
+        let alias = endpoint.alias.as_str();
         let opening = {
             let mut slots = self.slots();
             if self.closing.load(Ordering::SeqCst) {
@@ -348,12 +547,7 @@ impl Hosts {
                 Some(Slot::Open(session)) if !session.has_ended() => return Ok(session.clone()),
                 Some(Slot::Opening(opening)) => opening.clone(),
                 _ => {
-                    let Some(endpoint) = self.endpoints.get(alias).cloned() else {
-                        return Err(TransportError::Unavailable {
-                            reason: format!("no engine is configured as `{alias}`"),
-                        });
-                    };
-                    let opening = open_relayed(endpoint, self.limits, self.uplink.clone()).boxed().shared();
+                    let opening = open_relayed(endpoint.clone(), self.limits, self.uplink.clone()).boxed().shared();
                     let ended = slots.insert(alias.to_string(), Slot::Opening(opening.clone()));
                     if let Some(Slot::Open(ended)) = ended {
                         tk::spawn(async move { ended.close().await });
@@ -363,6 +557,14 @@ impl Hosts {
             }
         };
         let opened = opening.clone().await;
+        match &opened {
+            Ok(_) => {
+                self.failures().remove(alias);
+            }
+            Err(e) => {
+                self.failures().insert(alias.to_string(), format!("{}: {}", e.kind(), e.message()));
+            }
+        }
         let stray = {
             let mut slots = self.slots();
             let current = matches!(slots.get(alias), Some(Slot::Opening(slot)) if slot.ptr_eq(&opening));
@@ -397,6 +599,22 @@ impl Hosts {
             })
             .collect();
         join_all(sessions.iter().map(|session| session.close())).await;
+    }
+}
+
+/// An open session's state, its worker's nom and pid.
+fn open_state(
+    alias: &str,
+    session: &RemoteSession,
+    failure: Option<String>,
+) -> SessionState {
+    let worker = session.worker();
+    SessionState {
+        alias: alias.to_string(),
+        phase: SessionPhase::Open,
+        worker_nom: Some(worker.nom.clone()),
+        worker_pid: Some(worker.pid),
+        failure,
     }
 }
 
@@ -452,7 +670,7 @@ pub struct RemoteHandle {
 }
 
 impl RemoteHandle {
-    /// Starts the system on `params`' engines, `handler` its controller's.
+    /// Starts the system, `handler` its controller's; no session opens until asked.
     pub async fn start(
         paths: RemoteSysPaths,
         params: RemoteSysParams,
@@ -464,13 +682,9 @@ impl RemoteHandle {
         Ok(Self { control })
     }
 
-    /// `request`'s response from `alias`'s worker, or why there is none.
-    pub async fn request(&self, alias: &str, request: EngineRequest) -> Result<EngineResponse, TransportError> {
-        let request = RemoteRequest {
-            alias: alias.to_string(),
-            request,
-        };
-        match self.control.request(request).await {
+    /// `request`'s response from `endpoint`'s worker, or why there is none.
+    pub async fn request(&self, endpoint: Endpoint, request: EngineRequest) -> Result<EngineResponse, TransportError> {
+        match self.control.request(RemoteRequest { endpoint, request }).await {
             Ok(RemoteResponse(response)) => response,
             Err(e) => Err(TransportError::Unavailable {
                 reason: format!("the remote engines' system: {e}"),
@@ -478,7 +692,33 @@ impl RemoteHandle {
         }
     }
 
-    /// Every session closed, the requests in flight answered `daemon::session_lost`.
+    /// Each alias with a session or an open's failure; none if the system can't answer.
+    pub async fn states(&self) -> Vec<SessionState> {
+        match self.control.request(StatesRequest).await {
+            Ok(SessionStates(states)) => states,
+            Err(_) => Vec::new(),
+        }
+    }
+
+    /// `endpoint`'s session opened now, if none is open, and its state.
+    pub async fn connect(&self, endpoint: Endpoint) -> Result<SessionState, TransportError> {
+        match self.control.request(ConnectRequest { endpoint }).await {
+            Ok(ConnectAnswer(answer)) => answer,
+            Err(e) => Err(TransportError::Unavailable {
+                reason: format!("the remote engines' system: {e}"),
+            }),
+        }
+    }
+
+    /// The alias's session closed, its worker ending with it; whether one was open.
+    pub async fn close_session(&self, alias: &str) -> bool {
+        let request = CloseSessionRequest {
+            alias: alias.to_string(),
+        };
+        matches!(self.control.request(request).await, Ok(SessionClosed(true)))
+    }
+
+    /// Each session closed; a request in flight answers `remote::engine::session_lost`.
     pub async fn close(&self) {
         let _ = self.control.request(CloseRequest).await;
     }

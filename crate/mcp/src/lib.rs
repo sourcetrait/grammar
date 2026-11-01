@@ -1,3 +1,4 @@
+pub(crate) mod engines;
 pub(crate) mod error;
 pub(crate) mod run;
 pub(crate) mod server {
@@ -42,6 +43,10 @@ pub(crate) mod server {
         pub(crate) mod remote_channel_listen;
         pub(crate) mod remote_channel_set;
         pub(crate) mod remote_channels;
+        pub(crate) mod remote_engine_connect;
+        pub(crate) mod remote_engine_import;
+        pub(crate) mod remote_engine_set;
+        pub(crate) mod remote_engines;
         pub(crate) mod rerun;
     }
     #[cfg(test)]
@@ -54,6 +59,7 @@ pub(crate) mod server {
 mod tests {
     mod config;
     mod deny;
+    mod engines;
 }
 pub(crate) mod cli;
 pub(crate) mod config;
@@ -76,6 +82,10 @@ pub(crate) use crate::{
         transient_dir,
     },
     mcp::ServiceExt,
+    engines::{
+        EngineChange, EngineEntry, KIND_ENGINE_INVALID, KIND_ENGINE_NOT_OPEN, engine_endpoint,
+        import_ssh, read_engines, set_engine, unset_engine,
+    },
     error::error_to_call_result,
     server::{
         cert::ensure_cert_profile,
@@ -100,6 +110,7 @@ pub(crate) use crate::{
                 render_signatures,
             },
             execute::ExecuteParams,
+            remote_engines::{RemoteEngineRow, engine_invalid},
             rerun::RerunParams,
         },
     },
@@ -120,7 +131,8 @@ pub(crate) use crate::server::{
 
 pub(crate) use sourcetrait_grammar_client::{
     ENGINE_NAMESPACE, Endpoint, FromRemote, RemoteAsk, RemoteEmergency, RemoteHandle,
-    RemoteSysParams, RemoteSysPaths, RemoteSystem, SSH_PORT, ToRemote,
+    RemoteSysParams, RemoteSysPaths, RemoteSystem, SSH_PORT, SessionPhase, SessionState, ToRemote,
+    check_alias, check_host_keys, check_instance, check_key, check_path, check_port, check_word,
 };
 
 pub(crate) use sourcetrait_grammar_engine::{
@@ -147,15 +159,15 @@ pub(crate) use sourcetrait_grammar_interface::{
     ChannelCommand, ChannelOpenParams, CommitParams, ConfigChannelParams, EngineInterfaceCommand,
     EquipParams, InspectParams, InterfaceCommand, KillParams, NewParams, PeerCommand,
     PurviewConfigureParams, PurviewExtendParams, PurviewParams, RemoteAliasParams,
-    RemoteChannelCloseParams, RemoteConnectParams, RemoteListenParams, RemoteSetParams,
-    parse_command,
+    RemoteChannelCloseParams, RemoteConnectParams, RemoteEngineCommand, RemoteEngineImportParams,
+    RemoteEngineSetParams, RemoteListenParams, RemoteSetParams, parse_command,
 };
 
 pub(crate) use sourcetrait_grammar_peer::{
     ExpandDefault, FromPeerSys, IdentityKeys, InboxRequest, Payload, PeerHandle, PeerSysParams,
     PeerSysPaths, PeerSystem, REMOTES_FILE, Relay, RemoteCloseRequest, RemoteConnectRequest,
     RemoteGetRequest, RemoteListRequest, RemoteListenRequest, RemoteSendRequest,
-    RemoteSetRequest, RemoteUnsetRequest,
+    RemoteSetRequest, RemoteUnsetRequest, edit_remotes,
 };
 
 pub(crate) use sourcetrait_grammar_protocol::{

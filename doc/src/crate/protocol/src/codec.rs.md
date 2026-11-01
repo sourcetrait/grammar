@@ -45,8 +45,8 @@ errors they map to differ. A payload past its decode budget names the bound and
 its limit; like a payload that doesn't decode, it is the peer's invalid frame.
 
 ### fn transport
-The stable `daemon::` kind a frontend reports, so a framing failure reaches the
-envelope as the other transport failures do.
+The stable `remote::engine::` kind a frontend reports, so a framing failure
+reaches the envelope as the other transport failures do.
 
 ## struct FrameCodec
 One codec a direction, holding the parse across partial reads: how much of the

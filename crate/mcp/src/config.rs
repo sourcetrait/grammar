@@ -23,29 +23,6 @@ pub(crate) struct ConfigToml {
     pub channel: Option<ChannelConfigToml>,
     pub supervisor: Option<SupervisorConfigToml>,
     pub identity: Option<IdentityConfigToml>,
-    pub engine: Option<Vec<EngineConfigToml>>,
-}
-
-/// One `[[engine]]` entry (file layer): a remote engine a tool's `host` names.
-#[derive(Debug, Clone, Default, ser::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct EngineConfigToml {
-    pub alias: Option<String>,
-    pub host: Option<String>,
-    /// 22 when omitted.
-    pub port: Option<u16>,
-    pub user: Option<String>,
-    /// The private key file, expanded as the config's other paths are.
-    pub key: Option<String>,
-    /// The host's public keys as OpenSSH lines.
-    pub host_keys: Option<Vec<String>>,
-    /// The worker's absolute path on the host.
-    pub command: Option<String>,
-    pub id: Option<String>,
-    /// `default` when omitted.
-    pub namespace: Option<String>,
-    /// The worker's working directory on the host.
-    pub workdir: Option<String>,
 }
 
 /// The `[identity]` table (file layer): the host's own key pair.
@@ -97,10 +74,8 @@ pub(crate) struct Config {
     pub supervisor: SupervisorConfig,
     /// The host's own key pair, from `[identity]`; none when the file names none.
     pub identity: Option<IdentityConfig>,
-    /// The remotes file beside the config file, read at each remote command.
+    /// The remotes file beside the config: its channels and engines, read at each use.
     pub remotes_file: PathBuf,
-    /// The remote engines, from `[[engine]]`, each checked.
-    pub engines: Vec<Endpoint>,
 }
 
 /// The host's own key pair (model layer), each path expanded.
@@ -156,34 +131,6 @@ fn resolved_identity(file: Option<IdentityConfigToml>) -> Result<Option<Identity
         cert: expand_path(Path::new(&cert))?,
         key: expand_path(Path::new(&key))?,
     }))
-}
-
-/// Each `[[engine]]` entry resolved: defaulted, its key expanded, and checked.
-fn resolved_engines(entries: Option<Vec<EngineConfigToml>>) -> Result<Vec<Endpoint>, String> {
-    let mut endpoints: Vec<Endpoint> = Vec::new();
-    for entry in entries.unwrap_or_default() {
-        let alias = entry.alias.ok_or_else(|| "an [[engine]] is missing `alias`".to_string())?;
-        let missing = |field: &str| format!("[[engine]] `{alias}` is missing `{field}`");
-        let key = entry.key.ok_or_else(|| missing("key"))?;
-        let endpoint = Endpoint {
-            alias: alias.clone(),
-            host: entry.host.ok_or_else(|| missing("host"))?,
-            port: entry.port.unwrap_or(SSH_PORT),
-            user: entry.user.ok_or_else(|| missing("user"))?,
-            key: expand_path(Path::new(&key))?.to_string_lossy().into_owned(),
-            host_keys: entry.host_keys.ok_or_else(|| missing("host_keys"))?,
-            command: entry.command.ok_or_else(|| missing("command"))?,
-            id: entry.id.ok_or_else(|| missing("id"))?,
-            namespace: entry.namespace.unwrap_or_else(|| ENGINE_NAMESPACE.to_string()),
-            workdir: entry.workdir.ok_or_else(|| missing("workdir"))?,
-        };
-        endpoint.check()?;
-        if endpoints.iter().any(|known| known.alias == endpoint.alias) {
-            return Err(format!("[[engine]] alias `{alias}` is configured twice"));
-        }
-        endpoints.push(endpoint);
-    }
-    Ok(endpoints)
 }
 
 fn merged_supervisor(
@@ -263,7 +210,6 @@ impl Config {
         let channel = merged_channel(user.channel, base.channel)?;
         let supervisor = merged_supervisor(user.supervisor, base.supervisor)?;
         let identity = resolved_identity(user.identity)?;
-        let engines = resolved_engines(user.engine)?;
         Ok(Self {
             id,
             namespace,
@@ -274,7 +220,6 @@ impl Config {
             supervisor,
             identity,
             remotes_file,
-            engines,
         })
     }
 

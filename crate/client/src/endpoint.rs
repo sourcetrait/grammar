@@ -34,40 +34,19 @@ pub struct Endpoint {
 impl Endpoint {
     /// The entry held to its rules, each refusal naming the field it is about.
     pub fn check(&self) -> Result<(), String> {
-        let refuse = |field: &str, why: String| Err(format!("[[engine]] `{}`: {field} {why}", self.alias));
-        if !valid_name(&self.alias) {
-            return Err(format!("[[engine]] alias `{}` is not a name: 1 to 64 letters, digits, `.`, `_`, or `-`, a letter or digit first", self.alias));
-        }
-        if self.alias == LOCAL_HOST {
-            return refuse("alias", format!("`{LOCAL_HOST}` names the MCP's own engine"));
-        }
-        if !plain_word(&self.host) {
-            return refuse("host", "is empty or holds a space or a control character".to_string());
-        }
-        if self.port == 0 {
-            return refuse("port", "is zero".to_string());
-        }
-        if !plain_word(&self.user) {
-            return refuse("user", "is empty or holds a space or a control character".to_string());
-        }
-        if !Path::new(&self.key).is_absolute() {
-            return refuse("key", format!("`{}` isn't absolute once expanded", self.key));
-        }
-        if self.host_keys.is_empty() {
-            return refuse("host_keys", "is empty: one pinned key is needed at least".to_string());
-        }
-        for line in &self.host_keys {
-            if let Err(why) = pinned_key(line) {
-                return refuse("host_keys", why);
-            }
-        }
-        for (field, path) in [("command", &self.command), ("workdir", &self.workdir)] {
-            if let Err(why) = shell_neutral_path(path) {
-                return refuse(field, why);
-            }
-        }
-        if let Err(e) = self.instance() {
-            return refuse("id or namespace", e.message());
+        check_alias(&self.alias)?;
+        let fields = [
+            ("host", check_word(&self.host)),
+            ("port", check_port(self.port)),
+            ("user", check_word(&self.user)),
+            ("key", check_key(&self.key)),
+            ("host_keys", check_host_keys(&self.host_keys)),
+            ("command", check_path(&self.command)),
+            ("workdir", check_path(&self.workdir)),
+            ("id or namespace", check_instance(&self.id, &self.namespace)),
+        ];
+        for (field, checked) in fields {
+            checked.map_err(|why| format!("[[engine]] `{}`: {field} {why}", self.alias))?;
         }
         Ok(())
     }
@@ -91,9 +70,58 @@ impl Endpoint {
     }
 }
 
-/// Whether `text` is one word: not empty, no whitespace, and no control character.
-fn plain_word(text: &str) -> bool {
-    !text.is_empty() && !text.chars().any(|c| c.is_whitespace() || c.is_control())
+/// An engine's alias held to the name rule and kept from `local`, refused whole.
+pub fn check_alias(alias: &str) -> Result<(), String> {
+    if !valid_name(alias) {
+        return Err(format!(
+            "[[engine]] alias `{alias}` is not a name: 1 to 64 letters, digits, `.`, `_`, or `-`, a letter or digit first"
+        ));
+    }
+    if alias == LOCAL_HOST {
+        return Err(format!("[[engine]] `{alias}`: alias `{LOCAL_HOST}` names the MCP's own engine"));
+    }
+    Ok(())
+}
+
+/// A host or a user: one word, not empty, with no whitespace or control character.
+pub fn check_word(text: &str) -> Result<(), String> {
+    let plain = !text.is_empty() && !text.chars().any(|c| c.is_whitespace() || c.is_control());
+    if plain { Ok(()) } else { Err("is empty or holds a space or a control character".to_string()) }
+}
+
+/// A port: never zero.
+pub fn check_port(port: u16) -> Result<(), String> {
+    if port == 0 { Err("is zero".to_string()) } else { Ok(()) }
+}
+
+/// A key file's path, absolute once its caller has expanded it.
+pub fn check_key(key: &str) -> Result<(), String> {
+    if Path::new(key).is_absolute() {
+        Ok(())
+    } else {
+        Err(format!("`{key}` isn't absolute once expanded"))
+    }
+}
+
+/// Pinned host keys: one at least, each a plain OpenSSH key not signing with SHA-1.
+pub fn check_host_keys(lines: &[String]) -> Result<(), String> {
+    if lines.is_empty() {
+        return Err("is empty: one pinned key is needed at least".to_string());
+    }
+    lines.iter().try_for_each(|line| pinned_key(line).map(|_| ()))
+}
+
+/// The worker's command or workdir: absolute, of characters login shells keep.
+pub fn check_path(path: &str) -> Result<(), String> {
+    shell_neutral_path(path)
+}
+
+/// The worker's id and namespace, each held to the instance names' rule.
+pub fn check_instance(
+    id: &str,
+    namespace: &str,
+) -> Result<(), String> {
+    Instance::new(id, namespace).map(|_| ()).map_err(|e| e.message())
 }
 
 /// A pinned host key from its OpenSSH line, a plain key not signing with SHA-1.

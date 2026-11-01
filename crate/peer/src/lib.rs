@@ -21,8 +21,8 @@ pub(crate) use crate::{
         RemoteLinkEntry, Up, bind_listener, ended_link, watch_link,
     },
     remotes::{
-        RemoteChange, RemoteEntry, bind_address, dial_address, edit_remotes, read_remotes,
-        set_entry, unset_entry,
+        RemoteChange, RemoteEntry, bind_address, dial_address, read_remotes, set_entry,
+        unset_entry,
     },
     verify::PublicKeyVerifier,
 };
@@ -112,6 +112,6 @@ pub use crate::{
         RemoteConnectRequest, RemoteGetRequest, RemoteListRequest, RemoteListenRequest,
         RemoteSendRequest, RemoteSetRequest, RemoteUnsetRequest, ToPeerSys,
     },
-    remotes::REMOTES_FILE,
+    remotes::{REMOTES_FILE, edit_remotes},
     system::{PeerHandle, PeerSysConfig, PeerSysParams, PeerSysPaths, PeerSystem},
 };

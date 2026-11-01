@@ -7,9 +7,15 @@ the agent can't pipe commands.
 
 ## enum InterfaceCommand
 The routing table: a command grouped by the system that owns it, the Channel's
-five, the remote channels' seven, and the engine's fourteen, so a controller
-routes the group and the group's own commands stay together. Each variant
-carries its tool's parameters struct as it stood (`params.rs`).
+five, the remote channels' seven, the remote engines' seven, and the engine's
+fourteen, so a controller routes the group and the group's own commands stay
+together. Each variant carries its tool's parameters struct as it stood
+(`params.rs`), a new command its own.
+
+## enum RemoteEngineCommand
+The remote engines' commands: an entry in the MCP's remotes file and the MCP's
+session with the engine, so a controller runs them on itself whatever the
+tool's host.
 
 ## enum EngineInterfaceCommand
 Info, help, the processes, the purviews, and the equips: the engine's to answer,
@@ -50,6 +56,11 @@ here, a refusal naming the flag.
 ## fn text / fn texts
 A required argument's absence is the parse's to refuse, so these default rather
 than fail.
+
+## fn optional_text / fn optional_texts
+An optional flag stays absent when not given, so a set changes only what it
+names. An empty list stays a list, so `--host-keys []` reaches the entry's
+check and is refused there rather than read as absent.
 
 ## fn mode
 The parse can hold a string only as a string, so the two modes are held here, an

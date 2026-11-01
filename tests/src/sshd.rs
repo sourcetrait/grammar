@@ -233,7 +233,7 @@ impl Drop for Sshd {
     }
 }
 
-/// `endpoint` as a config file's `[[engine]]` table.
+/// `endpoint` as a remotes file's `[[engine]]` table.
 pub fn engine_toml(endpoint: &Endpoint) -> String {
     let keys: Vec<String> = endpoint.host_keys.iter().map(|key| format!("\"{key}\"")).collect();
     format!(

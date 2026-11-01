@@ -36,13 +36,19 @@ alias is refused first. The dispatched command answers under that same nonce:
 each command's method takes the nonce rather than minting its own.
 
 ## fn run_interface
-Each group to its system: the face's two whatever the host, since the Channel
-and the remote channels are the MCP's, and the engine's to `run_engine` on the
-host's engine. The deny set applies at the parse, before any routing, so a
+Each group to its system: the face's two and the remote engines' whatever the
+host, since the Channel, the remote channels, and the remote engines' entries
+and sessions are the MCP's, and the engine's to `run_engine` on the host's
+engine. The deny set applies at the parse, before any routing, so a
 denied command is withheld the same for every host. No command dispatches an
 eval, so none appears in `interface process list`'s table and none takes a
 lane or a permit; a command's own locks are taken inside its method as its
 tool took them.
+
+## fn run_remote_engine
+The remote engines' group, each command its method on the MCP
+(`remote_engines.rs`, `remote_engine_set.rs`, `remote_engine_connect.rs`, and
+`remote_engine_import.rs`).
 
 ## fn run_engine
 The engine's group, each command its method on the routed engine, the

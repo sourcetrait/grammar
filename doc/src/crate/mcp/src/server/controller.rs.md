@@ -37,7 +37,7 @@ shutdown took the engine answers the stopped engine's failure.
 
 ### field remote
 The remote engines' system, behind a lock as the engine's is, so a request
-arriving after the shutdown took it answers `daemon::unavailable`.
+arriving after the shutdown took it answers `remote::engine::unavailable`.
 
 ### field lock
 The namespace's lock its entry took before the engine (`run.rs`), held for the
@@ -75,9 +75,8 @@ returns, so a worker's asks and emergencies take the paths a local eval's and
 the operator's do.
 
 ### fn start_remote
-The system starts on the config's engines whether it names any or not, so
-every controller holds one and stops it the same way; no session opens until a
-tool names an engine.
+The system starts holding no entry, so every controller holds one and stops it
+the same way; no session opens until a tool or a connect names an engine.
 
 ### fn request
 The tools' requests go to the engine directly, each on its caller's own task,
@@ -85,7 +84,17 @@ so a long eval holds no other request up; the engine's system answers each
 from a task of its own.
 
 ### fn remote
-A request of a remote engine, on its caller's task as the engine's are.
+A request of a remote engine, on its caller's task as the engine's are. The
+entry is read from the remotes file at each request, so a change takes effect
+at the next session it opens. The tool's route held the entry whole already;
+one removed or emptied since answers `remote::engine::unavailable`.
+
+### fn remote_states
+### fn remote_connect
+### fn remote_close
+The remote engine commands' reach into the system: its sessions' states, a
+session opened now on an entry, and one alias's session closed. A stopped
+system reads as no session at all.
 
 ### fn sweep_signals
 The sweep's shutdown is the controller's stop, after which the sweep removes
@@ -103,7 +112,7 @@ namespace.
 
 ### fn stop_remote
 Every session is closed before the system stops, so a request in flight lets
-the system go at once, answered `daemon::session_lost`.
+the system go at once, answered `remote::engine::session_lost`.
 
 The Channel's and the peer links' systems end with the process: their handles
 are shared by the routes, the hubs, and the policy, whose tasks live until

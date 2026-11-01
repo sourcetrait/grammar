@@ -83,8 +83,9 @@ fn the_interface_is_described_by_its_pretext_then_its_command_list() {
         "the sync follows the open; {description}",
     );
     assert!(list.contains("- interface remote channel listen\n"), "{description}");
+    assert!(list.contains("- interface remote engine import\n"), "{description}");
     let commands = list.lines().filter(|line| line.starts_with("- interface ")).count();
-    assert_eq!(commands, 26, "{description}");
+    assert_eq!(commands, 33, "{description}");
     assert!(!list.contains('`'), "the list names commands alone; {description}");
 }
 

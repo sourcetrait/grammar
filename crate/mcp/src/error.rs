@@ -6,8 +6,16 @@ pub type GrammarMcpResult<T> = Result<T, GrammarMcpError>;
 pub enum GrammarMcpError {
     /// What the engine refused or failed at, its kinds and messages its own.
     Engine(EngineError),
-    /// What the transport to a worker failed at, under its `daemon::` kinds.
+    /// What the transport to a worker failed at, under its `remote::engine::` kinds.
     Transport(TransportError),
+    /// A remote engine command's parameters or entry refused, the MCP's alone.
+    RemoteEngineInvalidParams {
+        reason: String,
+    },
+    /// A close of an engine with no session open, the MCP's alone.
+    RemoteEngineNotOpen {
+        alias: String,
+    },
     InterfaceViolations {
         diagnostics: Vec<Diagnostic>,
     },
@@ -57,10 +65,13 @@ pub enum GrammarMcpError {
 }
 
 impl GrammarMcpError {
-    /// The portable runtime error this is; none for an engine or transport error.
+    /// Its runtime error; none for an engine, transport, or engine command error.
     pub(crate) fn as_runtime(&self) -> Option<RuntimeError> {
         Some(match self.clone() {
-            Self::Engine(_) | Self::Transport(_) => return None,
+            Self::Engine(_)
+            | Self::Transport(_)
+            | Self::RemoteEngineInvalidParams { .. }
+            | Self::RemoteEngineNotOpen { .. } => return None,
             Self::InterfaceViolations { diagnostics } => {
                 RuntimeError::InterfaceViolations { diagnostics }
             }
@@ -141,6 +152,16 @@ pub(crate) fn error_to_call_result(
     let rows = match error.into() {
         GrammarMcpError::Engine(error) => error.rows(),
         GrammarMcpError::Transport(error) => error.rows(),
+        GrammarMcpError::RemoteEngineInvalidParams { reason } => vec![Diagnostic::error(
+            KIND_ENGINE_INVALID,
+            None,
+            format!("invalid remote engine parameters: {reason}"),
+        )],
+        GrammarMcpError::RemoteEngineNotOpen { alias } => vec![Diagnostic::error(
+            KIND_ENGINE_NOT_OPEN,
+            None,
+            format!("no open session with remote engine `{alias}`"),
+        )],
         runtime => runtime.as_runtime().map(RuntimeError::rows).unwrap_or_default(),
     };
     envelope_text(nonce, "error", serde_to_nu(&rows)?)

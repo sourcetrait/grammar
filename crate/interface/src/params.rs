@@ -106,6 +106,42 @@ pub struct RemoteChannelCloseParams {
     pub alias: String,
 }
 
+/// Parameters for `interface remote engine set`: each field given is written.
+#[derive(Debug, ser::Deserialize, ser::Serialize)]
+pub struct RemoteEngineSetParams {
+    /// The engine to make or change.
+    pub alias: String,
+    /// The host's name or address.
+    pub host: Option<String>,
+    /// The host's SSH port.
+    pub port: Option<u16>,
+    /// The account the session logs in as.
+    pub user: Option<String>,
+    /// The private key file the session authenticates with.
+    pub key: Option<String>,
+    /// The host's public keys as OpenSSH lines.
+    pub host_keys: Option<Vec<String>>,
+    /// The worker's absolute path on the host.
+    pub command: Option<String>,
+    /// The worker's id.
+    pub id: Option<String>,
+    /// The worker's namespace.
+    pub namespace: Option<String>,
+    /// The worker's absolute working directory on the host.
+    pub workdir: Option<String>,
+}
+
+/// Parameters for `interface remote engine import`.
+#[derive(Debug, ser::Deserialize, ser::Serialize)]
+pub struct RemoteEngineImportParams {
+    /// The engine whose entry the import makes or changes.
+    pub alias: String,
+    /// The ssh configuration's host alias to read; the engine's alias when absent.
+    pub from: Option<String>,
+    /// The ssh configuration file to read, in place of the user's.
+    pub ssh_config: Option<String>,
+}
+
 /// Parameters for each `interface equip` action on a source.
 #[derive(Debug, ser::Deserialize, ser::Serialize)]
 pub struct EquipParams {

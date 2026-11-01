@@ -168,7 +168,7 @@ fn a_relayed_packet_is_held_to_a_relays_rules() {
         ("a delivery that escapes", RemotePacket { delivery: "/srv/other".to_string(), ..packet("peer/Note", NuVal::Nothing) }),
     ];
     for (name, packet) in refusals {
-        assert_eq!(packet.check().expect_err(name).kind(), "daemon::invalid_frame", "{name}");
+        assert_eq!(packet.check().expect_err(name).kind(), "remote::engine::invalid_frame", "{name}");
     }
 }
 

@@ -3,6 +3,11 @@
 The manifest carries no prose of its own by convention, so what follows is only
 what a reader of it could reasonably get wrong.
 
+## mod engines
+The remote engines' entries in the remotes file, which the MCP reads and
+writes itself: the peer crate keeps the channels' entries and the file's
+locked edit, which both take.
+
 ## mod server
 One build: the server and the one-shot CLI run on the process's own engine,
 the controller over the face's systems, the engine's, the remote engines', and

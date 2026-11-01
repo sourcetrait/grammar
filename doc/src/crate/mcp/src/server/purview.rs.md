@@ -35,7 +35,7 @@ The refusal a view naming an id no purview answers to has always given.
 ## fn NuSh::purview_on
 A purview request whole, answered by the routed engine: the MCP's own through
 its controller, a worker's as the session's purview request, a worker's refusal
-and the transport's errors under their `daemon::` kinds.
+and the transport's errors under their `remote::engine::` kinds.
 
 ## fn NuSh::resolve_purviews
 Every view's resolution is the routed engine's, one request for a set of ids, its failure

@@ -200,7 +200,7 @@ fn a_second_worker_on_a_namespace_is_refused() {
         let (_session, _events) = opened.expect("the first session opens");
         let (mut second, refused) = open(&instance, "default", LIMITS_DEFAULT).await;
         let refusal = refused.expect_err("the second is refused");
-        assert_eq!(refusal.kind(), "daemon::unavailable", "{refusal:?}");
+        assert_eq!(refusal.kind(), "remote::engine::unavailable", "{refusal:?}");
         assert!(refusal.message().contains("runtime::namespace_held"), "{}", refusal.message());
         let status = exit_within(&mut second, EXIT_DEADLINE).await;
         assert_eq!(status.code(), Some(75), "{status:?}");

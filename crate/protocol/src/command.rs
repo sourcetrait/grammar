@@ -55,6 +55,13 @@ pub enum CommandKind {
     RemoteListen,
     RemoteConnect,
     RemoteClose,
+    EngineList,
+    EngineGet,
+    EngineSet,
+    EngineUnset,
+    EngineConnect,
+    EngineClose,
+    EngineImport,
     EquipNew,
     EquipInstall,
     EquipCheck,
@@ -229,6 +236,85 @@ const CLOSE_ARGS: &[ArgSpec] = &[ArgSpec {
     optional: false,
     summary: "The alias of the open link to close.",
 }];
+
+const ENGINE_ALIAS_ARGS: &[ArgSpec] = &[ArgSpec {
+    name: "alias",
+    shape: ArgShape::String,
+    optional: false,
+    summary: "The engine's alias, its `[[engine]]` entry's in `remotes.toml`.",
+}];
+
+const ENGINE_SET_FLAGS: &[ArgSpec] = &[
+    ArgSpec {
+        name: "host",
+        shape: ArgShape::String,
+        optional: true,
+        summary: "The host's name or address.",
+    },
+    ArgSpec {
+        name: "port",
+        shape: ArgShape::Int,
+        optional: true,
+        summary: "The host's SSH port; 22 when the entry names none.",
+    },
+    ArgSpec {
+        name: "user",
+        shape: ArgShape::String,
+        optional: true,
+        summary: "The account the session logs in as.",
+    },
+    ArgSpec {
+        name: "key",
+        shape: ArgShape::String,
+        optional: true,
+        summary: "The private key file the session authenticates with, unencrypted.",
+    },
+    ArgSpec {
+        name: "host-keys",
+        shape: ArgShape::Strings,
+        optional: true,
+        summary: "The host's public keys as OpenSSH lines, one of which it must present.",
+    },
+    ArgSpec {
+        name: "command",
+        shape: ArgShape::String,
+        optional: true,
+        summary: "The worker's absolute path on the host.",
+    },
+    ArgSpec {
+        name: "id",
+        shape: ArgShape::String,
+        optional: true,
+        summary: "The worker's id.",
+    },
+    ArgSpec {
+        name: "namespace",
+        shape: ArgShape::String,
+        optional: true,
+        summary: "The worker's namespace; `default` when the entry names none.",
+    },
+    ArgSpec {
+        name: "workdir",
+        shape: ArgShape::String,
+        optional: true,
+        summary: "The worker's absolute working directory on the host.",
+    },
+];
+
+const ENGINE_IMPORT_FLAGS: &[ArgSpec] = &[
+    ArgSpec {
+        name: "from",
+        shape: ArgShape::String,
+        optional: true,
+        summary: "The ssh configuration's host alias to read; the engine's alias when absent.",
+    },
+    ArgSpec {
+        name: "ssh-config",
+        shape: ArgShape::String,
+        optional: true,
+        summary: "The ssh configuration file to read, in place of the user's.",
+    },
+];
 
 const SOURCE_ARGS: &[ArgSpec] = &[ArgSpec {
     name: "source",
@@ -432,6 +518,69 @@ pub const COMMANDS: &[CommandSpec] = &[
         flags: NO_ARGS,
         result: "nothing",
         summary: "Close an open mTLS link to a remote grammar host.",
+    },
+    CommandSpec {
+        kind: CommandKind::EngineList,
+        name: "interface remote engine list",
+        topic: "Remote",
+        positionals: NO_ARGS,
+        flags: NO_ARGS,
+        result: "table",
+        summary: "List the remote engines, configured and live: each one's entry and state.",
+    },
+    CommandSpec {
+        kind: CommandKind::EngineGet,
+        name: "interface remote engine get",
+        topic: "Remote",
+        positionals: ENGINE_ALIAS_ARGS,
+        flags: NO_ARGS,
+        result: "record",
+        summary: "One remote engine's entry and state.",
+    },
+    CommandSpec {
+        kind: CommandKind::EngineSet,
+        name: "interface remote engine set",
+        topic: "Remote",
+        positionals: ENGINE_ALIAS_ARGS,
+        flags: ENGINE_SET_FLAGS,
+        result: "record",
+        summary: "Make or change a remote engine's entry in `remotes.toml`.",
+    },
+    CommandSpec {
+        kind: CommandKind::EngineUnset,
+        name: "interface remote engine unset",
+        topic: "Remote",
+        positionals: ENGINE_ALIAS_ARGS,
+        flags: NO_ARGS,
+        result: "nothing",
+        summary: "Remove a remote engine's entry from `remotes.toml`; a live session stays.",
+    },
+    CommandSpec {
+        kind: CommandKind::EngineConnect,
+        name: "interface remote engine connect",
+        topic: "Remote",
+        positionals: ENGINE_ALIAS_ARGS,
+        flags: NO_ARGS,
+        result: "record",
+        summary: "Open a remote engine's session and start its worker now.",
+    },
+    CommandSpec {
+        kind: CommandKind::EngineClose,
+        name: "interface remote engine close",
+        topic: "Remote",
+        positionals: ENGINE_ALIAS_ARGS,
+        flags: NO_ARGS,
+        result: "nothing",
+        summary: "Close a remote engine's session; its worker ends with it.",
+    },
+    CommandSpec {
+        kind: CommandKind::EngineImport,
+        name: "interface remote engine import",
+        topic: "Remote",
+        positionals: ENGINE_ALIAS_ARGS,
+        flags: ENGINE_IMPORT_FLAGS,
+        result: "record",
+        summary: "Make or change a remote engine's entry from an ssh configuration's host.",
     },
     CommandSpec {
         kind: CommandKind::EquipNew,

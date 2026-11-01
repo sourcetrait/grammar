@@ -11,6 +11,11 @@ beside them.
 Loopback, never every interface: a listen with no address names the one machine
 alone, and an agent that wants more names `0.0.0.0` itself.
 
+## struct RemotesToml
+The `[[engine]]` entries are the MCP's (`crate/mcp`'s `engines.rs`), read here
+as plain tables and left alone, so `deny_unknown_fields` still refuses any
+other key.
+
 ## struct RemoteToml
 `deny_unknown_fields`, so a retired field, `public_key_file` or a per-link key
 pair, fails loudly. Its names are the operator's, the entry being about the
@@ -51,4 +56,6 @@ directory, so the read, the edit, and the write run under an exclusive `flock`
 on the file's directory: a lock on the file itself would not survive the rename
 that replaces it. The new text is written to a temporary file in the same
 directory, synced, given the old file's permissions, and renamed over it, so a
-reader sees the old file or the new one, never a torn write.
+reader sees the old file or the new one, never a torn write. It is public: the
+MCP's engine commands write their entries through it, so a channel's write and
+an engine's take the one lock.

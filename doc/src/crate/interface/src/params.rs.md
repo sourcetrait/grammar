@@ -14,6 +14,15 @@ whole numbers alone, literals the contract reads without evaluating
 (`contract.rs`), so a nu `duration` has no shape there. The `10sec` form lives
 in the model and the docs, never in a command.
 
+## struct RemoteEngineSetParams
+Every field optional but the alias, a set naming only what it changes;
+`host_keys` replaces the pinned keys whole.
+
+## struct RemoteEngineImportParams
+`from` defaults to the engine's alias, so a host named alike in the ssh
+configuration imports by the alias alone; `ssh_config` names a file read in
+place of the user's, as `ssh -F` does.
+
 ## struct EquipParams
 One parameter for all four commands, the source path: the namepath is read off
 it, so the equip is wherever its source says it is.

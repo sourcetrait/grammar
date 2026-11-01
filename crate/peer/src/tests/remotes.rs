@@ -113,6 +113,20 @@ fn a_set_that_would_break_the_file_is_refused() {
 }
 
 #[test]
+fn the_engines_entries_stand_beside_the_channels() {
+    let text = format!("{BOB}\n[[engine]]\nalias = \"lab\"\nhost = \"lab.example\"\n");
+    assert_eq!(aliases(&text), ["bob"], "an engine is no channel");
+    let change = RemoteChange {
+        listen: Some("127.0.0.1:9100".to_string()),
+        ..RemoteChange::default()
+    };
+    let edited = set_entry(&text, "bob", &change).expect("a channel's change");
+    assert!(edited.contains("[[engine]]\nalias = \"lab\"\nhost = \"lab.example\""), "{edited}");
+    let unset = unset_entry(&edited, "bob").expect("bob removed");
+    assert!(unset.contains("[[engine]]"), "{unset}");
+}
+
+#[test]
 fn an_unset_removes_its_entry_alone() {
     let text = format!("{BOB}\n# a peer\n[[channel]]\nalias = \"peer\"\ncert = \"/k/peer.pem\"\n");
     let edited = unset_entry(&text, "bob").expect("bob removed");

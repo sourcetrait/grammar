@@ -17,10 +17,10 @@ const END_WAIT: Duration = Duration::from_secs(30);
 /// A definition answering where it ran: its workdir, its working directory, and its process.
 const WHERE: &str = "def execute [data: nothing]: nothing -> record<work_dir: string, pwd: string, pid: int> { {work_dir: $env.EQUIP_WORK_DIR, pwd: $env.PWD, pid: $nu.pid} }";
 
-/// A host started in an agent directory under `root` whose config names `engines`.
+/// A host started in an agent directory under `root` whose remotes file names `engines`.
 fn host_with(root: &Path, engines: &[Endpoint]) -> Host {
     let agent = root.join("agent");
-    write_source(&agent, ".grammar/config.toml", &engines.iter().map(engine_toml).collect::<String>());
+    write_source(&agent, ".grammar/remotes.toml", &engines.iter().map(engine_toml).collect::<String>());
     Host::spawn_in(&root.join("scratch"), &[], &agent)
 }
 
@@ -95,13 +95,13 @@ fn a_remote_hosts_refusals_answer_by_kind() {
 
     let id = host.request("execute", json!({"host": "stranger", "definition": WHERE, "data": "null"}));
     let refused = host.read_id_within(id, FIRST_CALL);
-    assert_eq!(envelope_error_kind(&refused).as_deref(), Some("daemon::host_key_rejected"), "{refused}");
+    assert_eq!(envelope_error_kind(&refused).as_deref(), Some("remote::engine::host_key_rejected"), "{refused}");
     let unknown = host.call("execute", json!({"host": "elsewhere", "definition": WHERE, "data": "null"}));
     assert_eq!(envelope_error_kind(&unknown).as_deref(), Some("host::unknown"), "{unknown}");
     let unknown = host.call("interface", json!({"host": "elsewhere", "command": "interface info"}));
     assert_eq!(envelope_error_kind(&unknown).as_deref(), Some("host::unknown"), "{unknown}");
     let refused = host.call("interface", json!({"host": "stranger", "command": "interface process list"}));
-    assert_eq!(envelope_error_kind(&refused).as_deref(), Some("daemon::host_key_rejected"), "{refused}");
+    assert_eq!(envelope_error_kind(&refused).as_deref(), Some("remote::engine::host_key_rejected"), "{refused}");
     let channel = host.call("interface", json!({"host": "stranger", "command": "interface channel config"}));
     assert!(!has_error_path(&channel), "the Channel's commands answer on the MCP for any host: {channel}");
 }
