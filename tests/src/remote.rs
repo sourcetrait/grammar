@@ -73,12 +73,13 @@ pub fn generate_keys(name: &str, dir: &Path) -> GeneratedKeys {
 
 /// Write `<cwd>/.grammar/config.toml`, `identity` its `[identity]`, and `remote`,
 /// `[[channel]]` entries or nothing, as `remotes.toml` beside it. Returns the
-/// config file's path.
+/// config file's path. Each path is a TOML literal string, so a Windows path's
+/// backslashes stay as written.
 pub fn write_host_config(cwd: &Path, identity: &GeneratedKeys, remote: &str) -> PathBuf {
     let dir = cwd.join(".grammar");
     std::fs::create_dir_all(&dir).expect("mkdir .grammar");
     let toml = format!(
-        "[identity]\ncert = \"{cert}\"\nkey = \"{key}\"\n",
+        "[identity]\ncert = '{cert}'\nkey = '{key}'\n",
         cert = identity.public_key.display(),
         key = identity.private_key.display(),
     );
@@ -93,7 +94,7 @@ pub fn write_host_config(cwd: &Path, identity: &GeneratedKeys, remote: &str) -> 
 /// A `[[channel]]` entry, `peer`, its connect dialing `peer_addr`.
 pub fn remote_connector(peer_addr: &str, peer_public: &Path) -> String {
     format!(
-        "\n[[channel]]\nalias = \"peer\"\naddress = \"{peer_addr}\"\ncert = \"{pk}\"\n",
+        "\n[[channel]]\nalias = \"peer\"\naddress = \"{peer_addr}\"\ncert = '{pk}'\n",
         pk = peer_public.display(),
     )
 }
@@ -101,7 +102,7 @@ pub fn remote_connector(peer_addr: &str, peer_public: &Path) -> String {
 /// A `[[channel]]` entry, `peer`, its listen binding `listen`.
 pub fn remote_listener(listen: &str, peer_public: &Path) -> String {
     format!(
-        "\n[[channel]]\nalias = \"peer\"\nlisten = \"{listen}\"\ncert = \"{pk}\"\n",
+        "\n[[channel]]\nalias = \"peer\"\nlisten = \"{listen}\"\ncert = '{pk}'\n",
         pk = peer_public.display(),
     )
 }

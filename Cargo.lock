@@ -6841,6 +6841,7 @@ dependencies = [
 name = "sourcetrait_grammar_tests"
 version = "0.0.0-10"
 dependencies = [
+ "dunce",
  "futures-util",
  "nix",
  "nu-config",

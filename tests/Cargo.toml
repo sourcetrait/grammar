@@ -18,6 +18,7 @@ keywords.workspace   = true
 test-hooks = []
 
 [dependencies]
+dunce.workspace = true
 futures-util.workspace = true
 nu-config.workspace = true
 nuval.workspace = true

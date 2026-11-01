@@ -40,7 +40,8 @@ shorthand to disambiguate.
 The namepath comes from the PATH, so the source's location is the one statement of the
 equip's name: `.../equip/<author>/<name>` and nothing else. A `.` or `..` component is refused
 rather than normalized, because the registered source is compared component-wise later and a
-normalized alias would name a different directory than the one it spells.
+normalized alias would name a different directory than the one it spells. A Windows path's
+drive prefix, `C:`, is passed over as the root is.
 
 ## fn require_rig
 Two refusals, kept apart: an equip that is not installed is `equip::not_registered`, while an

@@ -14,6 +14,12 @@ pub fn detect_import_cycle(
     working_set: &nu::StateWorkingSet,
     baseline: usize,
 ) -> Option<String> {
+    if let Some(files) = working_set.parse_errors.iter().find_map(|error| match error {
+        nu_protocol::ParseError::CircularImport(files, _) => Some(files.clone()),
+        _ => None,
+    }) {
+        return Some(files);
+    }
     let mut seen: HashMap<PathBuf, (usize, usize)> = HashMap::new();
     for cached in working_set.files().skip(baseline) {
         let spelling = Path::new(&*cached.name);

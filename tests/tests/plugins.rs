@@ -176,9 +176,10 @@ fn a_replaced_plugin_re_registers_whatever_its_mtime() {
     let registered = modified(&registry);
     drop(first);
 
-    let soak = plugin_dir.join("grammar").join("nu_plugin_soak");
+    let file = format!("nu_plugin_soak{}", std::env::consts::EXE_SUFFIX);
+    let soak = plugin_dir.join("grammar").join(&file);
     std::fs::remove_file(&soak).expect("remove the bundled plugin");
-    std::fs::copy(grammar_mcp_bin().with_file_name("nu_plugin_soak"), &soak).expect("bundle it again");
+    std::fs::copy(grammar_mcp_bin().with_file_name(&file), &soak).expect("bundle it again");
     std::fs::File::options()
         .write(true)
         .open(&soak)

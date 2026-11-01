@@ -23,6 +23,10 @@ cascade it lives under presents a textually new path on every hop
 accumulated path stops resolving. A `.`-based self-import IS caught, because
 `Path::components()` does normalize `.`. That boundary is the whole bug.
 
+Where nushell's detector does fire, as it does on Windows, its own
+`CircularImport` is the cycle, and its text answers first, so a cycle reports as
+`module::circular_import` whichever of the two caught it.
+
 WHY THIS KEYS ON NEITHER PARSE ERROR: the error that finally surfaces is not
 stable. A bare cycle reports `ModuleNotFound("../mod.nu")`, while the same cycle
 carrying a couple of `export def`s reports `ModuleMissingModNuFile` with a

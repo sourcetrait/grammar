@@ -8,6 +8,16 @@ static TESTING: testing::Module = testing::module!(Integration, { .using_temp_di
 const WORK_DIR: &str =
     "def execute [data: nothing]: nothing -> record<wd: string> { { wd: $env.EQUIP_WORK_DIR } }";
 
+/// The home a host resolves with `HOME` set to `home`: `home` on Unix, and on
+/// Windows the user's profile, which no variable moves.
+fn platform_home(home: &std::path::Path) -> std::path::PathBuf {
+    if cfg!(windows) {
+        std::path::PathBuf::from(std::env::var("USERPROFILE").expect("Windows names the user's profile"))
+    } else {
+        home.to_path_buf()
+    }
+}
+
 #[tested]
 fn default_id_is_user_env() {
     let t = testing::test!({ .using_temp_dir() });
@@ -198,11 +208,11 @@ fn workdir_tilde_expands_against_home() {
         &[("HOME", home_str)],
     );
     let resp = host.execute(WORK_DIR, "null");
-    let expected = home.join("wd_x");
+    let expected = platform_home(&home).join("wd_x");
     assert_eq!(
         envelope(&resp)["result"]["wd"].as_str(),
         expected.to_str(),
-        "a ~/ workdir should expand against HOME; got {resp}",
+        "a ~/ workdir should expand against the home; got {resp}",
     );
 }
 
@@ -214,7 +224,7 @@ fn workdir_defaults_under_home_proj_equip_id() {
     let home_str = home.to_str().unwrap();
     let mut host = Host::spawn_full(t.temp_dir(), &["--id", "wdid"], &[("HOME", home_str)]);
     let resp = host.execute(WORK_DIR, "null");
-    let expected = home.join("proj").join("equip").join("wdid");
+    let expected = platform_home(&home).join("proj").join("equip").join("wdid");
     assert_eq!(
         envelope(&resp)["result"]["wd"].as_str(),
         expected.to_str(),

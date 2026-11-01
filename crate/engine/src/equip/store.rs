@@ -225,7 +225,7 @@ pub fn equip_namepath_of(source_dir: &Path) -> Result<String, EngineError> {
                 Some(s) => parts.push(s),
                 None => return Err(invalid("the path is not valid UTF-8")),
             },
-            std::path::Component::RootDir => {}
+            std::path::Component::RootDir | std::path::Component::Prefix(_) => {}
             _ => return Err(invalid("the path must not hold `.` or `..`")),
         }
     }

@@ -283,15 +283,19 @@ pub(crate) fn expand_path(raw: &Path) -> Result<PathBuf, String> {
             None => Err("environment variable unset or empty".to_string()),
         }
     })
-    .map(|expanded| PathBuf::from(expanded.as_ref()))
+    .map(|expanded| platform_separators(PathBuf::from(expanded.as_ref())))
     .map_err(|e| format!("expand {}: ${}: {}", raw.display(), e.var_name, e.cause))
 }
 
-/// `$HOME`, else Windows' `USERPROFILE`, read per call: the tilde's source.
+/// `path` in its platform's separators: rebuilt from its components on Windows.
+fn platform_separators(path: PathBuf) -> PathBuf {
+    if cfg!(windows) { path.components().collect() } else { path }
+}
+
+/// The home, read per call: `$HOME`, and on Windows the profile, nushell's own.
 fn home_dir() -> Option<String> {
-    std::env::var("HOME")
-        .ok()
-        .or_else(|| cfg!(windows).then(|| std::env::var("USERPROFILE").ok()).flatten())
+    let var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
+    std::env::var(var).ok()
 }
 
 /// An unset variable's stand-in: a UENV home's standard variable, else a default.

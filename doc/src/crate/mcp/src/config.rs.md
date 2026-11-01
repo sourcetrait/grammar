@@ -170,9 +170,16 @@ outside the homes.
 `$HOME` read per call rather than through `BASE_DIRS`: `BaseDirs` snapshots
 its environment at first construction, and `expand_path` runs inside
 `set_cli_env_path` before the CliEnv overrides land, so touching the LazyLock
-here would freeze pre-override state into every later path. Windows sets no
-`HOME` of its own, so there `USERPROFILE`, the user's profile directory, stands
-behind it.
+here would freeze pre-override state into every later path. On Windows the
+home is `USERPROFILE`, the user's profile, whatever `HOME` holds: nushell's own
+home there is the profile, so a config's `~` names what a definition's does.
+
+## fn platform_separators
+An expansion splices the home's backslashes onto a path written with slashes,
+`C:\Users\x/work`; Windows reads either, and rebuilding the path from its
+components gives it one separator, as it shows in `interface info` and
+`EQUIP_WORK_DIR`. Unix keeps the path as expanded, since a rebuild there would
+also drop a trailing slash and fold `.`.
 
 ## fn var_default
 A UENV home stands in for itself with the standard variable behind it, then

@@ -96,6 +96,13 @@ impl Parity {
             plugin_file: Some(namespace.join("plugin.msgpackz")),
             ..Default::default()
         };
+        // Windows' home is the user's profile, which no variable moves, so there
+        // nushell resolves it whatever HOME holds.
+        let home = if cfg!(windows) {
+            PathBuf::from(std::env::var("USERPROFILE").expect("Windows names the user's profile"))
+        } else {
+            home
+        };
         let (dirs, _) = resolve_paths(&TestEnv::new(vars).with_home_dir(home), &overrides)
             .expect("nushell resolves the pinned env");
         Self {
@@ -139,7 +146,7 @@ impl Parity {
 
     /// `$NU_PLUGIN_DIRS` as nushell sets it: config home's `plugins`, the exe's dir.
     fn plugin_dirs(&self) -> NuVal {
-        let exe = std::fs::canonicalize(grammar_mcp_bin()).expect("canonicalize the host");
+        let exe = dunce::canonicalize(grammar_mcp_bin()).expect("canonicalize the host");
         let exe_dir = exe.parent().expect("the host's dir");
         NuVal::List(vec![
             NuVal::from(path_str(&self.dirs.config_home.join("plugins"))),
@@ -184,7 +191,7 @@ const STARTUP_ENV_TYPE: &str = "record<config: bool, env_conversions: string, pa
 /// A path as `$nu` shows it: canonical where it exists, as given otherwise.
 fn shown(path: &Path) -> String {
     if path.exists() {
-        path_str(&std::fs::canonicalize(path).expect("canonicalize"))
+        path_str(&dunce::canonicalize(path).expect("canonicalize"))
     } else {
         path_str(path)
     }
