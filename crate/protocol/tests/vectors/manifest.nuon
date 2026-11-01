@@ -7,7 +7,7 @@
     ["engine.nuon",  61,      "0222333bf801add474ebf20d83f783b0ae9c2cd655973d3059bba0c7cbaaa6e6"],
     ["hello.nuon",   3,       "02a99fd39147fa89fcda83632160b74732b0e29feae9e477bc825f5ecbf9792e"],
     ["peer.nuon",    12,      "a034840e06ba906d99af995b7b8fa3d3040423259f274bb042bee5805426211a"],
-    ["session.nuon", 69,      "5df455879c1a17a1a17e1bce840c18ed9ffbedbc33026a594f9398d44816a2c0"],
+    ["session.nuon", 69,      "ee38d5ddc9846bbb89427f0d6dc2b1b1755b0ee03e2a434f5afb5df530a836ce"],
     ["value.nuon",   57,      "33ea3f6aedc7ad9599c0009eb8f027b6eab51125d16f83494f556befa7a7de1f"]
   ]
 }
