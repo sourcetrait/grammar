@@ -82,7 +82,7 @@ Channel send and a spam stop take an origin naming the engine,
 every local one and its packets and emergencies say where they came from. A
 prepared send goes to the peer links whole, its files read on the worker. The
 config answers from the MCP's, which the worker answers with its own
-supervisor lines in place (`crate/daemon`'s `controller.rs`); a pin never
+supervisor lines in place (`crate/ssh`'s `controller.rs`); a pin never
 reaches here, the worker holding it.
 
 ## fn remote_origin

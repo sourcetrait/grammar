@@ -1,10 +1,10 @@
-# The grammar-mcp release: cargo's builds, nushell, and the package's tree.
+# grammar's release: cargo's builds, nushell, and the package's tree.
 
 # The MCP's package: its binary is the release's, its version the release's.
 const MCP_CRATE = 'sourcetrait_grammar_mcp'
 
-# The remote worker's package, whose `grammard` the tree carries beside the MCP.
-const DAEMON_CRATE = 'sourcetrait_grammar_daemon'
+# The worker's package, whose `grammar-ssh` the tree carries beside the MCP.
+const SSH_CRATE = 'sourcetrait_grammar_ssh'
 
 # The file-name prefix of a plugin binary, the one the MCP registers by.
 const PLUGIN_PREFIX = 'nu_plugin_'
@@ -18,7 +18,7 @@ const CORE_PLUGINS = [
     'nu_plugin_query'
 ]
 
-# The skills the package carries, from `agent/skill/`.
+# The MCP's skills the package carries, from `agent/skill/`.
 const SKILLS = ['nu' 'grammar-mcp' 'grammar-mcp-dev']
 
 # The builtins' equips the package carries: grammar's own, gram's through `ext/gram`.
@@ -47,7 +47,7 @@ export def licenses [root: path]: nothing -> nothing {
 # Build the MCP, the worker, and the plugins in cargo's `release` or `debug` profile.
 export def compile [root: path, profile: string]: nothing -> nothing {
     let flags: list<string> = (profile_flags $profile '--release')
-    let crates: list<string> = ([$MCP_CRATE $DAEMON_CRATE] | append (plugin_targets $root | get package | uniq))
+    let crates: list<string> = ([$MCP_CRATE $SSH_CRATE] | append (plugin_targets $root | get package | uniq))
     let packages: list<string> = ($crates | each {|crate| ['-p' $crate] } | flatten)
     ^cargo build --locked --manifest-path ($root | path join 'Cargo.toml') ...$flags ...$packages
 }
@@ -91,7 +91,8 @@ export def package_semver [root: path, profile: string]: nothing -> string {
 #
 # `bin/` holds nushell, the MCP, and the worker, `plugin/core/` nushell's core
 # plugins from `nu_root`, the install nushell made, `plugin/grammar/` the
-# workspace's own, and `equip/` the builtins' sources.
+# workspace's own, `equip/` the builtins' sources, and `mcp/skill/` the MCP's
+# skills.
 export def layout [root: path, profile: string, nu_root: path]: nothing -> path {
     let target: path = (target_dir $root)
     let built: path = ($target | path join $profile)
@@ -102,7 +103,7 @@ export def layout [root: path, profile: string, nu_root: path]: nothing -> path 
     mkdir ($tree | path join 'bin')
     cp ($nu_root | path join 'bin' 'nu') ($tree | path join 'bin' 'nu')
     cp ($built | path join 'grammar-mcp') ($tree | path join 'bin' 'grammar-mcp')
-    cp ($built | path join 'grammard') ($tree | path join 'bin' 'grammard')
+    cp ($built | path join 'grammar-ssh') ($tree | path join 'bin' 'grammar-ssh')
     let core: path = ($tree | path join 'plugin' 'core')
     mkdir $core
     for plugin in $CORE_PLUGINS {
@@ -119,8 +120,9 @@ export def layout [root: path, profile: string, nu_root: path]: nothing -> path 
         cp --recursive ($root | path join ...$equip.source) $dest
     }
     for skill in $SKILLS {
-        mkdir ($tree | path join 'skill' $skill)
-        cp ($root | path join 'agent' 'skill' $skill 'SKILL.md') ($tree | path join 'skill' $skill)
+        let dest: path = ($tree | path join 'mcp' 'skill' $skill)
+        mkdir $dest
+        cp ($root | path join 'agent' 'skill' $skill 'SKILL.md') $dest
     }
     ^chmod -R 'u=rwX,go=rX' $tree
     $tree

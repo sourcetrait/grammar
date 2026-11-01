@@ -25,9 +25,9 @@ const LISTEN_DEADLINE: Duration = Duration::from_secs(10);
 /// How many ports a start tries before it gives up.
 const PORT_TRIES: usize = 5;
 
-/// The `grammard` binary, beside the running test binary's `deps/`.
-pub fn grammard_bin() -> PathBuf {
-    grammar_mcp_bin().with_file_name("grammard")
+/// The `grammar-ssh` binary, beside the running test binary's `deps/`.
+pub fn grammar_ssh_bin() -> PathBuf {
+    grammar_mcp_bin().with_file_name("grammar-ssh")
 }
 
 /// The test's own user, by name.
@@ -76,7 +76,7 @@ impl TestKey {
     }
 }
 
-/// A worker for an sshd's sessions: a wrapper giving it the test's homes, then `grammard`.
+/// A worker for an sshd's sessions: a wrapper giving it the test's homes, then `grammar-ssh`.
 pub struct TestWorker {
     dir: tempfile::TempDir,
 }
@@ -89,8 +89,8 @@ impl TestWorker {
         for home in ["data", "cache", "tmp", "run", "work", "bin"] {
             fs::create_dir_all(root.join(home)).expect("a worker's home");
         }
-        let grammard = grammard_bin();
-        assert!(grammard.is_file(), "grammard is built beside grammar-mcp: {}", grammard.display());
+        let worker_bin = grammar_ssh_bin();
+        assert!(worker_bin.is_file(), "grammar-ssh is built beside grammar-mcp: {}", worker_bin.display());
         let exports: String = [
             ("UENV_USR_DATA", "data"),
             ("UENV_USR_CACHE", "cache"),
@@ -100,8 +100,8 @@ impl TestWorker {
         .iter()
         .map(|(var, home)| format!("export {var}='{}'\n", root.join(home).display()))
         .collect();
-        let wrapper = root.join("bin").join("grammard-worker");
-        fs::write(&wrapper, format!("#!/bin/sh\n{exports}exec '{}' \"$@\"\n", grammard.display()))
+        let wrapper = root.join("bin").join("grammar-ssh-worker");
+        fs::write(&wrapper, format!("#!/bin/sh\n{exports}exec '{}' \"$@\"\n", worker_bin.display()))
             .expect("the wrapper");
         fs::set_permissions(&wrapper, fs::Permissions::from_mode(0o700)).expect("the wrapper's mode");
         Self { dir }
@@ -114,7 +114,7 @@ impl TestWorker {
 
     /// The wrapper an endpoint runs as its command.
     pub fn command(&self) -> PathBuf {
-        self.root().join("bin").join("grammard-worker")
+        self.root().join("bin").join("grammar-ssh-worker")
     }
 
     /// The worker's working directory.
@@ -133,7 +133,7 @@ impl TestWorker {
             .expect("the temporary home")
             .flatten()
             .map(|entry| entry.path())
-            .filter(|path| path.file_name().and_then(|name| name.to_str()).is_some_and(|name| name.starts_with("grammard.")))
+            .filter(|path| path.file_name().and_then(|name| name.to_str()).is_some_and(|name| name.starts_with("grammar-ssh.")))
             .collect()
     }
 

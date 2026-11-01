@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# grammar-mcp's package tree, built in its one-time container.
+# grammar's package tree, built in its one-time container.
 #
-# Run by run.bash beside it: /src holds grammar_mcp beside the repositories it
+# Run by run.bash beside it: /src holds grammar beside the repositories it
 # reaches, read-only; /work holds cargo's home and target; /out receives the
 # tree and its build record from `build.nu --tree`. JOBS is cargo's build jobs.
 
 set -euo pipefail
 
-repo=/src/grammar_mcp
+repo=/src/grammar
 export CARGO_HOME=/work/cargo
 export CARGO_TARGET_DIR=/work/target
 export CARGO_BUILD_JOBS="${JOBS:-4}"

@@ -6620,27 +6620,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sourcetrait_grammar_daemon"
-version = "0.0.0-9"
-dependencies = [
- "clap",
- "directories",
- "futures-util",
- "nix",
- "serde",
- "sourcetrait_common",
- "sourcetrait_grammar_client",
- "sourcetrait_grammar_engine",
- "sourcetrait_grammar_operator",
- "sourcetrait_grammar_protocol",
- "sourcetrait_grammar_scratch",
- "tempfile",
- "tokio",
- "tokio-util",
- "toml 1.1.8+spec-1.1.0",
-]
-
-[[package]]
 name = "sourcetrait_grammar_engine"
 version = "0.0.0-9"
 dependencies = [
@@ -6816,6 +6795,27 @@ dependencies = [
  "sourcetrait_common",
  "tempfile",
  "walkdir",
+]
+
+[[package]]
+name = "sourcetrait_grammar_ssh"
+version = "0.0.0-9"
+dependencies = [
+ "clap",
+ "directories",
+ "futures-util",
+ "nix",
+ "serde",
+ "sourcetrait_common",
+ "sourcetrait_grammar_client",
+ "sourcetrait_grammar_engine",
+ "sourcetrait_grammar_operator",
+ "sourcetrait_grammar_protocol",
+ "sourcetrait_grammar_scratch",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+ "toml 1.1.8+spec-1.1.0",
 ]
 
 [[package]]

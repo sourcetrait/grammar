@@ -1,7 +1,7 @@
 # lock.rs
 
 The namespace lock every program that starts an engine takes first: the MCP's
-server and one-shot CLI and grammard alike, so one engine works a namespace
+server and one-shot CLI and grammar-ssh alike, so one engine works a namespace
 whichever program started it. It lives beside the scratch guard because both
 products take this crate and its record names a process as a scratch marker
 does.

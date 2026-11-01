@@ -2,7 +2,7 @@
 
 The MCP's side of its remote engines: a session with a worker over SSH, and
 the system that holds one a host. It takes the protocol, russh, and
-sourcetrait_common alone, never the engine, the operator, or the daemon, so a
+sourcetrait_common alone, never the engine, the operator, or the worker, so a
 product that drives a worker links it without an engine of its own.
 
 ## mod endpoint
@@ -11,7 +11,7 @@ is written and before a session opens.
 
 ## mod session
 The MCP's end of a session over any reader and writer, an SSH channel's or a
-child's pipes, so the daemon's tests drive a real worker through the same
+child's pipes, so the worker's own tests drive a real worker through the same
 code the MCP does.
 
 ## mod ssh

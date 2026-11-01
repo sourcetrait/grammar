@@ -16,7 +16,7 @@ the operator's (User). The Channel's and the peer links' systems
 (`crate/client`) its sessions with its workers.
 
 ## use sourcetrait_grammar_scratch
-The namespace lock is the scratch crate's, shared with grammard, so both
+The namespace lock is the scratch crate's, shared with grammar-ssh, so both
 programs take one lock under one record's shape.
 
 ## mod schema

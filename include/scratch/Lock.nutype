@@ -2,8 +2,8 @@
 #
 # It sits at <data>/grammar/mcp/<id>/<namespace>/host.lock, the lock every
 # program that starts an engine takes first, the MCP's server and one-shot CLI
-# and grammard alike, so each refuses a namespace another holds. The record is
-# rewritten in place by each holder that takes the lock, its inode kept. Its
+# and grammar-ssh alike, so each refuses a namespace another holds. The record
+# is rewritten in place by each holder that takes the lock, its inode kept. Its
 # uid, pid, start, and boot name the holder's process as a scratch marker does;
 # its nom is the holder's for this start.
 

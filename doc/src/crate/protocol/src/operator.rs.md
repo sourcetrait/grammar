@@ -1,10 +1,10 @@
 # operator.rs
 
 The operator's portable data: what its manager observes of the engine and the
-Channel, and the emergencies it classifies. Here so a frontend, a daemon, and the
-operator share one definition without the operator's Linux monitoring, which stays
-in the operator crate. The engine's reading is the engine's own `EngineHealth`,
-which the operator names `EngineReading`.
+Channel, and the emergencies it classifies. Here so a frontend, a worker, and
+the operator share one definition without the operator's Linux monitoring, which
+stays in the operator crate. The engine's reading is the engine's own
+`EngineHealth`, which the operator names `EngineReading`.
 
 CLASSIFY-FIRST. The watchdog DETECTS and CLASSIFIES resource trouble into an
 `Emergency` and sends it to its manager, whose one responder logs and announces it.

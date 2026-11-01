@@ -1,9 +1,9 @@
 # bundle/mod.nu
 
-What grammar-mcp's release holds, as against how an OptZip is packed.
+What grammar's release holds, as against how an OptZip is packed.
 
-## const DAEMON_CRATE
-The remote worker, `grammard`, ships in the MCP's own tree, built from the
+## const SSH_CRATE
+The remote worker, `grammar-ssh`, ships in one tree with the MCP, built from the
 same lockfile in the same invocation, so a worker installed from a release
 speaks the protocol of the MCP released with it.
 
@@ -54,6 +54,10 @@ would hand the package whatever an earlier build left there whenever the
 environment names another, as the build container's does.
 
 ## def layout
+One home for every product (User): `bin/` holds each product's binary and
+nushell's, `mcp/` the MCP's own parts, its skills, and what the products share
+sits at the top, `plugin/` and `equip/`; `ssh/`, grammar-ssh's own, is made
+when it has any. Each binary finds the shared parts beside its `bin/`.
 The binaries come from the target directory the build used (`target_dir`).
 The tree is emptied and rebuilt rather than updated, so a file dropped from
 the release cannot linger in it. `plugin/` keeps its plugins apart by kind:

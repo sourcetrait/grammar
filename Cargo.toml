@@ -11,7 +11,7 @@ members = [
   "crate/engine",
   "crate/operator",
   "crate/client",
-  "crate/daemon",
+  "crate/ssh",
   "crate/plugin/eye",
   "crate/plugin/soak",
   "crate/mcp",
@@ -23,7 +23,7 @@ version = "0.0.0-9"
 edition = "2024"
 authors = ["SourceTrait <development@sourcetrait.com>"]
 license = "AGPL-3.0-or-later"
-repository = "https://github.com/sourcetrait/grammar_mcp"
+repository = "https://github.com/sourcetrait/grammar"
 homepage = "https://sourcetrait.com"
 categories = []
 keywords = ["sourcetrait", "grammar"]

@@ -60,8 +60,8 @@ the frame; decode reverses it). `PhantomData<T>` binds the codec to one message 
 a `FramedRead<_, BitcodeCodec<AcceptorToInitiator>>` can only yield that language.
 io::Error is what the Framed traits want. A peer's frame is inflated within
 `REMOTE_INFLATED_MAX`, so a few hundred bytes of zeros can't inflate without
-bound, and decoded within the protocol's default decode budget, as the
-daemon's frames are. The round trip and both refusals are unit-tested
+bound, and decoded within the protocol's default decode budget, as a remote
+engine's frames are. The round trip and both refusals are unit-tested
 (`tests/link.rs`), and the system tests' remote links run it end to end.
 
 ## fn inflate

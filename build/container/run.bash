@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# grammar-mcp's package tree, built on this machine in a one-time podman container.
+# grammar's package tree, built on this machine in a one-time podman container.
 #
 # Usage: `bash run.bash --sources <dir> --out <dir> [--base <image>]
 # [--rust <version>] [--jobs <n>]`, on the machine the tree is for.
 #
-# `--sources` holds grammar_mcp beside the repositories it reaches: common,
+# `--sources` holds grammar beside the repositories it reaches: common,
 # common_mono, srcert, bitcode, and gram. The image is built from this
 # directory's Containerfile on `--base`, this machine's own distribution, and
 # runs build.bash, which leaves the tree in `<out>/tree` and its build record
@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-repos=(grammar_mcp common common_mono srcert bitcode gram)
+repos=(grammar common common_mono srcert bitcode gram)
 base=registry.fedoraproject.org/fedora:44
 rust=1.99.1
 jobs=4
@@ -47,8 +47,8 @@ out="$(realpath -e "$out")"
 
 context="$(dirname "$(realpath -e "${BASH_SOURCE[0]}")")"
 stamp="$(date -u +%Y%m%d%H%M%S)"
-image="localhost/grammar-mcp-build:$stamp"
-work="$(dirname "$out")/.grammar-mcp-build-$stamp"
+image="localhost/grammar-build:$stamp"
+work="$(dirname "$out")/.grammar-build-$stamp"
 pulled=false
 if ! podman image exists "$base"; then
     pulled=true
@@ -76,5 +76,5 @@ podman build --tag "$image" --file "$context/Containerfile" \
     --build-arg "BASE=$base" --build-arg "RUST=$rust" "$context"
 podman run --rm --init --env "JOBS=$jobs" "${mounts[@]}" \
     --volume "$work:/work:Z" --volume "$out:/out:Z" \
-    "$image" bash /src/grammar_mcp/build/container/build.bash
+    "$image" bash /src/grammar/build/container/build.bash
 echo "$out/tree"

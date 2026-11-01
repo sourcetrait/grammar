@@ -1,11 +1,11 @@
-# Build grammar-mcp, its worker, and its plugins, with nushell's own, into a signed OptZip.
+# Build grammar's products and plugins, with nushell's own, into a signed OptZip.
 #
 # Usage: `nu build.nu [--debug]`, from anywhere; or in two halves on two
 # machines, `nu build.nu [--debug] --tree <dir>` where the build runs and
 # `nu build.nu --pack <dir>` where the signing key is.
 #
 # The package lands in cargo's target directory, in `pkg/`,
-# `grammar-mcp_<semver>_<os>_<arch>.opt.tar.zst`; its path is the last line.
+# `grammar_<semver>_<os>_<arch>.opt.tar.zst`; its path is the last line.
 # It is signed by the repository's gpg commit key, or by `gpg.signingkey`, a
 # full fingerprint, with `gpg.homedir` the GnuPG home. gram's repository must
 # sit beside this one, as `gram`: the package carries its equip. A whole build
@@ -27,8 +27,8 @@ use $OPTZIP
 # The repository's root, from this script's real path.
 const ROOT = (path self | path expand | path dirname | path dirname | path dirname)
 
-# The program the package carries.
-const NAME = 'grammar-mcp'
+# The package's name, and its home's: `opt/grammar`.
+const NAME = 'grammar'
 
 # The record `--tree` writes beside its tree, which `--pack` reads.
 const BUILD_RECORD = 'build.nuon'

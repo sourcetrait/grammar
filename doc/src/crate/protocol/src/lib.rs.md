@@ -2,7 +2,7 @@
 
 The crate is the portable side of a remote engine: typed data and the wire's
 framing alone, with no evaluator, operator, MCP server, or platform monitoring
-in its dependencies. The engine, the client, the daemon, the MCP frontend, and
+in its dependencies. The engine, the client, the worker, the MCP frontend, and
 the Channel's, the peer links', and the interface's crates take it, and it
 takes none of them, so the package graph stays one-way.
 

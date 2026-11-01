@@ -1,4 +1,4 @@
-# Schema: every public type bitcode encodes on the daemon's wire.
+# Schema: every public type bitcode encodes on a remote engine's wire.
 #
 #     let schema: <this type> = (open schema/v1.nuon)
 #

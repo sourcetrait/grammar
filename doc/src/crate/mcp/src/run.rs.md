@@ -10,7 +10,7 @@ A `--xdg-*` value that does not expand is the operator's error: it comes back as
 an `Err` and the host exits 2 before anything reads the environment.
 
 ## const LOCK_HOLDER
-What the namespace lock's record names a holder, beside grammard's own: a
+What the namespace lock's record names a holder, beside grammar-ssh's own: a
 reader of the lock's file tells the two programs apart by it.
 
 ## const WORKER_STACK_SIZE
@@ -85,7 +85,7 @@ The serve path's start, the lock then the engine, before `run_oneshot`
 
 ## fn lock_namespace
 One engine a namespace, whichever program starts it: the server, the one-shot
-CLI, and grammard take the same lock, the data home's `host.lock`, so each
+CLI, and grammar-ssh take the same lock, the data home's `host.lock`, so each
 refuses a namespace another holds, a worker on the same machine among them.
 It is taken before anything touches the namespace, the equip store's
 substrate included, and its record names this process: the holder, the

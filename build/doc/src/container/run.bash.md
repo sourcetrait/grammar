@@ -5,9 +5,9 @@ distribution's tools alone, nushell not among them.
 
 ## The sources
 Each repository is mounted alone, read-only, rather than their parent, so the
-container sees the six and nothing beside them. `ext/gram`, grammar_mcp's
+container sees the six and nothing beside them. `ext/gram`, grammar's
 relative link to gram, resolves inside the container as it does outside, gram
-mounted beside grammar_mcp.
+mounted beside grammar.
 
 ## The labels
 `Z` relabels each mount for this container alone where SELinux enforces, as on
