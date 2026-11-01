@@ -6464,6 +6464,7 @@ dependencies = [
  "sourcetrait_agnostic_linux",
  "sourcetrait_agnostic_macos",
  "sourcetrait_agnostic_unix",
+ "sourcetrait_agnostic_windows",
  "sourcetrait_stdx",
  "sourcetrait_twostr",
  "strum 0.27.2",
@@ -6510,6 +6511,18 @@ dependencies = [
  "snafu 0.8.9",
  "sourcetrait_agnostic_bridge",
  "sourcetrait_twostr",
+]
+
+[[package]]
+name = "sourcetrait_agnostic_windows"
+version = "0.0.0-2"
+dependencies = [
+ "snafu 0.8.9",
+ "sourcetrait_agnostic_bridge",
+ "sourcetrait_twostr",
+ "strum 0.27.2",
+ "widestring",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
