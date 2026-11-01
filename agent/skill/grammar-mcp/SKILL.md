@@ -56,10 +56,8 @@ Named namepath patterns filtering what `info` shows, never access control:
 
 ## Channel
 Packets from a definition to you: small summaries, never payloads.
-- async: OpenGrammarChannel.
-- sync: `interface channel open sync`; the first `interface channel sync`
-  takes the greeting, then `interface channel ready`; each sync after takes
-  what queued since.
+- Opened by OpenGrammarChannel, async or sync; on a sync Channel each
+  `interface channel sync` takes what queued since the last.
 - A send before `ready` is refused and closes the Channel.
 - A packet is `{id, from, model, event, attached?}`; models under `mcp/` and
   `remote/` are the host's. An oversized event spills to
@@ -81,10 +79,13 @@ worker runs in the account's login shell, `command not found: <command>` when
 missing, and ends with its session, opened at the first call or a connect.
 
 ## SEQUENCE: OpenGrammarChannel
-1. `interface channel open async`.
-2. On `new`, a Monitor on the returned `wss`; on `existing`, the running
-   Monitor; on `channel::peer_gone`, `interface channel close`, then step 1.
-3. Wait for the `mcp/channel/Open` packet.
+1. `interface channel open async`, or `interface channel open sync` where
+   requested.
+2. async: on `new`, a Monitor on the returned `wss`; on `existing`, the
+   running Monitor; on `channel::peer_gone`, `interface channel close`, then
+   step 1.
+3. The `mcp/channel/Open` packet: async on the Monitor, sync by the first
+   `interface channel sync`.
 4. `interface channel ready`, nothing sent before it.
 
 ## SEQUENCE: OpenRemoteGrammarChannel
