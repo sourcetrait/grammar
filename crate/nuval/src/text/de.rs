@@ -192,8 +192,7 @@ impl<'de> de::VariantAccess<'de> for Variant {
     }
 }
 
-/// A record's key, read as a string, or as a number or a bool where the
-/// type asks for one.
+/// A record's key, read as a string, or as a number or a bool the type asks for.
 struct Key(String);
 
 impl Key {

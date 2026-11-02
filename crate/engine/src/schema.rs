@@ -57,8 +57,9 @@ pub(crate) fn data_typedef(shape: &nu::SyntaxShape) -> Result<NuType, String> {
     }
 }
 
-/// A contract's return type: `nothing`, or a typed record or table, no
-/// record or table open at any depth.
+/// A contract's return type: `nothing`, or a typed record or table.
+///
+/// No record or table is open at any depth.
 pub(crate) fn result_typedef(ty: &nu::Type) -> Result<NuType, String> {
     match ty {
         nu::Type::Nothing => Ok(NuType::Nothing),
@@ -79,8 +80,9 @@ fn not_data(error: NuTypeError) -> String {
     }
 }
 
-/// The contract's grammar below the top: no `any`, no list of tables, and
-/// no open record or table where `open` names why.
+/// The contract's grammar below the top: no `any` and no list of tables.
+///
+/// No record or table is open where `open` names why.
 fn grammar(ty: &NuType, open: Option<&str>) -> Result<(), String> {
     match ty {
         NuType::Any => Err("`any` is not a grammar type".to_string()),

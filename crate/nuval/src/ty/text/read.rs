@@ -115,8 +115,9 @@ impl Reader<'_> {
         Ok(scalar)
     }
 
-    /// A generic type: `list`, `record`, `table`, or `oneof`, its parameters
-    /// in angle brackets or none.
+    /// A generic type: `list`, `record`, `table`, or `oneof`.
+    ///
+    /// Its parameters are in angle brackets, or it has none.
     fn generic(&mut self, name: &str, at: usize) -> NuTypeResult<NuType> {
         if self.peek() != Some(b'<') {
             return Ok(match name {

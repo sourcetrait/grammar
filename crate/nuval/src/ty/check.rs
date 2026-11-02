@@ -2,8 +2,10 @@
 use crate::*;
 
 impl NuType {
-    /// Holds `value` to the type: a record or a table exactly its declared
-    /// fields, an open one any, `path` and `directory` strings.
+    /// Holds `value` to the type.
+    ///
+    /// A record or a table holds exactly its declared fields, an open one any, and
+    /// `path` and `directory` hold strings.
     pub fn check(&self, value: &NuVal) -> NuTypeResult<()> {
         let fits = match (self, value) {
             (Self::Any, _)

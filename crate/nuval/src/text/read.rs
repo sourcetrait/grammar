@@ -37,8 +37,9 @@ enum Token {
     Special(usize, u8),
 }
 
-/// nushell's lexer over a span: comments and whitespace skipped, brackets
-/// and quotes holding a token together.
+/// nushell's lexer over a span, comments and whitespace skipped.
+///
+/// Brackets and quotes hold a token together.
 struct Lexer<'a> {
     bytes: &'a [u8],
     pos: usize,
@@ -77,8 +78,9 @@ impl<'a> Lexer<'a> {
         Ok(None)
     }
 
-    /// Where the item at `start` ends: the first terminator outside any
-    /// bracket, quote, or raw string.
+    /// Where the item at `start` ends.
+    ///
+    /// It ends at the first terminator outside any bracket, quote, or raw string.
     fn item_end(&self, start: usize, whitespace: &[u8], special: &[u8]) -> NuonResult<usize> {
         let mut closers: Vec<(u8, usize)> = Vec::new();
         let mut i = start;
@@ -167,8 +169,7 @@ impl<'a> Lexer<'a> {
     }
 }
 
-/// A shape's read: the value, a miss that lets the next shape try, or a
-/// failure that ends the read.
+/// A shape's read: its value, a miss for the next shape, or a failure ending it.
 enum Missed {
     Miss,
     Fail(NuonError),
@@ -182,8 +183,9 @@ fn fail<T>(offset: usize, reason: impl Into<String>) -> Shape<T> {
     Err(Missed::Fail(read_error(offset, reason)))
 }
 
-/// The document's one value, which nushell reads only where it isn't a
-/// command: a quoted string, a literal, or a structure.
+/// The document's one value: a quoted string, a literal, or a structure.
+///
+/// These are the shapes nushell reads as a value only where it isn't a command.
 fn top(text: &str, span: Range<usize>) -> NuonResult<NuVal> {
     let token = &text[span.clone()];
     if matches!(token, "not" | "if" | "match") {
@@ -289,8 +291,9 @@ fn token_at(token: &Token) -> usize {
     }
 }
 
-/// A record key or a table column: a string, bare or quoted, never a raw
-/// string, a variable, or a keyword.
+/// A record key or a table column: a string, bare or quoted.
+///
+/// Never a raw string, a variable, or a keyword.
 fn record_key(text: &str, span: Range<usize>) -> NuonResult<String> {
     let token = &text[span.clone()];
     if token.starts_with(['$', '(', '{']) || token.starts_with("r#") || matches!(token, "true" | "false" | "null") {
@@ -376,8 +379,9 @@ fn cell_starts(text: &str, span: Range<usize>) -> Vec<usize> {
     starts
 }
 
-/// A string: double-quoted with escapes, single-quoted or backticked as it
-/// stands, or bare.
+/// A string: double-quoted with escapes, single-quoted, backticked, or bare.
+///
+/// A single-quoted or backticked string stands as written.
 fn string(token: &str, at: usize) -> Shape<String> {
     let bytes = token.as_bytes();
     if !matches!(bytes[0], b'\'' | b'"' | b'`') && token.contains('(') {
@@ -402,8 +406,9 @@ fn string(token: &str, at: usize) -> Shape<String> {
     Ok(token.to_string())
 }
 
-/// A double-quoted string's content with its escapes resolved, byte by byte
-/// as nushell resolves them, so hex escapes can spell UTF-8.
+/// A double-quoted string's content, its escapes resolved as nushell resolves them.
+///
+/// The escapes resolve byte by byte, so hex escapes can spell UTF-8.
 fn unescape(inner: &str, at: usize) -> NuonResult<String> {
     if !inner.contains('\\') {
         return Ok(inner.to_string());
@@ -535,8 +540,9 @@ fn number(token: &str) -> Shape<NuVal> {
     token.replace('_', "").parse::<f64>().map(NuVal::Float).map_err(|_| Missed::Miss)
 }
 
-/// A range: `from..to`, `from..next..to`, `..=` and `..<`, one bound at
-/// least, each bound a number.
+/// A range: `from..to`, `from..next..to`, `..=` and `..<`, its bounds numbers.
+///
+/// One bound at least is given.
 fn range(token: &str, at: usize) -> Shape<RangeData> {
     if token.starts_with("...") || !token.contains("..") {
         return Err(Missed::Miss);
@@ -566,8 +572,9 @@ fn range(token: &str, at: usize) -> Shape<RangeData> {
     make_range(from, next, to, exclusive).or_else(|reason| fail(at, reason))
 }
 
-/// The range nushell's `Range::new` makes of the bounds: ints alone an int
-/// range, any float a float range.
+/// The range nushell's `Range::new` makes of the bounds.
+///
+/// Ints alone make an int range, and any float a float range.
 fn make_range(from: Option<NuVal>, next: Option<NuVal>, to: Option<NuVal>, exclusive: bool) -> Result<RangeData, String> {
     let is_float = |v: &Option<NuVal>| matches!(v, Some(NuVal::Float(_)));
     if is_float(&from) || is_float(&next) || is_float(&to) {
@@ -635,8 +642,9 @@ fn make_range(from: Option<NuVal>, next: Option<NuVal>, to: Option<NuVal>, exclu
 /// A unit's suffix, and the smaller unit and factor a fraction converts to.
 type UnitGroup = (&'static str, f64, Option<(f64, f64)>);
 
-/// Filesize units, matched on the uppercased token in this order, each with
-/// its bytes, and the smaller unit's bytes and the factor to it.
+/// Filesize units, matched on the uppercased token in this order.
+///
+/// Each holds its bytes, and the smaller unit's bytes and the factor to it.
 const FILESIZE_UNITS: [UnitGroup; 13] = [
     ("KB", 1e3, Some((1.0, 1000.0))),
     ("MB", 1e6, Some((1e3, 1000.0))),
@@ -653,8 +661,9 @@ const FILESIZE_UNITS: [UnitGroup; 13] = [
     ("B", 1.0, None),
 ];
 
-/// Duration units, matched as written in this order, each with its
-/// nanoseconds, and the smaller unit's nanoseconds and the factor to it.
+/// Duration units, matched as written in this order.
+///
+/// Each holds its nanoseconds, and the smaller unit's nanoseconds and the factor to it.
 const DURATION_UNITS: [UnitGroup; 10] = [
     ("ns", 1.0, None),
     ("us", 1e3, Some((1.0, 1000.0))),
@@ -681,9 +690,10 @@ fn duration(token: &str, at: usize) -> Shape<i64> {
     unit_value(token, at, &DURATION_UNITS)
 }
 
-/// A number with a unit, as nushell's `parse_unit_value` reads one: a whole
-/// unit's fraction carried into the smaller unit, the result in the base
-/// unit, a fraction of the base unit dropped.
+/// A number with a unit, as nushell's `parse_unit_value` reads one.
+///
+/// A whole unit's fraction is carried into the smaller unit, the result is in the
+/// base unit, and a fraction of the base unit is dropped.
 fn unit_value(token: &str, at: usize, units: &[UnitGroup]) -> Shape<i64> {
     let bytes = token.as_bytes();
     let starts_numeric = bytes.len() >= 2
@@ -741,8 +751,9 @@ fn modf(x: f64) -> (f64, f64) {
     (x - whole, whole)
 }
 
-/// A date: RFC 3339, a date alone at midnight UTC, or a date and time
-/// without an offset in UTC.
+/// A date: RFC 3339, or a date or a date and time without an offset, in UTC.
+///
+/// A date alone is midnight.
 fn datetime(token: &str) -> Shape<DateData> {
     let bytes = token.as_bytes();
     if bytes.len() < 6 || !bytes[..4].iter().all(u8::is_ascii_digit) || bytes[4] != b'-' {
@@ -850,8 +861,9 @@ fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
     era * 146_097 + doe - 719_468
 }
 
-/// A cell path: `$.` and its members, each a name or a row, `?` optional
-/// and `!` case-insensitive.
+/// A cell path: `$.` and its members, each a name or a row.
+///
+/// A member's `?` makes it optional and its `!` case-insensitive.
 fn cell_path(token: &str, at: usize) -> NuonResult<NuVal> {
     let Some(rest) = token.strip_prefix("$.") else {
         return Err(read_error(at, "variables aren't NUON"));

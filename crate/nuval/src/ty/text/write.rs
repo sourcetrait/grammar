@@ -1,5 +1,6 @@
-//! A type as nushell's annotations spell it, on one line or laid out as the
-//! repository's `.nutype` files are.
+//! A type as nushell's annotations spell it, on one line or laid out.
+//!
+//! Laid out, it reads as the repository's `.nutype` files do.
 use crate::*;
 
 impl NuType {
@@ -17,17 +18,19 @@ impl NuType {
         }
     }
 
-    /// The type laid out: a record's or a table's fields a line each, four
-    /// spaces a level, and a list's or a union's members too where one holds
-    /// such a record.
+    /// The type laid out, a record's or a table's fields a line each.
+    ///
+    /// Each level indents four spaces, and a list's or a union's members take lines
+    /// too where one holds such a record.
     pub fn to_block(&self) -> String {
         block(self, 0)
     }
 }
 
 impl NuTypeFile {
-    /// The file's text: its documentation as `# ` lines, a blank line, and
-    /// its type laid out.
+    /// The file's text: its documentation as `# ` lines, then its type laid out.
+    ///
+    /// A blank line parts the two.
     pub fn to_text(&self) -> String {
         let mut out = String::new();
         for line in &self.doc {
@@ -53,8 +56,9 @@ fn fields_inline(fields: &[NuField]) -> String {
     fields.join(", ")
 }
 
-/// Whether the type takes lines of its own: a record or a table with
-/// fields, or a list or a union holding one.
+/// Whether the type takes lines of its own.
+///
+/// A record or a table with fields does, and a list or a union holding one.
 fn spans_lines(ty: &NuType) -> bool {
     match ty {
         NuType::Record(fields) | NuType::Table(fields) => !fields.is_empty(),

@@ -1,7 +1,6 @@
 use crate::*;
 
-/// Type text that didn't read, a shape no data type holds, or a value that
-/// isn't of its type.
+/// Type text that didn't read, a shape no data type holds, or a value's mismatch.
 #[derive(Debug, PartialEq, Eq, snafu::Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub enum NuTypeError {

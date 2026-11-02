@@ -89,8 +89,9 @@ impl TryFrom<&nu::Type> for NuType {
     }
 }
 
-/// nushell's type of a value of this one: `path` and `directory` are
-/// strings, and a union's members merge as nushell merges them.
+/// nushell's type of a value of this one.
+///
+/// `path` and `directory` are strings, and a union's members merge as nushell merges them.
 impl From<&NuType> for nu::Type {
     fn from(ty: &NuType) -> Self {
         use nu::Type as T;

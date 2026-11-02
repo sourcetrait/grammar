@@ -1,5 +1,4 @@
-//! A NuVal read by its parts: a record's fields, a list's items, and a
-//! scalar's value.
+//! A NuVal read by its parts: a record's fields, a list's items, a scalar's value.
 use crate::*;
 
 /// What an index finds where there is nothing.

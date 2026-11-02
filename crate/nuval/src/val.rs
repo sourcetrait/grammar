@@ -251,8 +251,9 @@ fn float_range(r: TypedRangeData<f64>) -> ConvertResult<nu::FloatRange> {
     range_from_parts(r.start, r.step, end)
 }
 
-/// A nushell range built exactly from its start, its step, and its end,
-/// carried through a NuVal by nuval's own serde.
+/// A nushell range built exactly from its start, its step, and its end.
+///
+/// It is carried through a NuVal by nuval's own serde.
 #[cfg(feature = "nushell")]
 fn range_from_parts<T, R>(start: T, step: T, end: Bound<T>) -> ConvertResult<R>
 where

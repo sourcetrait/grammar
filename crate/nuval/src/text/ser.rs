@@ -1,8 +1,10 @@
 //! Any serde type as a NuVal, and through it as NUON text.
 use crate::*;
 
-/// The value serde writes `value` as: a struct or a map a record, a sequence
-/// a list, a unit variant its name, any other variant a one-key record.
+/// The value serde writes `value` as.
+///
+/// A struct or a map is a record, a sequence a list, a unit variant its name, and
+/// any other variant a one-key record.
 pub fn to_nuval<T: ser::Serialize + ?Sized>(value: &T) -> NuonResult<NuVal> {
     value.serialize(Serializer)
 }
@@ -312,8 +314,9 @@ impl ser::SerializeStructVariant for Variant<Entries> {
     }
 }
 
-/// A map's key as a record's string key: strings, chars, numbers, bools, and
-/// unit variants, as serde_json takes them.
+/// A map's key as a record's string key.
+///
+/// It takes strings, chars, numbers, bools, and unit variants, as serde_json does.
 struct KeySerializer;
 
 /// A key nushell's records can't hold.

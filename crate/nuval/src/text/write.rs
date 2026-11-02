@@ -124,8 +124,9 @@ fn list(items: &[NuVal], depth: usize, indent: Option<&str>) -> String {
     }
 }
 
-/// Every record's columns in order of first appearance, none where an item
-/// isn't a record.
+/// Every record's columns in order of first appearance.
+///
+/// None where an item isn't a record.
 fn columns(items: &[NuVal]) -> Vec<&String> {
     let mut columns: Vec<&String> = Vec::new();
     for item in items {
@@ -193,8 +194,9 @@ pub(crate) fn needs_quoting(s: &str) -> bool {
     ["inf", "infinity", "nan"].iter().any(|word| unsigned.eq_ignore_ascii_case(word))
 }
 
-/// The first and last of each run of Unicode's decimal digits, the `\d` of
-/// the regex nushell's quoting rule uses.
+/// The first and last of each run of Unicode's decimal digits.
+///
+/// They are the `\d` of the regex nushell's quoting rule uses.
 const DECIMAL_DIGITS: [(u32, u32); 71] = [
     (0x30, 0x39), (0x660, 0x669), (0x6f0, 0x6f9), (0x7c0, 0x7c9), (0x966, 0x96f),
     (0x9e6, 0x9ef), (0xa66, 0xa6f), (0xae6, 0xaef), (0xb66, 0xb6f), (0xbe6, 0xbef),
@@ -289,8 +291,9 @@ fn bounds<T>(start: String, next: Option<String>, end: &Bounded<T>, text: impl F
     out
 }
 
-/// A date as chrono's RFC 3339 writes it: its fraction in 0, 3, 6, or 9
-/// digits, its offset to the minute.
+/// A date as chrono's RFC 3339 writes it.
+///
+/// Its fraction takes 0, 3, 6, or 9 digits, and its offset is to the minute.
 pub(crate) fn rfc3339(date: &DateData) -> String {
     let DateData { seconds, seconds_fraction, utc_offset_minus } = *date;
     let local = seconds + i64::from(utc_offset_minus);

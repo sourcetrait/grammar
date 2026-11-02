@@ -104,8 +104,9 @@ impl FromStr for NuType {
     }
 }
 
-/// A type serializes as its text, so NUON and every text format carry it as
-/// nushell spells it; bitcode and rkyv carry its structure.
+/// A type serializes as its text; bitcode and rkyv carry its structure.
+///
+/// NUON and every text format carry it as nushell spells it.
 impl ser::Serialize for NuType {
     fn serialize<S: ser::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(&self.to_inline())
