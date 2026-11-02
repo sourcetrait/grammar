@@ -11,8 +11,8 @@ const INTERFACE_PRETEXT: &str = include_str!("../../../../../include/human/mcp/i
 pub struct InterfaceParams {
     /// The host alias the tool runs on; `local` for this MCP's own host.
     pub host: String,
-    /// One `interface` command, its arguments literals.
-    pub command: String,
+    /// One `interface` subcommand, its arguments literals.
+    pub subcommand: String,
 }
 
 /// The tool's description: the pretext, then the commands the deny set leaves.
@@ -84,7 +84,7 @@ impl NuSh {
             Ok(route) => route,
             Err(error) => return error_to_call_result(error, nonce),
         };
-        match parse_command(&self.interface_engine, &p.command) {
+        match parse_command(&self.interface_engine, &p.subcommand) {
             Ok(command) => self.run_interface(nonce, route, command).await,
             Err(diagnostics) => {
                 error_to_call_result(GrammarMcpError::InterfaceViolations { diagnostics }, nonce)

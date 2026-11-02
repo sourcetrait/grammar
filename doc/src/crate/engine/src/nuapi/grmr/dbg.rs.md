@@ -1,6 +1,6 @@
 # dbg.rs
 
-## struct GrimmDbg
+## struct GrmrDbg
 THE DEBUG LANE, and it is deliberately not a print: `print` writes text to the
 call's stderr log, while a value written here keeps its TYPES, because it goes
 out as NUON.

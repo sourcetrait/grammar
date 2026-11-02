@@ -1,12 +1,12 @@
 use crate::*;
 
-/// `grimm channel send <model> <event> [attached]` - the state-update lane.
+/// `grmr channel send <model> <event> [attached]` - the state-update lane.
 #[derive(Clone)]
-pub(crate) struct GrimmChannelSend {
+pub(crate) struct GrmrChannelSend {
     pub(crate) host: Option<HostLink>,
 }
 
-impl nu::Command for GrimmChannelSend {
+impl nu::Command for GrmrChannelSend {
     fn name(&self) -> &str { Self::DEF.name }
 
     fn signature(&self) -> nu::Signature {

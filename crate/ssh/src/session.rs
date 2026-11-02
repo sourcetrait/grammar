@@ -453,6 +453,11 @@ async fn wire(
             req.host = Host::Local;
             FromEngineSys::Control(engine.request(req).await.and_then(|answer| answer))
         }
+        ToEngineSys::Bed(mut req) => {
+            req.host = Host::Local;
+            let nonce = req.nonce;
+            FromEngineSys::Value(value(nonce, engine.request(req).await))
+        }
     }
 }
 

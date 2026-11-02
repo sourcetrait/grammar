@@ -1,18 +1,18 @@
 use crate::*;
 
-/// `grimm remote channel send <mcp_nom> <model> <event>` - a message, no files.
+/// `grmr remote channel send <mcp_nom> <model> <event>` - a message, no files.
 #[derive(Clone)]
-pub(crate) struct GrimmRemoteChannelSend {
+pub(crate) struct GrmrRemoteChannelSend {
     pub(crate) host: Option<HostLink>,
 }
 
-/// `grimm remote_channel_send_with`: a message to a linked peer, with its files.
+/// `grmr remote_channel_send_with`: a message to a linked peer, with its files.
 #[derive(Clone)]
-pub(crate) struct GrimmRemoteChannelSendWith {
+pub(crate) struct GrmrRemoteChannelSendWith {
     pub(crate) host: Option<HostLink>,
 }
 
-impl GrimmRemoteChannelSend {
+impl GrmrRemoteChannelSend {
     pub(crate) const DEF_MCP_NOM: nuin::ParameterDef = nuin::ParameterDef {
         name: "mcp_nom",
         description: "Remote MCP",
@@ -27,7 +27,7 @@ impl GrimmRemoteChannelSend {
     };
 }
 
-impl nu::Command for GrimmRemoteChannelSend {
+impl nu::Command for GrmrRemoteChannelSend {
     fn name(&self) -> &str { Self::DEF.name }
 
     fn signature(&self) -> nu::Signature {
@@ -60,13 +60,13 @@ impl nu::Command for GrimmRemoteChannelSend {
     }
 }
 
-impl nu::Command for GrimmRemoteChannelSendWith {
+impl nu::Command for GrmrRemoteChannelSendWith {
     fn name(&self) -> &str {
-        "grimm remote_channel_send_with"
+        "grmr remote_channel_send_with"
     }
 
     fn signature(&self) -> nu::Signature {
-        nu::Signature::build("grimm remote_channel_send_with")
+        nu::Signature::build("grmr remote_channel_send_with")
             .required("mcp_nom", nu::SyntaxShape::String, "the linked peer host's McpNom")
             .required("model", nu::SyntaxShape::String, "the shape the event carries")
             .required("event", data_shape(), "the state summary to deliver")
@@ -76,7 +76,7 @@ impl nu::Command for GrimmRemoteChannelSendWith {
                 "the files table<src: path, dest: path>: local src -> receiver dest name",
             )
             .input_output_types(vec![(nu::Type::Nothing, event_id_type())])
-            .category(nu::Category::Custom("grimm".to_string()))
+            .category(nu::Category::Custom("grmr".to_string()))
     }
 
     fn description(&self) -> &str {

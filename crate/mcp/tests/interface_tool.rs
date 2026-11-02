@@ -26,13 +26,13 @@ fn result_of(env: &NuVal) -> &NuVal {
 }
 
 #[tested]
-fn help_answers_the_interfaces_and_grimms_signatures() {
+fn help_answers_the_interfaces_and_grmrs_signatures() {
     let s = TESTING.harness();
 
     let interface = s.interface("interface help interface");
     let block = result_of(&interface)["doc"]["signatures"].as_str().unwrap_or_default();
     assert!(
-        block.starts_with("## Command Signatures\nNote: Each begins with `interface `\n"),
+        block.starts_with("## Command Signatures\n### General\n"),
         "got {interface}",
     );
     assert!(
@@ -40,13 +40,13 @@ fn help_answers_the_interfaces_and_grimms_signatures() {
         "got {interface}",
     );
 
-    let grimm = s.interface("interface help grimm");
-    let block = result_of(&grimm)["doc"]["signatures"].as_str().unwrap_or_default();
-    assert!(block.starts_with("## grimm Signatures\n"), "got {grimm}");
-    assert!(block.contains("`grimm channel send ["), "got {grimm}");
-    assert!(block.contains("`grimm remote_channel_send_with ["), "got {grimm}");
-    let lines = block.lines().filter(|line| line.starts_with("`grimm ")).count();
-    assert_eq!(lines, 7, "every grimm command; got {grimm}");
+    let grmr = s.interface("interface help grmr");
+    let block = result_of(&grmr)["doc"]["signatures"].as_str().unwrap_or_default();
+    assert!(block.starts_with("## grmr Signatures\n"), "got {grmr}");
+    assert!(block.contains("`grmr channel send ["), "got {grmr}");
+    assert!(block.contains("`grmr remote_channel_send_with ["), "got {grmr}");
+    let lines = block.lines().filter(|line| line.starts_with("`grmr ")).count();
+    assert_eq!(lines, 7, "every grmr command; got {grmr}");
 }
 
 #[tested]
@@ -155,6 +155,24 @@ fn every_command_answers_through_the_interface() {
     assert_eq!(error_kind(&unclosed), Some("remote::engine::not_open"), "got {unclosed}");
     let gone = s.interface("interface remote engine unset 'lab'");
     assert_eq!(error_kind(&gone), Some("remote::engine::invalid_params"), "got {gone}");
+}
+
+#[test]
+fn a_subcommand_runs_with_or_without_its_head() {
+    let s = TESTING.harness();
+    for subcommand in ["info", "interface info"] {
+        let info = s.interface(subcommand);
+        assert_eq!(result_of(&info)["name"], "grammar", "`{subcommand}`: {info}");
+    }
+    let grmr = s.interface("help grmr");
+    let block = result_of(&grmr)["doc"]["signatures"].as_str().unwrap_or_default();
+    assert!(block.starts_with("## grmr Signatures\n"), "got {grmr}");
+    let listed = s.interface("process list");
+    assert!(result_of(&listed)["processes"].as_list().is_some(), "got {listed}");
+    let refused = s.interface("channel config --spam-warn-rate -1");
+    assert_eq!(error_kind(&refused), Some("interface::invalid"), "got {refused}");
+    let position = refused["error"][0]["source"]["position"].clone();
+    assert_eq!(position, nuon("[1, 33]"), "positioned in the subcommand as sent; got {refused}");
 }
 
 #[test]

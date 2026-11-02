@@ -88,6 +88,10 @@ agent sends it. The typed helpers beside it call each command's method straight,
 test of a command's logic passes typed values and never quotes a literal; the parse has
 its own tests.
 
+### fn bed
+The whole tool, as `interface` is, the engine holding the command to its rules
+and running it as its own call; `calls_log_dir` reads that call's logs.
+
 ### fn equip
 An action no command has goes to the parse, so a test of an unknown action meets the
 refusal an agent would.

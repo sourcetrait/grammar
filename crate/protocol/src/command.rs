@@ -2,7 +2,7 @@
 pub const INTERFACE: &str = "interface";
 
 /// The words `interface help` answers with a block of its own, no namepath's.
-pub const HELP_WORDS: [&str; 2] = [INTERFACE, "grimm"];
+pub const HELP_WORDS: [&str; 2] = [INTERFACE, "grmr"];
 
 /// What one argument holds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -115,7 +115,7 @@ const HELP_ARGS: &[ArgSpec] = &[ArgSpec {
     name: "namepath",
     shape: ArgShape::String,
     optional: false,
-    summary: "A namepath, a pattern ending in `/` or `:`, `*`, `.`, `interface`, or `grimm`.",
+    summary: "A namepath, a pattern ending in `/` or `:`, `*`, `.`, `interface`, or `grmr`.",
 }];
 
 const KILL_ARGS: &[ArgSpec] = &[ArgSpec {
@@ -660,6 +660,26 @@ pub fn command_by_words(words: &str) -> Option<&'static CommandSpec> {
     COMMANDS.iter().find(|spec| spec.words() == words)
 }
 
+/// `text` opening with its `head` word, prepended where it doesn't, and its length.
+///
+/// The length is what the prepending added, so a position in the whole text
+/// maps back to `text` as it was sent; a blank text gains nothing.
+pub fn with_head(
+    text: &str,
+    head: &str,
+) -> (String, usize) {
+    let trimmed = text.trim_start();
+    match trimmed.strip_prefix(head) {
+        _ if trimmed.is_empty() => (text.to_string(), 0),
+        Some(rest) if rest.is_empty() || rest.starts_with(char::is_whitespace) => (text.to_string(), 0),
+        _ => {
+            let prefix = format!("{head} ");
+            let added = prefix.len();
+            (prefix + text, added)
+        }
+    }
+}
+
 /// The commands `denied` leaves, by their words, a `##` heading a topic.
 pub fn render_command_list(denied: impl Fn(&str) -> bool) -> String {
     let mut out = String::from("# Command Signatures\n");
@@ -669,14 +689,14 @@ pub fn render_command_list(denied: impl Fn(&str) -> bool) -> String {
             topic = spec.topic;
             out.push_str(&format!("## {topic}\n"));
         }
-        out.push_str(&format!("- {}\n", spec.name));
+        out.push_str(&format!("- {}\n", spec.words()));
     }
     out
 }
 
 /// The signatures `denied` leaves, a `###` heading a topic.
 pub fn render_signatures(denied: impl Fn(&str) -> bool) -> String {
-    let mut out = format!("## Command Signatures\nNote: Each begins with `{INTERFACE} `\n");
+    let mut out = String::from("## Command Signatures\n");
     let mut topic = "";
     for spec in COMMANDS.iter().filter(|spec| !denied(spec.words())) {
         if spec.topic != topic {

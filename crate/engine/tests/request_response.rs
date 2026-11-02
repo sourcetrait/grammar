@@ -241,7 +241,7 @@ fn a_remote_host_is_refused() {
 fn a_body_send_reaches_the_host() {
     let e = TESTING.harness();
     let answer = e.execute(
-        "def execute [data: nothing]: nothing -> record<event_id: string> {\n    grimm channel send 'test/engine' {n: 1}\n}",
+        "def execute [data: nothing]: nothing -> record<event_id: string> {\n    grmr channel send 'test/engine' {n: 1}\n}",
         "null",
     );
     assert_eq!(

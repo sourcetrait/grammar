@@ -37,6 +37,11 @@ fn warning() -> Diagnostic {
     Diagnostic::warning("lint::summary_length", None, "a summary past its length")
 }
 
+fn bed_refusal() -> Diagnostic {
+    let source = Source { path: None, position: [1, 14] };
+    Diagnostic::error("bed::invalid", Some(source), "one `grmr` command, never piped")
+}
+
 fn detailed() -> Diagnostic {
     let detail = NuVal::Record(vec![("nom".into(), NuVal::String("fixturenom1".into())), ("n".into(), NuVal::Int(-1))]);
     Diagnostic::error("engine::restart", None, "Grammar engine has a new nom").with_detail(detail)
@@ -87,9 +92,16 @@ fn requests() -> Vec<(String, ToEngineSys)> {
             data: "{refs: []}".into(),
             timeout: Some("2min".into()),
         };
+        let bed = BedRequest {
+            host,
+            nonce: NONCE,
+            command: "grmr".into(),
+            subcommand: "channel send 'my/adhoc/Thing' {foo: 'bar', num: 3}".into(),
+        };
         out.push((format!("request/execute/{h}"), execute.into()));
         out.push((format!("request/rerun/{h}"), rerun.into()));
         out.push((format!("request/call/{h}"), call.into()));
+        out.push((format!("request/bed/{h}"), bed.into()));
     }
     for (c, command) in commands() {
         out.push((format!("request/control/{c}"), ControlRequest { host: Host::Local, command }.into()));
@@ -134,6 +146,7 @@ fn engine_errors() -> Vec<(&'static str, EngineError)> {
         ("timeout", E::Timeout { timeout_ms: u64::MAX }),
         ("host_unserved", E::HostUnserved { host: "example".into() }),
         ("internal", E::Internal { phase: "io".into(), reason: "denied".into() }),
+        ("bed_violations", E::BedViolations { diagnostics: vec![bed_refusal(), warning()] }),
     ]
 }
 
@@ -327,6 +340,7 @@ fn error_variant(e: &EngineError) -> &'static str {
         E::Timeout { .. } => "timeout",
         E::HostUnserved { .. } => "host_unserved",
         E::Internal { .. } => "internal",
+        E::BedViolations { .. } => "bed_violations",
     }
 }
 
@@ -355,7 +369,7 @@ fn every_variant_has_its_vector() {
     let commands: BTreeSet<_> = commands().iter().map(|(_, c)| command_variant(c)).collect();
     assert_eq!(commands.len(), 12);
     let errors: BTreeSet<_> = engine_errors().iter().map(|(_, e)| error_variant(e)).collect();
-    assert_eq!(errors.len(), 27);
+    assert_eq!(errors.len(), 28);
     let answers: BTreeSet<_> = control_answers().iter().map(|(_, a)| answer_variant(a)).collect();
     assert_eq!(answers.len(), 13);
     let messages: BTreeSet<_> = requests()
@@ -365,9 +379,10 @@ fn every_variant_has_its_vector() {
             ToEngineSys::Rerun(_) => "rerun",
             ToEngineSys::Call(_) => "call",
             ToEngineSys::Control(_) => "control",
+            ToEngineSys::Bed(_) => "bed",
         })
         .collect();
-    assert_eq!(messages.len(), 4);
+    assert_eq!(messages.len(), 5);
 }
 
 #[test]
@@ -387,7 +402,14 @@ fn an_answer_converts_back_only_from_its_own_variant() {
 fn each_single_condition_error_keeps_its_kind() {
     let kinds: BTreeMap<&str, &str> = engine_errors()
         .iter()
-        .filter(|(_, e)| !matches!(e, EngineError::EquipViolations { .. } | EngineError::DefinitionViolations { .. }))
+        .filter(|(_, e)| {
+            !matches!(
+                e,
+                EngineError::EquipViolations { .. }
+                    | EngineError::DefinitionViolations { .. }
+                    | EngineError::BedViolations { .. }
+            )
+        })
         .map(|(name, e)| (*name, e.kind()))
         .collect();
     let expected: BTreeMap<&str, &str> = [
@@ -478,6 +500,10 @@ fn a_violations_error_reports_its_error_rows_alone() {
     let rows = violations.rows();
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].kind, "definition::invalid");
+    let bed = EngineError::BedViolations { diagnostics: vec![bed_refusal(), warning()] };
+    let rows = bed.rows();
+    assert_eq!(rows.len(), 1, "a bed call's refusal reports its errors alone");
+    assert_eq!((rows[0].kind.as_str(), rows[0].source.as_ref().map(|s| s.position)), ("bed::invalid", Some([1, 14])));
     let single = EngineError::Timeout { timeout_ms: 1500 }.rows();
     assert_eq!(single.len(), 1);
     assert_eq!((single[0].kind.as_str(), single[0].message.as_str()), ("thread::timeout", "eval timed out after 1500 ms"));

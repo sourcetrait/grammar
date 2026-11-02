@@ -34,6 +34,7 @@ pub(crate) enum InFlightKind {
     Execute { lane: Lane },
     Rerun { source_nonce: String, lane: Lane },
     Call { path: String },
+    Bed,
 }
 
 impl InFlightKind {
@@ -41,7 +42,7 @@ impl InFlightKind {
     pub(crate) fn lane(&self) -> Lane {
         match self {
             Self::Execute { lane } | Self::Rerun { lane, .. } => *lane,
-            Self::Call { .. } => Lane::Stateless,
+            Self::Call { .. } | Self::Bed => Lane::Stateless,
         }
     }
 }

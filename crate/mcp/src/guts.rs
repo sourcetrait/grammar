@@ -226,22 +226,46 @@ impl TestServer {
         self.nush.mint(INTERFACE_TOOL, p).to_nonce()
     }
 
-    /// One `interface` command, through the tool's parse and dispatch.
-    pub fn interface(&self, command: &str) -> NuVal {
-        self.interface_on(LOCAL_HOST, command)
+    /// One `interface` subcommand, through the tool's parse and dispatch.
+    pub fn interface(&self, subcommand: &str) -> NuVal {
+        self.interface_on(LOCAL_HOST, subcommand)
     }
 
-    /// One `interface` command on a host alias.
+    /// One `interface` subcommand on a host alias.
     pub fn interface_on(
         &self,
         host: &str,
-        command: &str,
+        subcommand: &str,
     ) -> NuVal {
         let p = InterfaceParams {
             host: host.to_string(),
-            command: command.to_string(),
+            subcommand: subcommand.to_string(),
         };
         Self::envelope(self.rt.block_on(self.nush.interface(mcp::Parameters(p))))
+    }
+
+    /// `bed` of an embedded command's subcommand.
+    pub fn bed(
+        &self,
+        command: &str,
+        subcommand: &str,
+    ) -> NuVal {
+        self.bed_on(LOCAL_HOST, command, subcommand)
+    }
+
+    /// `bed` on a host alias.
+    pub fn bed_on(
+        &self,
+        host: &str,
+        command: &str,
+        subcommand: &str,
+    ) -> NuVal {
+        let p = BedParams {
+            host: host.to_string(),
+            command: command.to_string(),
+            subcommand: subcommand.to_string(),
+        };
+        Self::envelope(self.rt.block_on(self.nush.bed(mcp::Parameters(p))))
     }
 
     pub fn commit(&self, namepath: &str) -> NuVal {
@@ -424,6 +448,13 @@ impl TestServer {
             .parent()
             .expect("a definition path always has a parent dir")
             .to_path_buf()
+    }
+
+    /// The per-call log dir of a rig call's or a bed call's nonce.
+    pub fn calls_log_dir(&self, nonce: &str) -> std::path::PathBuf {
+        let execute = self.execute_log_dir(nonce);
+        let cache = execute.parent().and_then(|dir| dir.parent()).expect("the cache home");
+        cache.join("calls").join(nonce)
     }
 
     /// The committed rig of an equip by its compound `author/name`.

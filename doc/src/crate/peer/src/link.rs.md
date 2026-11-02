@@ -177,7 +177,7 @@ new one: a closed Channel has none and lands nothing, and a delivery that spans
 a close and an open loses its earlier chunks with the inbox the close removed.
 
 relay_to_channel refuses a model under `mcp/` or `remote/` first,
-`reserved_model`, as the sending grimm commands do: the reservation is what
+`reserved_model`, as the sending grmr commands do: the reservation is what
 lets an agent take a model's path as proof of the host's origin, and a peer is
 not the local host. Its files have landed by then and stay, as for any refused
 relay.

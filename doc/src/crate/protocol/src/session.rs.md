@@ -42,7 +42,8 @@ it is the engine's `Kill` under the call's nonce, which the MCP minted, as
 
 ## enum EngineRequest
 ### fn is_call
-An eval, a rerun, or a call takes one of the session's call slots; every other
+An eval, a rerun, a call, or a bed call takes one of the session's call slots,
+each running an eval; every other
 request takes a control slot, so a session full of evals still answers a kill,
 a process list, or an info.
 

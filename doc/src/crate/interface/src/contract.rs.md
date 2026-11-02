@@ -29,6 +29,11 @@ at the agent's line and column, measured from the command's start in the span
 space (`get_span_for_filename`, as the engine's `file_start` reads it), since a
 working set numbers spans after whatever the engine holds.
 
+The text is the end user's subcommand: `with_head` prepends `interface` where
+it doesn't open with the word, quietly (User), and each position is measured
+back into the text as sent, the prepended length taken off, so a refusal points
+at what was written either way.
+
 A parse error is refused before anything else is read: a refused parse's
 expressions are garbage. The rows are deduplicated and capped as a definition's
 are, by the protocol's `LINT_VIOLATION_CAP`, so the client caps them with no

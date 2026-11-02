@@ -16,8 +16,8 @@ Built through `startup`, exactly as the eval engines are, so rig source using
 `$nu.home-dir` is evaluated here at parse time, which is how an engine without
 its config dirs failed a commit.
 
-The `grimm` decls go in too, which each eval registers into its own working set: a
-name the parser cannot resolve reads as an external, so without them a `grimm dbg`
+The `grmr` decls go in too, which each eval registers into its own working set: a
+name the parser cannot resolve reads as an external, so without them a `grmr dbg`
 handed a table literal failed an `execute` definition's contract parse and a rig's
 validation alike, though the same text runs.
 

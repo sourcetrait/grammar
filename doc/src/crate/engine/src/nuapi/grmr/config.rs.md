@@ -32,24 +32,24 @@ test asserts the list reaches the message once.
 Spelled as a union rather than `any`, because the set is closed and naming it lets
 a caller's own annotation be strict too.
 
-## struct GrimmGetConfigAll
+## struct GrmrGetConfigAll
 
 ### fn signature
 An open record on purpose. The shape is documented by the `.nutype` model beside
 the defaults, and restating it here would be a second place to keep in step.
 
-## struct GrimmGetConfig
+## struct GrmrGetConfig
 
 ### fn run
 An unknown key is an error rather than a null, so a typo cannot read as
 "configured to nothing". The two are indistinguishable at the call site and only
 one of them is a bug the caller wants to hear about.
 
-## struct GrimmPinConfig
+## struct GrmrPinConfig
 Only the `[supervisor]` warning lines are pinnable. `[channel]` is excluded so
 `interface channel config` stays the sole mutator there - a value with two mutators
 is one whose effective setting depends on which surface you happen to ask.
 Everything else in the config is not a runtime value at all.
 
-A pin the host turns down is titled `grimm pin_config failed`, its reason the
+A pin the host turns down is titled `grmr pin_config failed`, its reason the
 label, as the sends' refusals are.

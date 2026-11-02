@@ -12,7 +12,7 @@ pub(crate) use nuval::wide;
 
 pub(crate) use sourcetrait_grammar_protocol::{
     ArgShape, ArgSpec, COMMANDS, ChannelMode, CommandKind, CommandSpec, Diagnostic, INTERFACE,
-    LINT_VIOLATION_CAP, Source, command_spec, span_to_line_col,
+    LINT_VIOLATION_CAP, Source, command_spec, span_to_line_col, with_head,
 };
 
 pub(crate) mod nu {

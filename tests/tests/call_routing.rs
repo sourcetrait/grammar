@@ -1,4 +1,4 @@
-//! A call's `print` and `grimm dbg` land in that call's own logs, whichever call
+//! A call's `print` and `grmr dbg` land in that call's own logs, whichever call
 //! parsed the code that runs them.
 
 use std::path::Path;
@@ -53,14 +53,14 @@ fn stateful_print_follows_each_call() {
     assert_eq!(call_log(&host, &second, "stderr"), "PRINTMARK second\n", "the second call's log");
 }
 
-/// A module imported by two stateful calls appends its `grimm dbg` to each
+/// A module imported by two stateful calls appends its `grmr dbg` to each
 /// call's own trace, never the call that first imported it.
 #[tested]
-fn stateful_grimm_dbg_follows_each_call() {
+fn stateful_grmr_dbg_follows_each_call() {
     let t = testing::test!({ .using_temp_dir() });
     let mut host = Host::spawn_args(&t.temp_dir().join("scratch"), &["--id", ID, "--namespace", NAMESPACE]);
     let module = t.temp_dir().join("tracer.nu");
-    write_module(&module, "export def mark [s: string] { grimm dbg {mark: $s} }\n");
+    write_module(&module, "export def mark [s: string] { grmr dbg {mark: $s} }\n");
     let first = stateful(&mut host, &body(&module, "tracer mark", "first"));
     let second = stateful(&mut host, &body(&module, "tracer mark", "second"));
     assert_eq!(call_log(&host, &first, "debug.nuonl"), "{mark: first}\n", "the first call's trace");

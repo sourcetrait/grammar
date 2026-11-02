@@ -340,7 +340,7 @@ fn equip_name_denylist() {
             "equip name `{denied}` should be denied; got {env}"
         );
     }
-    for held in ["sourcetrait/interface", "sourcetrait/grimm", "interface/held", "grimm/held"] {
+    for held in ["sourcetrait/interface", "sourcetrait/grmr", "interface/held", "grmr/held"] {
         let eq = equip_source(t.temp_dir(), held);
         let env = s.equip("new", eq.to_str().unwrap());
         assert_eq!(

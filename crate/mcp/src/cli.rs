@@ -19,7 +19,7 @@ pub struct Cli {
     /// Agent working directory, exported to definitions as $env.EQUIP_WORK_DIR.
     #[arg(long)]
     pub workdir: Option<PathBuf>,
-    /// Comma-separated tools, or interface commands by their words, to withhold.
+    /// Comma-separated tools, interface commands, or grmr commands, to withhold.
     #[arg(long, value_delimiter = ',', value_parser = parse_deniable)]
     pub deny: Vec<DeniableTool>,
     #[command(subcommand)]
@@ -81,9 +81,16 @@ pub enum CliTool {
         #[arg(long)]
         timeout: Option<String>,
     },
-    /// Run one interface command, such as `interface equip commit acme/geo`.
+    /// Run one interface subcommand, such as `equip commit acme/geo`.
     Interface {
-        /// The command, its arguments Nu literals.
+        /// The subcommand, its arguments Nu literals.
+        subcommand: String,
+    },
+    /// Run one embedded engine command, such as `grmr` and `get_config_all`.
+    Bed {
+        /// The embedded command: `grmr`.
         command: String,
+        /// Its subcommand, its arguments Nu literals.
+        subcommand: String,
     },
 }

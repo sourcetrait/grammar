@@ -19,7 +19,7 @@ are refused wherever an equip is named rather than being allowed to produce a co
 tree.
 
 ## const HELP_WORDS
-`interface help interface` and `interface help grimm` are answered before any namepath is
+`interface help interface` and `interface help grmr` are answered before any namepath is
 read, so an equip under either word could never be helped by its own name. Each is held
 from an author as well as a name (User), the same refusal as a denied name.
 

@@ -39,10 +39,10 @@ pub use crate::{
     },
     command::{
         ArgShape, ArgSpec, COMMANDS, CommandKind, CommandSpec, HELP_WORDS, INTERFACE,
-        command_by_words, command_spec, render_command_list, render_signatures,
+        command_by_words, command_spec, render_command_list, render_signatures, with_head,
     },
     engine::{
-        BUILTINS, CallDoc, CallRequest, CheckSummary, CommitResult, ControlAnswer, ControlRequest,
+        BUILTINS, BedRequest, CallDoc, CallRequest, CheckSummary, CommitResult, ControlAnswer, ControlRequest,
         Diagnostic, EngineCommand, EngineError, EngineHealth, EngineResult, ExecuteRequest,
         FromEngineSys, Host, HungEval, InspectDoc, LINT_VIOLATION_CAP, Lane, ModuleDoc,
         ProcessRow, RerunRequest, RigDoc, Severity, SignaturesDoc, Source, ToEngineSys,

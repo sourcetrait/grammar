@@ -35,7 +35,7 @@ pub(crate) fn dirs_value(dirs: &[PathBuf]) -> nu::Value {
 }
 
 impl ParseEngine {
-    /// A parse engine started as the eval engines are, with each eval's `grimm` decls.
+    /// A parse engine started as the eval engines are, with each eval's `grmr` decls.
     pub fn new_full() -> Self {
         let mut engine_state = startup(Mode::Stateless);
         let mut working_set = nu::StateWorkingSet::new(&engine_state);

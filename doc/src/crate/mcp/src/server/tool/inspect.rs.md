@@ -6,7 +6,7 @@ per-kind shapes carry nothing in common worth hoisting beside it.
 
 ## fn help
 The two words come before any namepath: `interface` answers the interface's signature
-block, its deny set applied, and `grimm` the grimm commands' (User). Both are held from
+block, its deny set applied, and `grmr` the grmr commands' (User). Both are held from
 equip names (`engine:equip/validate.rs`), so no namepath they could shadow exists.
 
 CLASSIFICATION IS BY SHAPE AND HAPPENS FIRST. A trailing hierarchy character, or a bare `*`
@@ -23,5 +23,5 @@ EQUIPS, so it renders as a signature block through the engine's `Signatures`, wh
 renderer takes each equip's lock itself.
 
 The two words answer the MCP's own blocks whatever the host, the interface being the
-MCP's and grimm the same on every engine; a namepath or a pattern goes to the routed
+MCP's and grmr the same on every engine; a namepath or a pattern goes to the routed
 engine, `.` resolving against the session's view there.

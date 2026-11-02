@@ -17,8 +17,9 @@ deliberate: the list shows ALL in-flight work on the engine, so subagents see ea
 calls and the primary's.
 
 ## enum InFlightKind
-Every kind but `call` carries its LANE, the one thing `Kill` and the hang watch need to tell
-a stuck stateful lane from a held stateless permit; `call` always runs stateless.
+Every kind but `call` and `bed` carries its LANE, the one thing `Kill` and the hang watch
+need to tell a stuck stateful lane from a held stateless permit; `call` and `bed` always
+run stateless.
 
 ## struct HungWatch
 Registered on the TIMEOUT branch of either dispatch path, and on a `Kill` of a live entry.

@@ -50,7 +50,7 @@ construction: applying it to an external `try_clone()`s the File into the child'
 no redirect at all.
 
 `register_nuapi` must precede the parse, because command names resolve at parse time.
-The decls take the eval's host link, its engine's, so a `grimm` ask reaches the
+The decls take the eval's host link, its engine's, so a `grmr` ask reaches the
 controller of the system that ran the eval; the plugin registration's eval takes none,
 its source asking nothing.
 

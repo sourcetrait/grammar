@@ -11,7 +11,7 @@ distinguishing prefix.
 Not bound at parse time, and that is the point. A decl carrying its call's log
 dir served every call but one: the stateful engine persists, and a module an
 earlier stateful call parsed keeps its binding to that call's decl, so a later
-call's `grimm dbg` appended to the earlier call's trace - measured, the second
+call's `grmr dbg` appended to the earlier call's trace - measured, the second
 call's mark landed in the first call's file and the second call's trace was never
 written.
 
@@ -44,7 +44,7 @@ nushell source - the render's behaviour is not what the source suggests.
 
 ## fn require_record_or_table
 The signature's `SyntaxShape` rejects a bad literal at parse time, but a dynamic
-argument (`grimm dbg $x`) reaches the command's `run` unchecked - records are open and a list is
+argument (`grmr dbg $x`) reaches the command's `run` unchecked - records are open and a list is
 not shape-checked per element - so the guard has to live at run time too. One check
 is genuinely not enough.
 
@@ -56,7 +56,7 @@ Both members are column-open: an empty `CollectionColumns` declares no required
 columns, so any record or table binds.
 
 ## fn event_id_record
-One record for the three sends, so `grimm channel send` and the two remote
+One record for the three sends, so `grmr channel send` and the two remote
 sends cannot drift from the `{event_id}` their documented examples give. A
 `let` is where nushell enforces a declared output type, so a decl returning
 other than it declares fails there, as a bare `Type mismatch`: a string under
@@ -65,18 +65,26 @@ a record signature did exactly that.
 ## fn event_id_type
 The declared half of the same contract, shared by the three signatures.
 
-## fn grimm_decls
+## fn grmr_decls
 One list behind both the registration and the signature block, so `interface help
-grimm` can never document a decl an eval lacks, or miss one it has.
+grmr` can never document a decl an eval lacks, or miss one it has.
 
-## fn grimm_signatures
-`interface help grimm`'s block (User): a summary line, then the signature in
+## const GRMR_COMMANDS
+The decls' names as constants, for a deny entry and the bed tool's withholding,
+which take a `&'static str`; a unit test holds them to the decls' own names.
+
+## fn grmr_signatures
+`interface help grmr`'s block (User): a summary line, then the signature in
 backticks, each decl in the list's order, the same two-line shape `interface help
 interface` gives the interface's commands. Rendered from the decls themselves, so
 the documentation is the signature the parser checks.
 
+## fn grmr_signatures_where
+The block without the decls a deny set withholds, for the bed tool's
+description, as the interface's description leaves out its denied commands.
+
 ## fn signature_text
-Nushell's own `--help` flag, which every signature carries, is left out: a grimm
+Nushell's own `--help` flag, which every signature carries, is left out: a grmr
 command is never asked for its help that way.
 
 ## fn register_nuapi
@@ -91,10 +99,10 @@ scheme, because there is no reachable entry point to authenticate. A committed r
 can call them, but only because its call's body runs inside an eval.
 
 The one other caller is `ParseEngine::new_full`, so the contract's parse of an `execute`
-definition and the rig validator parse a `grimm` call as the eval will. That engine
-parses and never evaluates, and a `grimm` decl is no const command, so the access
+definition and the rig validator parse a `grmr` call as the eval will. That engine
+parses and never evaluates, and a `grmr` decl is no const command, so the access
 control stands. Without the decls a name the parser cannot resolve reads as an
-external, and `grimm dbg [[x, y]; [1, 2]]` failed both parses on its table literal,
+external, and `grmr dbg [[x, y]; [1, 2]]` failed both parses on its table literal,
 though the same text runs.
 
 Every decl here binds nothing of a call: `dbg` and `send` find theirs at run

@@ -63,7 +63,7 @@ fn unknown_key(
 ) -> nu::ShellError {
     let keys = config_keys(root).join(", ");
     nu::GenericError::new(
-        format!("grimm get_config: `{key}` is not a config key"),
+        format!("grmr get_config: `{key}` is not a config key"),
         format!("valid keys: {keys}"),
         span,
     )
@@ -80,21 +80,21 @@ fn value_type() -> nu::Type {
     ])
 }
 
-/// `grimm get_config_all` - every setting in force, as one record.
+/// `grmr get_config_all` - every setting in force, as one record.
 #[derive(Clone)]
-pub(crate) struct GrimmGetConfigAll {
+pub(crate) struct GrmrGetConfigAll {
     pub(crate) host: Option<HostLink>,
 }
 
-impl nu::Command for GrimmGetConfigAll {
+impl nu::Command for GrmrGetConfigAll {
     fn name(&self) -> &str {
-        "grimm get_config_all"
+        "grmr get_config_all"
     }
 
     fn signature(&self) -> nu::Signature {
-        nu::Signature::build("grimm get_config_all")
+        nu::Signature::build("grmr get_config_all")
             .input_output_types(vec![(nu::Type::Nothing, nu::Type::record())])
-            .category(nu::Category::Custom("grimm".to_string()))
+            .category(nu::Category::Custom("grmr".to_string()))
     }
 
     fn description(&self) -> &str {
@@ -115,26 +115,26 @@ impl nu::Command for GrimmGetConfigAll {
     }
 }
 
-/// `grimm get_config <cfg_key>` - one setting, by its dotted key.
+/// `grmr get_config <cfg_key>` - one setting, by its dotted key.
 #[derive(Clone)]
-pub(crate) struct GrimmGetConfig {
+pub(crate) struct GrmrGetConfig {
     pub(crate) host: Option<HostLink>,
 }
 
-impl nu::Command for GrimmGetConfig {
+impl nu::Command for GrmrGetConfig {
     fn name(&self) -> &str {
-        "grimm get_config"
+        "grmr get_config"
     }
 
     fn signature(&self) -> nu::Signature {
-        nu::Signature::build("grimm get_config")
+        nu::Signature::build("grmr get_config")
             .required(
                 "cfg_key",
                 nu::SyntaxShape::String,
                 "the dotted key, e.g. supervisor.vram_warn_headroom_mib",
             )
             .input_output_types(vec![(nu::Type::Nothing, value_type())])
-            .category(nu::Category::Custom("grimm".to_string()))
+            .category(nu::Category::Custom("grmr".to_string()))
     }
 
     fn description(&self) -> &str {
@@ -157,19 +157,19 @@ impl nu::Command for GrimmGetConfig {
     }
 }
 
-/// `grimm pin_config` - hold a setting for as long as a process lives.
+/// `grmr pin_config` - hold a setting for as long as a process lives.
 #[derive(Clone)]
-pub(crate) struct GrimmPinConfig {
+pub(crate) struct GrmrPinConfig {
     pub(crate) host: Option<HostLink>,
 }
 
-impl nu::Command for GrimmPinConfig {
+impl nu::Command for GrmrPinConfig {
     fn name(&self) -> &str {
-        "grimm pin_config"
+        "grmr pin_config"
     }
 
     fn signature(&self) -> nu::Signature {
-        nu::Signature::build("grimm pin_config")
+        nu::Signature::build("grmr pin_config")
             .required(
                 "cfg_key",
                 nu::SyntaxShape::String,
@@ -182,7 +182,7 @@ impl nu::Command for GrimmPinConfig {
             )
             .required("value", nu::SyntaxShape::Number, "the value to hold")
             .input_output_types(vec![(nu::Type::Nothing, nu::Type::Nothing)])
-            .category(nu::Category::Custom("grimm".to_string()))
+            .category(nu::Category::Custom("grmr".to_string()))
     }
 
     fn description(&self) -> &str {
@@ -204,7 +204,7 @@ impl nu::Command for GrimmPinConfig {
             nu::Value::Float { val, .. } => *val,
             other => {
                 return Err(nu::GenericError::new(
-                    "grimm pin_config: value must be a number",
+                    "grmr pin_config: value must be a number",
                     format!("got {}", other.get_type()),
                     call.head,
                 )
@@ -213,14 +213,14 @@ impl nu::Command for GrimmPinConfig {
         };
         let pid = u32::try_from(pid).map_err(|_| {
             nu::GenericError::new(
-                "grimm pin_config: process_id must be a positive process id",
+                "grmr pin_config: process_id must be a positive process id",
                 format!("got {pid}"),
                 call.head,
             )
         })?;
         let host = asked_host(&self.host, nu::Command::name(self), call.head)?;
         let failed = |reason: String| -> nu::ShellError {
-            nu::GenericError::new("grimm pin_config failed", reason, call.head).into()
+            nu::GenericError::new("grmr pin_config failed", reason, call.head).into()
         };
         match host.ask(HostAsk::Pin(PinAsk { key, pid, value })).map_err(failed)? {
             HostAnswer::Pinned => Ok(nu::PipelineData::Empty),

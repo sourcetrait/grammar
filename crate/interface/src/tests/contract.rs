@@ -338,6 +338,35 @@ fn a_flag_is_checked_for_its_range() {
     assert!(!refused("interface info --help").is_empty());
 }
 
+/// A subcommand parses with or without its `interface` word, the word taken whole.
+#[test]
+fn a_subcommand_parses_with_or_without_its_head() {
+    for spec in COMMANDS {
+        let full = sample(spec);
+        let bare = full.strip_prefix(&format!("{INTERFACE} ")).expect("a full name").to_string();
+        for text in [full.as_str(), bare.as_str()] {
+            let parsed = parse(text).unwrap_or_else(|rows| panic!("`{text}`: {rows:?}"));
+            assert_eq!(kind_of(&parsed), spec.kind, "{text}");
+        }
+    }
+    let message = refusal("interfaceinfo");
+    assert!(message.contains("no `interface` command"), "the head is a whole word; {message}");
+}
+
+/// A refusal is positioned in the subcommand as it was sent, either form.
+#[test]
+fn a_refusal_is_positioned_in_the_text_as_sent() {
+    for text in [
+        "channel config --spam-warn-rate -1",
+        "interface channel config --spam-warn-rate -1",
+        "  channel config --spam-warn-rate -1",
+    ] {
+        let rows = parse(text).expect_err("a negative rate");
+        let col = text.find("-1").expect("the value") as u64 + 1;
+        assert_eq!(rows[0].source.as_ref().map(|s| s.position), Some([1, col]), "{text}");
+    }
+}
+
 /// A denied command is unknown to the parse and absent from the signatures.
 #[test]
 fn a_denied_command_is_unknown_and_undocumented() {
@@ -358,7 +387,7 @@ fn the_signatures_cover_every_command_by_topic() {
     let rendered = render_signatures(|_| false);
     assert!(
         rendered.starts_with(
-            "## Command Signatures\nNote: Each begins with `interface `\n### General\n"
+            "## Command Signatures\n### General\n"
         ),
         "{rendered}",
     );

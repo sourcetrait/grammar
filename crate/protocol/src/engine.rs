@@ -69,6 +69,17 @@ pub struct CallRequest {
     pub timeout: Option<String>,
 }
 
+/// A bed call: one embedded command's subcommand, run as a call of its own.
+#[cereal::derived(Data)]
+pub struct BedRequest {
+    pub host: Host,
+    pub nonce: datum::Nonce,
+    /// The embedded command, `grmr`.
+    pub command: String,
+    /// Its subcommand as nu text, its arguments literals.
+    pub subcommand: String,
+}
+
 /// A command to the engine itself.
 #[cereal::derived(Data)]
 pub struct ControlRequest {
@@ -433,6 +444,10 @@ pub enum EngineError {
         phase: String,
         reason: String,
     },
+    /// A bed call's refusals, its command or its subcommand held to the rules.
+    BedViolations {
+        diagnostics: Vec<Diagnostic>,
+    },
 }
 
 /// The engine's result.
@@ -466,7 +481,9 @@ impl EngineError {
             Self::Dispatch { .. } => "thread::dispatch",
             Self::Timeout { .. } => "thread::timeout",
             Self::HostUnserved { .. } => "host::unserved",
-            Self::EquipViolations { .. } | Self::DefinitionViolations { .. } => {
+            Self::EquipViolations { .. }
+            | Self::DefinitionViolations { .. }
+            | Self::BedViolations { .. } => {
                 unreachable!("a violations error renders through its rows, not a kind")
             }
         }
@@ -538,7 +555,9 @@ impl EngineError {
             Self::Dispatch { reason } => format!("eval dispatch failed: {reason}"),
             Self::Timeout { timeout_ms } => format!("eval timed out after {timeout_ms} ms"),
             Self::HostUnserved { host } => format!("no engine is served on the host `{host}`"),
-            Self::EquipViolations { .. } | Self::DefinitionViolations { .. } => {
+            Self::EquipViolations { .. }
+            | Self::DefinitionViolations { .. }
+            | Self::BedViolations { .. } => {
                 unreachable!("a violations error renders through its rows, not a message")
             }
         }
@@ -547,9 +566,9 @@ impl EngineError {
     /// The error rows a failure reports: a violations error's own, else one.
     pub fn rows(self) -> Vec<Diagnostic> {
         match self {
-            Self::EquipViolations { diagnostics } | Self::DefinitionViolations { diagnostics } => {
-                Diagnostic::bucket(diagnostics).0
-            }
+            Self::EquipViolations { diagnostics }
+            | Self::DefinitionViolations { diagnostics }
+            | Self::BedViolations { diagnostics } => Diagnostic::bucket(diagnostics).0,
             single => vec![Diagnostic::error(single.kind(), None, single.message())],
         }
     }
@@ -576,7 +595,9 @@ impl fmt::Display for EngineError {
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
         match self {
-            Self::EquipViolations { diagnostics } | Self::DefinitionViolations { diagnostics } => {
+            Self::EquipViolations { diagnostics }
+            | Self::DefinitionViolations { diagnostics }
+            | Self::BedViolations { diagnostics } => {
                 let messages: Vec<&str> =
                     diagnostics.iter().map(|d| d.message.as_str()).collect();
                 f.write_str(&messages.join("; "))
@@ -594,6 +615,7 @@ pub enum ToEngineSys {
     Rerun(RerunRequest),
     Call(CallRequest),
     Control(ControlRequest),
+    Bed(BedRequest),
 }
 
 #[cereal::derived(Data)]
@@ -616,6 +638,10 @@ impl From<CallRequest> for ToEngineSys {
 
 impl From<ControlRequest> for ToEngineSys {
     fn from(v: ControlRequest) -> Self { Self::Control(v) }
+}
+
+impl From<BedRequest> for ToEngineSys {
+    fn from(v: BedRequest) -> Self { Self::Bed(v) }
 }
 
 impl TryFrom<FromEngineSys> for ValueAnswer {

@@ -12,7 +12,7 @@ pub(crate) struct EngineCore {
     pub(crate) rig_locks: RigLocks,
     /// The contract's, the lint's, and the validator's engine.
     pub(crate) lint_engine: LintEngine,
-    /// The way an eval's `grimm` asks reach the engine's controller.
+    /// The way an eval's `grmr` asks reach the engine's controller.
     pub(crate) host: HostLink,
     /// The instance's nom, every eval's `$env.EQUIP_MCP_NOM`.
     pub(crate) nom: String,
@@ -301,6 +301,35 @@ pub(crate) async fn serve_call(
     })
 }
 
+/// A bed call's value: its command held to the rules, then run as a call.
+pub(crate) async fn serve_bed(
+    core: Arc<EngineCore>,
+    req: BedRequest,
+) -> EngineResult<NuVal> {
+    local(req.host)?;
+    let engine = core.lint_engine.current();
+    let source = analyze_bed(&engine, &req.command, &req.subcommand)
+        .map_err(|diagnostics| EngineError::BedViolations { diagnostics })?;
+    let pair = req.nonce.into_pair();
+    let args = NuVal::Record(vec![
+        ("command".to_string(), NuVal::String(req.command.clone())),
+        ("subcommand".to_string(), NuVal::String(req.subcommand.clone())),
+    ]);
+    let call = Dispatch {
+        nonce: &pair,
+        source,
+        tool: "bed",
+        args,
+        kind: InFlightKind::Bed,
+        definition: None,
+        timeout_ms: None,
+    };
+    let value = dispatch_pooled(&core, CacheKind::Calls, call).await?;
+    NuVal::try_from_nu(value).map_err(|e| EngineError::ResultInvalid {
+        reason: format!("the result: {e}"),
+    })
+}
+
 /// A command's answer.
 pub(crate) async fn serve_control(
     core: Arc<EngineCore>,
@@ -340,6 +369,7 @@ async fn processes(core: &EngineCore) -> Vec<ProcessRow> {
                 InFlightKind::Execute { .. } => (None, None),
                 InFlightKind::Rerun { source_nonce, .. } => (Some(source_nonce.clone()), None),
                 InFlightKind::Call { path } => (None, Some(path.clone())),
+                InFlightKind::Bed => (None, None),
             };
             ProcessRow {
                 nonce: nonce.clone(),

@@ -260,7 +260,7 @@ fn each_open_makes_the_channel_inbox_in_the_transient_base() {
     host.interface("interface channel ready");
     let resp = host.execute(
         "def execute [data: nothing]: nothing -> record<event_id: string> { \
-         grimm channel send test/inbox {n: 1} {n: 2} }",
+         grmr channel send test/inbox {n: 1} {n: 2} }",
         "null",
     );
     let id = envelope(&resp)["result"]["event_id"]

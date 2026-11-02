@@ -1,3 +1,4 @@
+pub(crate) mod bed;
 pub(crate) mod blocked;
 pub(crate) mod cache;
 pub(crate) mod config_dirs;
@@ -19,7 +20,7 @@ pub(crate) mod lint;
 pub(crate) mod mode;
 pub(crate) mod msg;
 pub(crate) mod nuapi {
-    pub(crate) mod grimm {
+    pub(crate) mod grmr {
         pub(crate) mod category;
         pub(crate) mod channel {
             pub(crate) mod send;
@@ -84,16 +85,16 @@ pub(crate) use crate::{
     execute::{EXECUTE, contract_signature},
     mode::Mode,
     nuapi::{
-        grimm::{
+        grmr::{
             category::*,
-            channel::send::GrimmChannelSend,
+            channel::send::GrmrChannelSend,
             common::{
                 NuapiCall, STDERR_FILE, STDOUT_FILE, asked_host, data_shape, event_id_record,
                 event_id_type, register_nuapi, require_record_or_table, sendable, unexpected,
             },
-            config::{GrimmGetConfig, GrimmGetConfigAll, GrimmPinConfig},
-            dbg::GrimmDbg,
-            remote::channel::send::{GrimmRemoteChannelSend, GrimmRemoteChannelSendWith},
+            config::{GrmrGetConfig, GrmrGetConfigAll, GrmrPinConfig},
+            dbg::GrmrDbg,
+            remote::channel::send::{GrmrRemoteChannelSend, GrmrRemoteChannelSendWith},
         },
         print::HostPrint,
     },
@@ -102,7 +103,7 @@ pub(crate) use crate::{
     parse_engine::{LIB_DIRS_CONST, PLUGIN_DIRS_CONST, dirs_value, set_dirs_const},
     plugins::{load_plugin_decls, registry_mtime, registry_path},
     schema::{data_typedef, result_typedef, signature_group},
-    serve::{EngineCore, serve_call, serve_control, serve_execute, serve_rerun},
+    serve::{EngineCore, serve_bed, serve_call, serve_control, serve_execute, serve_rerun},
     system::HostLink,
     teardown::{kill_plugin_subprocesses, make_tracker, tree_kill},
     template::render_nuon,
@@ -110,7 +111,7 @@ pub(crate) use crate::{
 
 pub(crate) use sourcetrait_grammar_protocol::{
     ChannelSendData, ChannelSpamErrorEmergency, PreparedSend, PurviewRow, PurviewView,
-    RemoteSendData, RuntimeError, SendFile, reserved_prefix, safe_dest,
+    RemoteSendData, RuntimeError, SendFile, reserved_prefix, safe_dest, with_head,
 };
 
 pub(crate) use std::{
@@ -189,6 +190,7 @@ pub(crate) mod tk {
 }
 
 pub use crate::{
+    bed::{EMBEDDED, KIND_BED, analyze_bed},
     cache::{CacheKind, DEFINITION_FILE, cache_dir, definition_file},
     cycle::detect_import_cycle,
     embed::EVAL_STACK_SIZE,
@@ -220,7 +222,7 @@ pub use crate::{
         Namepath, NamepathPattern, NamepathRef, NamepathStr, PATTERN_ALL, PATTERN_CURRENT,
         resolve_builtin,
     },
-    nuapi::grimm::common::{GRIMM, grimm_signatures},
+    nuapi::grmr::common::{GRMR, GRMR_COMMANDS, grmr_signatures, grmr_signatures_where},
     params::{EngineParams, init},
     parse_engine::{LintEngine, ParseEngine, file_start, span_text, wrap_as_module},
     plugins::{ensure_plugin_registry, list_registered_plugins},
@@ -231,7 +233,7 @@ pub use crate::{
 };
 
 pub use sourcetrait_grammar_protocol::{
-    BUILTINS, CallDoc, CallRequest, CheckSummary, CommitResult, ControlAnswer, ControlRequest,
+    BUILTINS, BedRequest, CallDoc, CallRequest, CheckSummary, CommitResult, ControlAnswer, ControlRequest,
     Diagnostic, EngineCommand, EngineError, EngineHealth, EngineResult, ExecuteRequest,
     FromEngineSys, Host, HostAnswer, HostStop, HungEval, InspectDoc, LINT_VIOLATION_CAP, Lane,
     ModuleDoc, PluginInfo, ProcessRow, PurviewAnswer, PurviewConfigureRequest, PurviewListRequest,

@@ -17,7 +17,7 @@ impl NuSh {
     ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
         let words = match p.namepath.as_str() {
             INTERFACE => Some(render_signatures(&self.controller.config.deny)),
-            GRIMM => Some(grimm_signatures()),
+            GRMR => Some(grmr_signatures()),
             _ => None,
         };
         if let Some(signatures) = words {

@@ -112,7 +112,7 @@ pub(crate) fn require_record_or_table(
     }
 }
 
-/// The `data` positional shared by the `grimm *` decls: record or table.
+/// The `data` positional shared by the `grmr *` decls: record or table.
 pub(crate) fn data_shape() -> nu::SyntaxShape {
     nu::SyntaxShape::OneOf(vec![
         nu::SyntaxShape::Record(nu::CollectionColumns::from(vec![])),
@@ -120,7 +120,7 @@ pub(crate) fn data_shape() -> nu::SyntaxShape {
     ])
 }
 
-/// The nullable `data` positional shared by the `grimm *` decls: record or table.
+/// The nullable `data` positional shared by the `grmr *` decls: record or table.
 #[allow(unused)]
 pub(crate) fn optional_data_shape() -> nu::SyntaxShape {
     nu::SyntaxShape::OneOf(vec![
@@ -130,7 +130,7 @@ pub(crate) fn optional_data_shape() -> nu::SyntaxShape {
     ])
 }
 
-/// The record every `grimm` send returns: the message id under `event_id`.
+/// The record every `grmr` send returns: the message id under `event_id`.
 pub(crate) fn event_id_record(
     id: impl Into<String>,
     span: nu::Span,
@@ -138,7 +138,7 @@ pub(crate) fn event_id_record(
     nu::Value::record(nu::record! { "event_id" => nu::Value::string(id, span) }, span)
 }
 
-/// The output type every `grimm` send declares: `record<event_id: string>`.
+/// The output type every `grmr` send declares: `record<event_id: string>`.
 pub(crate) fn event_id_type() -> nu::Type {
     nu::Type::Record(nu::CollectionColumns::from(vec![(
         "event_id".to_string(),
@@ -146,29 +146,40 @@ pub(crate) fn event_id_type() -> nu::Type {
     )]))
 }
 
-/// The word `interface help` takes for the `grimm` commands' signatures.
-pub const GRIMM: &str = "grimm";
+/// The word `interface help` takes for the `grmr` commands' signatures.
+pub const GRMR: &str = "grmr";
 
-/// The `grimm *` decls, in the order the signature block lists them.
-fn grimm_decls(host: Option<&HostLink>) -> Vec<Box<dyn nu::Command>> {
+/// The `grmr` commands' names, in the order the signature block lists them.
+pub const GRMR_COMMANDS: [&str; 7] = [
+    "grmr dbg",
+    "grmr channel send",
+    "grmr get_config_all",
+    "grmr get_config",
+    "grmr pin_config",
+    "grmr remote channel send",
+    "grmr remote_channel_send_with",
+];
+
+/// The `grmr *` decls, in the order the signature block lists them.
+fn grmr_decls(host: Option<&HostLink>) -> Vec<Box<dyn nu::Command>> {
     let link = || host.cloned();
     vec![
-        Box::new(GrimmDbg),
-        Box::new(GrimmChannelSend { host: link() }),
-        Box::new(GrimmGetConfigAll { host: link() }),
-        Box::new(GrimmGetConfig { host: link() }),
-        Box::new(GrimmPinConfig { host: link() }),
-        Box::new(GrimmRemoteChannelSend { host: link() }),
-        Box::new(GrimmRemoteChannelSendWith { host: link() }),
+        Box::new(GrmrDbg),
+        Box::new(GrmrChannelSend { host: link() }),
+        Box::new(GrmrGetConfigAll { host: link() }),
+        Box::new(GrmrGetConfig { host: link() }),
+        Box::new(GrmrPinConfig { host: link() }),
+        Box::new(GrmrRemoteChannelSend { host: link() }),
+        Box::new(GrmrRemoteChannelSendWith { host: link() }),
     ]
 }
 
-/// Register the `grimm *` decls into the working set an eval will parse with.
+/// Register the `grmr *` decls into the working set an eval will parse with.
 pub(crate) fn register_nuapi(
     working_set: &mut nu::StateWorkingSet,
     host: Option<&HostLink>,
 ) {
-    for decl in grimm_decls(host) {
+    for decl in grmr_decls(host) {
         working_set.add_decl(decl);
     }
 }
@@ -202,10 +213,15 @@ pub(crate) fn sendable(value: nu::Value) -> Result<NuVal, String> {
     })
 }
 
-/// The `grimm` commands' signatures: a summary, then a signature line, each.
-pub fn grimm_signatures() -> String {
-    let mut out = String::from("## grimm Signatures\n");
-    for decl in grimm_decls(None) {
+/// The `grmr` commands' signatures: a summary, then a signature line, each.
+pub fn grmr_signatures() -> String {
+    grmr_signatures_where(|_| false)
+}
+
+/// The signatures of the `grmr` commands `denied` leaves, by their names.
+pub fn grmr_signatures_where(denied: impl Fn(&str) -> bool) -> String {
+    let mut out = String::from("## grmr Signatures\n");
+    for decl in grmr_decls(None).into_iter().filter(|decl| !denied(decl.name())) {
         out.push_str(&format!(
             "{}\n`{}`\n",
             decl.description(),

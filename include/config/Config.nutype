@@ -1,8 +1,8 @@
 # Config: the host's configuration, as the file writes it and as a definition reads it.
 #
-#     let cfg: <this type> = (grimm get_config_all)
+#     let cfg: <this type> = (grmr get_config_all)
 #
-# One model describes both surfaces. The record `grimm get_config_all` returns
+# One model describes both surfaces. The record `grmr get_config_all` returns
 # mirrors the config file table for table and key for key, so this type annotates
 # the parsed file and the live reading equally. That is also
 # what makes a dotted key a real path: `get_config "supervisor.cpu_warn_fraction"`
@@ -17,7 +17,7 @@
 #
 # Values are live rather than as-launched. The four channel spam thresholds move
 # through `interface channel config`; the four supervisor lines move through
-# `grimm pin_config`. A read reports what is actually in force at that moment,
+# `grmr pin_config`. A read reports what is actually in force at that moment,
 # which is the only reading worth having - a startup seed nobody is using would be
 # a lie with a timestamp.
 #

@@ -1,5 +1,6 @@
-//! An `Option<NuVal>` field through serde as the value it holds rather than as
-//! its variant: `#[serde(default, with = "nuval::plain")]`.
+//! An `Option<NuVal>` field through serde as the value it holds, not its variant.
+//!
+//! A field takes it as `#[serde(default, with = "nuval::plain")]`.
 use crate::*;
 
 /// The field's value written as the value it holds, or as nothing.

@@ -17,7 +17,7 @@ fn deny_removes_tools_from_list() {
     let mut host = Host::spawn_args(t.temp_dir(), &["--deny", "execute,rerun"]);
     assert_eq!(
         sorted_names(&mut host),
-        vec!["call", "interface"],
+        vec!["bed", "call", "interface"],
         "the two denied are absent and the rest remain",
     );
 }
@@ -40,7 +40,7 @@ fn denied_tool_call_fails_at_protocol_layer() {
 fn deny_interface_removes_the_tool_whole() {
     let t = testing::test!({ .using_temp_dir() });
     let mut host = Host::spawn_args(t.temp_dir(), &["--deny", "interface"]);
-    assert_eq!(sorted_names(&mut host), vec!["call", "execute", "rerun"]);
+    assert_eq!(sorted_names(&mut host), vec!["bed", "call", "execute", "rerun"]);
     let resp = host.info();
     assert!(
         envelope(&resp).is_nothing(),
@@ -51,7 +51,7 @@ fn deny_interface_removes_the_tool_whole() {
 #[tested]
 fn deny_every_other_tool_leaves_the_interface() {
     let t = testing::test!({ .using_temp_dir() });
-    let mut host = Host::spawn_args(t.temp_dir(), &["--deny", "execute,rerun,call"]);
+    let mut host = Host::spawn_args(t.temp_dir(), &["--deny", "execute,rerun,call,bed"]);
     assert_eq!(sorted_names(&mut host), vec!["interface"]);
     let info = host.info();
     assert!(!has_error_path(&info), "the interface still answers; got {info}");
@@ -70,10 +70,10 @@ fn a_denied_command_leaves_the_parse_and_the_description() {
         .find(|tool| tool["name"] == "interface")
         .unwrap_or_else(|| panic!("the interface stands; got {tools:?}"));
     let description = interface["description"].as_str().expect("its description");
-    for denied in ["- interface purview configure\n", "- interface equip commit\n"] {
+    for denied in ["- purview configure\n", "- equip commit\n"] {
         assert!(!description.contains(denied), "{denied} is unlisted; got {description}");
     }
-    assert!(description.contains("- interface purview list\n"), "got {description}");
+    assert!(description.contains("- purview list\n"), "got {description}");
 
     let help = host.interface("interface help interface");
     let block = envelope(&help)["result"]["doc"]["signatures"]
@@ -97,12 +97,46 @@ fn a_denied_command_leaves_the_parse_and_the_description() {
     );
     let listed = host.interface("interface purview list");
     assert!(!has_error_path(&listed), "an undenied command runs; got {listed}");
+    let bare = host.interface("purview list");
+    assert!(!has_error_path(&bare), "a subcommand runs without its head; got {bare}");
+}
+
+#[tested]
+fn deny_bed_removes_the_tool_whole() {
+    let t = testing::test!({ .using_temp_dir() });
+    let mut host = Host::spawn_args(t.temp_dir(), &["--deny", "bed"]);
+    assert_eq!(sorted_names(&mut host), vec!["call", "execute", "interface", "rerun"]);
+    let resp = host.bed("grmr", "get_config_all");
+    assert!(envelope(&resp).is_nothing(), "a denied bed answers no envelope at all; got {resp}");
+}
+
+/// A denied `grmr` command leaves `bed`'s description and is refused by `bed`,
+/// every other one standing.
+#[tested]
+fn a_denied_grmr_command_leaves_bed() {
+    let t = testing::test!({ .using_temp_dir() });
+    let mut host = Host::spawn_args(t.temp_dir(), &["--deny", "grmr dbg"]);
+    let tools = host.tools();
+    let bed = tools
+        .iter()
+        .find(|tool| tool["name"] == "bed")
+        .unwrap_or_else(|| panic!("bed stands; got {tools:?}"));
+    let description = bed["description"].as_str().expect("its description");
+    assert!(!description.contains("`grmr dbg ["), "got {description}");
+    assert!(description.contains("`grmr get_config_all ["), "got {description}");
+    for subcommand in ["dbg {a: 1}", "grmr dbg {a: 1}"] {
+        let refused = host.bed("grmr", subcommand);
+        assert_eq!(envelope_error_kind(&refused).as_deref(), Some("bed::invalid"), "got {refused}");
+        assert!(error_message(&refused).contains("withheld"), "got {refused}");
+    }
+    let config = host.bed("grmr", "get_config_all");
+    assert!(!has_error_path(&config), "an undenied grmr command runs; got {config}");
 }
 
 #[tested]
 fn unknown_deny_token_fails_startup() {
     let t = testing::test!({ .using_temp_dir() });
-    for token in ["bogus", "run", "interact", "nu", "purview_configure", "equip", "interface nosuch"] {
+    for token in ["bogus", "run", "interact", "nu", "purview_configure", "equip", "interface nosuch", "grmr nosuch"] {
         let out = run_output(t.temp_dir(), &["--deny", token]);
         assert!(
             !out.status.success(),

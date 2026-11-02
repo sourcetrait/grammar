@@ -499,15 +499,20 @@ impl Host {
         self.call("call", json!({"namepath": namepath, "data": data}))
     }
 
-    /// One `interface` command, its arguments Nu literals.
-    pub fn interface(&mut self, command: &str) -> Value {
-        let id = self.request_interface(command);
+    /// One `interface` subcommand, its arguments Nu literals.
+    pub fn interface(&mut self, subcommand: &str) -> Value {
+        let id = self.request_interface(subcommand);
         self.read_id(id)
     }
 
-    /// Send an `interface` command without reading its response; the request id.
-    pub fn request_interface(&mut self, command: &str) -> u64 {
-        self.request("interface", json!({"command": command}))
+    /// Send an `interface` subcommand without reading its response; the request id.
+    pub fn request_interface(&mut self, subcommand: &str) -> u64 {
+        self.request("interface", json!({"subcommand": subcommand}))
+    }
+
+    /// One `bed` call of an embedded command's subcommand.
+    pub fn bed(&mut self, command: &str, subcommand: &str) -> Value {
+        self.call("bed", json!({"command": command, "subcommand": subcommand}))
     }
 
     /// `interface info`.

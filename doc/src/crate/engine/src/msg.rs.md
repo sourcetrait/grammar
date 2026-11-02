@@ -31,7 +31,8 @@ controller answers a pin itself and carries the rest to its session's MCP as
 the session's asks, a remote send prepared first (`send.rs`).
 
 ## macro wire_request
-`ExecuteRequest`, `RerunRequest`, and `CallRequest` answer with a `ValueAnswer`,
+`ExecuteRequest`, `RerunRequest`, `CallRequest`, and `BedRequest` answer with a
+`ValueAnswer`,
 `ControlRequest` with an `EngineResult<ControlAnswer>`, each wrapped as
 `ToEngine::Wire`. The trait is subsys's and the request types are the
 protocol's, so the impls stand here because `EngineSystem` and `ToEngine` are

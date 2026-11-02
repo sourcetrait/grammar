@@ -62,7 +62,7 @@ fn a_body_send_waits_for_the_next_sync() {
     let s = TESTING.harness();
     let sent = s.execute(
         "def execute [data: nothing]: nothing -> record<ok: bool> {\n    \
-         grimm channel send 'example/Ping' {n: 1} | ignore\n    {ok: true}\n}",
+         grmr channel send 'example/Ping' {n: 1} | ignore\n    {ok: true}\n}",
         "null",
     );
     assert!(!has_error(&sent), "{sent}");

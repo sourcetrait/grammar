@@ -16,7 +16,7 @@ const PACKET_WAIT: Duration = Duration::from_secs(15);
 
 /// A definition sending one packet of `model` to the Channel.
 fn send(model: &str) -> String {
-    format!("def execute [data: nothing]: nothing -> record<event_id: string> {{ grimm channel send {model} {{n: 1}} }}")
+    format!("def execute [data: nothing]: nothing -> record<event_id: string> {{ grmr channel send {model} {{n: 1}} }}")
 }
 
 /// `definition` executed on `host`, its first remote call's wait allowed.
@@ -69,7 +69,7 @@ fn a_remote_evals_sends_and_asks_reach_the_mcp() {
         "the eval reads the id the Channel gave its packet",
     );
 
-    let config = "def execute [data: nothing]: nothing -> record<cert: string> { {cert: (grimm get_config_all | get identity.cert)} }";
+    let config = "def execute [data: nothing]: nothing -> record<cert: string> { {cert: (grmr get_config_all | get identity.cert)} }";
     let answered = consumer.host.call("execute", json!({"host": "lab", "definition": config, "data": "null"}));
     assert_eq!(
         envelope(&answered)["result"]["cert"].as_str(),
@@ -77,13 +77,13 @@ fn a_remote_evals_sends_and_asks_reach_the_mcp() {
         "the config is the MCP's: {answered}",
     );
 
-    let far = "def execute [data: nothing]: nothing -> record<event_id: string> { grimm remote channel send 0123456789A probe/Far {n: 1} }";
+    let far = "def execute [data: nothing]: nothing -> record<event_id: string> { grmr remote channel send 0123456789A probe/Far {n: 1} }";
     let remote = consumer.host.call("execute", json!({"host": "lab", "definition": far, "data": "null"}));
     let local = consumer.host.execute(far, "null");
     assert!(has_error_path(&remote), "no link answers that nom: {remote}");
     assert_eq!(error_kinds(&remote), error_kinds(&local), "the MCP's links answer grammar-ssh's send as a local one's: {remote} {local}");
 
-    let flood = "def execute [data: nothing]: nothing -> nothing { for i in 1..60 { grimm channel send probe/Flood {i: $i} } }";
+    let flood = "def execute [data: nothing]: nothing -> nothing { for i in 1..60 { grmr channel send probe/Flood {i: $i} } }";
     let stopped = consumer.host.call("execute", json!({"host": "lab", "definition": flood, "data": "null"}));
     assert!(has_error_path(&stopped), "the flood is stopped: {stopped}");
     let spam = consumer

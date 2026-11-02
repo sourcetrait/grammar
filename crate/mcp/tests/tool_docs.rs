@@ -1,4 +1,4 @@
-//! The tool surface's documentation: User's three texts, verbatim, and no tool
+//! The tool surface's documentation: User's four texts, verbatim, and no tool
 //! declaring an output schema.
 
 use sourcetrait_common::testing::prelude::*;
@@ -12,6 +12,7 @@ static TESTING: testing::ModuleWith<TestServer> = testing::module_with!(Integrat
 const EXECUTE_DOC: &str = include_str!("../../../include/human/mcp/execute.md");
 const MCP_DOC: &str = include_str!("../../../include/human/mcp/mcp.md");
 const INTERFACE_DOC: &str = include_str!("../../../include/human/mcp/interface.md");
+const BED_DOC: &str = include_str!("../../../include/human/mcp/bed.md");
 
 fn description(s: &TestServer, name: &str) -> String {
     let tools = s.tools();
@@ -52,7 +53,7 @@ fn no_tool_declares_an_output_schema() {
 }
 
 #[test]
-fn four_tools_are_routed() {
+fn five_tools_are_routed() {
     let s = TESTING.harness();
     let mut names: Vec<String> = s
         .tools()
@@ -60,7 +61,22 @@ fn four_tools_are_routed() {
         .map(|tool| tool["name"].as_str().unwrap_or_default().to_string())
         .collect();
     names.sort();
-    assert_eq!(names, vec!["call", "execute", "interface", "rerun"]);
+    assert_eq!(names, vec!["bed", "call", "execute", "interface", "rerun"]);
+}
+
+#[test]
+fn bed_is_described_by_its_pretext_then_the_grmr_signatures() {
+    let s = TESTING.harness();
+    let description = description(s, "bed");
+    let (pretext, block) = description
+        .split_once("\n\n## grmr Signatures\n")
+        .unwrap_or_else(|| panic!("the signatures follow the pretext: {description}"));
+    assert_eq!(pretext, BED_DOC.trim_end(), "{description}");
+    for name in sourcetrait_grammar_engine::GRMR_COMMANDS {
+        assert!(block.contains(&format!("`{name} [")), "{name}: {description}");
+    }
+    let lines = block.lines().filter(|line| line.starts_with("`grmr ")).count();
+    assert_eq!(lines, 7, "every grmr command; {description}");
 }
 
 #[test]
@@ -74,18 +90,16 @@ fn the_interface_is_described_by_its_pretext_then_its_command_list() {
     for topic in ["General", "Process", "Purview", "Channel", "Remote", "Equip"] {
         assert!(list.contains(&format!("## {topic}\n")), "{topic}: {description}");
     }
+    assert!(list.starts_with("## General\n- info\n- help\n"), "{description}");
     assert!(
-        list.starts_with("## General\n- interface info\n- interface help\n"),
-        "{description}",
-    );
-    assert!(
-        list.contains("- interface channel open\n- interface channel sync\n"),
+        list.contains("- channel open\n- channel sync\n"),
         "the sync follows the open; {description}",
     );
-    assert!(list.contains("- interface remote channel listen\n"), "{description}");
-    assert!(list.contains("- interface remote engine import\n"), "{description}");
-    let commands = list.lines().filter(|line| line.starts_with("- interface ")).count();
+    assert!(list.contains("- remote channel listen\n"), "{description}");
+    assert!(list.contains("- remote engine import\n"), "{description}");
+    let commands = list.lines().filter(|line| line.starts_with("- ")).count();
     assert_eq!(commands, 33, "{description}");
+    assert!(!list.contains("- interface "), "the list names subcommands alone; {description}");
     assert!(!list.contains('`'), "the list names commands alone; {description}");
 }
 

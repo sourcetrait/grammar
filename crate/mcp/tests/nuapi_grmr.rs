@@ -1,4 +1,4 @@
-//! The embedded API (`grimm *`) - decls registered per-eval into the working set
+//! The embedded API (`grmr *`) - decls registered per-eval into the working set
 //! `eval_in_process` parses with, so they exist ONLY inside an `execute` definition or a
 //! call's body and carry that call's own log dir.
 
@@ -36,7 +36,7 @@ fn read_back(
 #[test]
 fn dbg_appends_one_line_per_call() {
     let s = TESTING.harness();
-    let env = s.execute(&ok_after("grimm dbg {a: 1, b: 'two'}\ngrimm dbg [[x, y]; [1, 2]]"), "null");
+    let env = s.execute(&ok_after("grmr dbg {a: 1, b: 'two'}\ngrmr dbg [[x, y]; [1, 2]]"), "null");
     assert!(!has_error(&env), "the definition should run; got {env}");
     let nonce = env["nonce"].as_str().expect("nonce");
 
@@ -60,7 +60,7 @@ fn dbg_appends_one_line_per_call() {
 #[test]
 fn channel_send_without_a_channel_refuses() {
     let s = TESTING.harness();
-    let env = s.execute(&ok_after("grimm channel send 'foo/bar/Car' {state: 'done'}"), "null");
+    let env = s.execute(&ok_after("grmr channel send 'foo/bar/Car' {state: 'done'}"), "null");
     assert!(has_error(&env), "an unopened channel must refuse; got {env}");
     let text = error_text(&env).to_lowercase();
     assert_eq!(
@@ -78,7 +78,7 @@ fn channel_send_without_a_channel_refuses() {
 fn a_record_with_an_embedded_newline_stays_one_line() {
     let s = TESTING.harness();
     let env = s.execute(
-        &ok_after("grimm dbg {msg: ('line one' + (char nl) + 'line two'), tail: 9}"),
+        &ok_after("grmr dbg {msg: ('line one' + (char nl) + 'line two'), tail: 9}"),
         "null",
     );
     assert!(!has_error(&env), "got {env}");
@@ -121,7 +121,7 @@ fn a_definition_cannot_claim_a_host_reservation() {
         "remote/channel/Sent",
         "remote/anything",
     ] {
-        let env = s.execute(&ok_after(&format!("grimm channel send '{model}' {{x: 1}}")), "null");
+        let env = s.execute(&ok_after(&format!("grmr channel send '{model}' {{x: 1}}")), "null");
         assert!(has_error(&env), "`{model}` should be refused; got {env}");
         assert!(
             error_text(&env).contains("reserved"),
@@ -137,7 +137,7 @@ fn a_definition_cannot_claim_a_host_reservation() {
 #[test]
 fn a_non_record_is_rejected() {
     let s = TESTING.harness();
-    for body in ["grimm dbg 5", "let x = 5\ngrimm dbg $x"] {
+    for body in ["grmr dbg 5", "let x = 5\ngrmr dbg $x"] {
         let env = s.execute(&ok_after(body), "null");
         assert!(has_error(&env), "`{body}` should be rejected; got {env}");
         let text = error_text(&env).to_lowercase();
@@ -149,14 +149,14 @@ fn a_non_record_is_rejected() {
     }
 }
 
-/// The contract's parse and the rig validator's know the `grimm` decls as an eval
+/// The contract's parse and the rig validator's know the `grmr` decls as an eval
 /// does, so a table passed to one is a table there too, never an external's
 /// argument that fails to parse.
 #[tested]
-fn a_rig_passing_a_table_to_grimm_commits_and_runs() {
+fn a_rig_passing_a_table_to_grmr_commits_and_runs() {
     let t = testing::test!({ .using_temp_dir() });
     let s = TESTING.harness();
-    let src = s.new_rig(t.temp_dir(), "sourcetrait/grimmrig");
+    let src = s.new_rig(t.temp_dir(), "sourcetrait/grmrrig");
     write_tree(
         &src,
         &[
@@ -164,13 +164,13 @@ fn a_rig_passing_a_table_to_grimm_commits_and_runs() {
             ("m/mod.nu", "export use trace\n"),
             (
                 "m/trace/mod.nu",
-                "export def main [data: nothing]: nothing -> record<ok: bool> {\n    grimm dbg [[x, y]; [1, 2]]\n    { ok: true }\n}\n",
+                "export def main [data: nothing]: nothing -> record<ok: bool> {\n    grmr dbg [[x, y]; [1, 2]]\n    { ok: true }\n}\n",
             ),
         ],
     );
-    let committed = s.commit("sourcetrait/grimmrig");
+    let committed = s.commit("sourcetrait/grmrrig");
     assert!(!has_error(&committed), "got {committed}");
-    let called = s.call("sourcetrait/grimmrig:m:trace", "null");
+    let called = s.call("sourcetrait/grmrrig:m:trace", "null");
     assert_eq!(called["result"], nuon("{ok: true}"), "got {called}");
 }
 
@@ -178,7 +178,7 @@ fn a_rig_passing_a_table_to_grimm_commits_and_runs() {
 fn the_api_is_available_to_the_stateful_lane_too() {
     let s = TESTING.harness();
     let env = s.execute(
-        "def --env execute [data: nothing]: nothing -> record<ok: bool> {\n    grimm dbg {lane: 'stateful'}\n    { ok: true }\n}",
+        "def --env execute [data: nothing]: nothing -> record<ok: bool> {\n    grmr dbg {lane: 'stateful'}\n    { ok: true }\n}",
         "null",
     );
     assert!(!has_error(&env), "the stateful lane should carry the embedded API; got {env}");

@@ -1,19 +1,19 @@
 use crate::*;
 
-/// `grimm dbg <data>` - append a record or table to this eval's `debug.nuonl`.
+/// `grmr dbg <data>` - append a record or table to this eval's `debug.nuonl`.
 #[derive(Clone)]
-pub(crate) struct GrimmDbg;
+pub(crate) struct GrmrDbg;
 
-impl nu::Command for GrimmDbg {
+impl nu::Command for GrmrDbg {
     fn name(&self) -> &str {
-        "grimm dbg"
+        "grmr dbg"
     }
 
     fn signature(&self) -> nu::Signature {
-        nu::Signature::build("grimm dbg")
+        nu::Signature::build("grmr dbg")
             .required("data", data_shape(), "the record or table to append")
             .input_output_types(vec![(nu::Type::Nothing, nu::Type::Nothing)])
-            .category(nu::Category::Custom("grimm".to_string()))
+            .category(nu::Category::Custom("grmr".to_string()))
     }
 
     fn description(&self) -> &str {

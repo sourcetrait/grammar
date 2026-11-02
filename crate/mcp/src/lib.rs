@@ -17,6 +17,7 @@ pub(crate) mod server {
     pub(crate) mod remote;
     pub(crate) mod run;
     pub(crate) mod tool {
+        pub(crate) mod bed;
         pub(crate) mod call;
         pub(crate) mod channel_close;
         pub(crate) mod channel_open;
@@ -101,6 +102,7 @@ pub(crate) use crate::{
         emergency::EmergencyPolicy,
         identity::mint_nonce,
         tool::{
+            bed::{BED_TOOL, BedParams, bed_description},
             call::CallParams,
             common::{
                 Route, envelope_text, now_millis, serde_to_nu, success, success_value,
@@ -139,12 +141,14 @@ pub(crate) use sourcetrait_grammar_client::{
 
 pub(crate) use sourcetrait_grammar_engine::{
     self as engine, EVAL_STACK_SIZE, EngineHandle, EngineParams, EngineSystem, FromEngine,
-    GRIMM, HostAnswer, HostAsk, HostStop, LintEngine, NU_VERSION, NamepathPattern,
+    GRMR, GRMR_COMMANDS, HostAnswer, HostAsk, HostStop, KIND_BED, LintEngine, NU_VERSION,
+    NamepathPattern,
     NamepathStr, PURVIEW_ALL, PURVIEW_DEFAULT, ParseEngine, PinAsk, PluginInfo,
     PurviewConfigureRequest, PurviewListRequest, PurviewResolution, PurviewResolveRequest,
     PurviewRigRequest, ToEngine, analyze_definition, build_call_source,
     build_execute_source, definition_file, ensure_default_purview, ensure_equip_store,
-    ensure_plugin_registry, equip_root, file_start, grimm_signatures, index_from_nuon,
+    ensure_plugin_registry, equip_root, file_start, grmr_signatures, grmr_signatures_where,
+    index_from_nuon,
     install_builtins, lib_dir, lint_block, list_registered_plugins, prepare_send, purview_ref,
     purviews_path, rig_dir, rig_meta_path, seed_builtin_purviews, typedef_text,
 };
@@ -177,6 +181,10 @@ pub(crate) use sourcetrait_grammar_protocol::{
     FromEngineSys, LIMITS_DEFAULT, LOCAL_HOST, MAX_FRAME_BYTES, PreparedSend, PurviewAnswer,
     PurviewRequest, PurviewRow, PurviewView, RemoteResult, RemoteSendData, RuntimeError,
     SessionAsk, SpamThresholdsData, ToEngineSys, TransportError, SshInfo,
+};
+
+pub(crate) use sourcetrait_grammar_protocol::{
+    BedRequest, with_head,
 };
 
 pub(crate) use sourcetrait_grammar_protocol::{

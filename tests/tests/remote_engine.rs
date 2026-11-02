@@ -84,6 +84,32 @@ fn the_tools_run_on_a_configured_engines_grammar_ssh_until_the_mcp_ends() {
 }
 
 #[test]
+fn bed_runs_on_the_engine_its_host_names() {
+    let sshd = Sshd::start();
+    let account = TestAccount::new();
+    let root = tempfile::tempdir().expect("a scratch root");
+    let mut host = host_with(root.path(), &[sshd.endpoint("lab", &account)]);
+
+    let id = host.request("bed", json!({"host": "lab", "command": "grmr", "subcommand": "dbg {from: lab}"}));
+    let traced = host.read_id_within(id, FIRST_CALL);
+    let envelope = extract_envelope(&traced).unwrap_or_else(|| panic!("a result: {}", error_message(&traced)));
+    assert!(envelope["result"].is_nothing(), "{traced}");
+    let nonce = envelope["nonce"].as_str().expect("its nonce");
+    let log = namespace_dir(&account.home("cache"), "fixture", "default")
+        .join("calls")
+        .join(nonce)
+        .join("debug.nuonl");
+    let debug = std::fs::read_to_string(&log).unwrap_or_else(|e| panic!("grammar-ssh's call log {}: {e}", log.display()));
+    assert_eq!(debug.trim(), "{from: lab}", "the call ran on grammar-ssh, its log grammar-ssh's");
+
+    let config = host.call("bed", json!({"host": "lab", "command": "grmr", "subcommand": "get_config_all"}));
+    let config = extract_envelope(&config).unwrap_or_else(|| panic!("a result: {}", error_message(&config)));
+    assert!(config["result"].as_record().is_some(), "the config ask answered through the session; got {config}");
+    let refused = host.call("bed", json!({"host": "lab", "command": "grmr", "subcommand": "dbg $env"}));
+    assert_eq!(envelope_error_kind(&refused).as_deref(), Some("bed::invalid"), "grammar-ssh's engine holds it to the rules; got {refused}");
+}
+
+#[test]
 fn a_remote_hosts_refusals_answer_by_kind() {
     let sshd = Sshd::start();
     let account = TestAccount::new();
@@ -98,11 +124,11 @@ fn a_remote_hosts_refusals_answer_by_kind() {
     assert_eq!(envelope_error_kind(&refused).as_deref(), Some("remote::engine::host_key_rejected"), "{refused}");
     let unknown = host.call("execute", json!({"host": "elsewhere", "definition": WHERE, "data": "null"}));
     assert_eq!(envelope_error_kind(&unknown).as_deref(), Some("host::unknown"), "{unknown}");
-    let unknown = host.call("interface", json!({"host": "elsewhere", "command": "interface info"}));
+    let unknown = host.call("interface", json!({"host": "elsewhere", "subcommand": "interface info"}));
     assert_eq!(envelope_error_kind(&unknown).as_deref(), Some("host::unknown"), "{unknown}");
-    let refused = host.call("interface", json!({"host": "stranger", "command": "interface process list"}));
+    let refused = host.call("interface", json!({"host": "stranger", "subcommand": "interface process list"}));
     assert_eq!(envelope_error_kind(&refused).as_deref(), Some("remote::engine::host_key_rejected"), "{refused}");
-    let channel = host.call("interface", json!({"host": "stranger", "command": "interface channel config"}));
+    let channel = host.call("interface", json!({"host": "stranger", "subcommand": "interface channel config"}));
     assert!(!has_error_path(&channel), "the Channel's commands answer on the MCP for any host: {channel}");
 }
 
@@ -126,7 +152,7 @@ fn the_interface_commands_run_on_the_engine_their_host_names() {
     let root = tempfile::tempdir().expect("a scratch root");
     let mut host = host_with(root.path(), &[sshd.endpoint("lab", &account)]);
 
-    let id = host.request("interface", json!({"host": "lab", "command": "interface info"}));
+    let id = host.request("interface", json!({"host": "lab", "subcommand": "interface info"}));
     let info = host.read_id_within(id, FIRST_CALL);
     let remote = extract_envelope(&info).unwrap_or_else(|| panic!("info: {}", error_message(&info)));
     assert_eq!(remote["result"]["work_dir"].as_str(), Some(account.workdir().display().to_string().as_str()), "{info}");
@@ -135,22 +161,22 @@ fn the_interface_commands_run_on_the_engine_their_host_names() {
     assert_ne!(remote["result"]["nom"].as_str(), local["result"]["nom"].as_str(), "grammar-ssh's nom, not the MCP's");
 
     let source = account.workdir().join("equip").join("sourcetrait").join("probe");
-    let made = host.call("interface", json!({"host": "lab", "command": format!("interface equip new '{}'", source.display())}));
+    let made = host.call("interface", json!({"host": "lab", "subcommand": format!("interface equip new '{}'", source.display())}));
     assert!(!has_error_path(&made), "equip new on grammar-ssh: {made}");
     let rig = source.join("rig");
     write_source(&rig, "mod.nu", "export module m\n");
     write_source(&rig, "m/mod.nu", "export use which\n");
     write_source(&rig, "m/which/mod.nu", &valid_function_source("x: int", "from: string", "{ from: 'grammar-ssh' }"));
-    let committed = host.call("interface", json!({"host": "lab", "command": "interface equip commit 'sourcetrait/probe'"}));
+    let committed = host.call("interface", json!({"host": "lab", "subcommand": "interface equip commit 'sourcetrait/probe'"}));
     assert!(!has_error_path(&committed), "the commit on grammar-ssh: {committed}");
     let called = host.call("call", json!({"host": "lab", "namepath": "sourcetrait/probe:m:which", "data": "{x: 1}"}));
     assert_eq!(envelope(&called)["result"]["from"].as_str(), Some("grammar-ssh"), "{called}");
     let local = host.call_np("sourcetrait/probe:m:which", "{x: 1}");
     assert!(has_error_path(&local), "the MCP holds no rig grammar-ssh committed: {local}");
 
-    let configured = host.call("interface", json!({"host": "lab", "command": "interface purview configure probe ['sourcetrait/probe:']"}));
+    let configured = host.call("interface", json!({"host": "lab", "subcommand": "interface purview configure probe ['sourcetrait/probe:']"}));
     assert!(!has_error_path(&configured), "{configured}");
-    let remote_list = envelope(&host.call("interface", json!({"host": "lab", "command": "interface purview list"})));
+    let remote_list = envelope(&host.call("interface", json!({"host": "lab", "subcommand": "interface purview list"})));
     let local_list = envelope(&host.interface("interface purview list"));
     assert!(purview_ids(&remote_list).contains(&"probe".to_string()), "{remote_list}");
     assert!(!purview_ids(&local_list).contains(&"probe".to_string()), "a host's purviews are its own: {local_list}");
@@ -158,7 +184,7 @@ fn the_interface_commands_run_on_the_engine_their_host_names() {
     let call = host.request("execute", json!({"host": "lab", "definition": SLEEP, "data": "null"}));
     let mut listed = None;
     for _ in 0..100 {
-        let rows = envelope(&host.call("interface", json!({"host": "lab", "command": "interface process list"})));
+        let rows = envelope(&host.call("interface", json!({"host": "lab", "subcommand": "interface process list"})));
         if let Some(row) = rows["result"]["processes"].as_list().unwrap_or_default().first() {
             listed = row["nonce"].as_str().map(str::to_string);
             break;
@@ -168,7 +194,7 @@ fn the_interface_commands_run_on_the_engine_their_host_names() {
     let listed = listed.expect("the call in flight on grammar-ssh");
     let local_rows = envelope(&host.interface("interface process list"));
     assert!(local_rows["result"]["processes"].as_list().unwrap_or_default().is_empty(), "nothing in flight on the MCP");
-    let killed = host.call("interface", json!({"host": "lab", "command": format!("interface process kill '{listed}'")}));
+    let killed = host.call("interface", json!({"host": "lab", "subcommand": format!("interface process kill '{listed}'")}));
     assert!(!has_error_path(&killed), "{killed}");
     let ended = host.read_id_within(call, END_WAIT);
     assert!(has_error_path(&ended), "the killed call answers its failure: {ended}");

@@ -10,6 +10,13 @@ fn deny_names_a_command_by_its_words() {
     );
     assert_eq!(DeniableTool::from_name(" equip commit "), Some(DeniableTool::Command("equip commit")));
     assert_eq!(DeniableTool::from_name("interface"), Some(DeniableTool::Interface));
+    assert_eq!(DeniableTool::from_name("bed"), Some(DeniableTool::Bed));
+    assert_eq!(
+        DeniableTool::from_name("grmr channel send"),
+        Some(DeniableTool::Embedded("grmr channel send")),
+    );
+    assert_eq!(DeniableTool::from_name("grmr nosuch"), None);
+    assert_eq!(DeniableTool::from_name("channel send"), None);
     assert_eq!(DeniableTool::from_name("purview_configure"), None);
     assert_eq!(DeniableTool::from_name("equip"), None);
 }

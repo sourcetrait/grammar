@@ -1,7 +1,8 @@
 # interface.rs
 
-The `interface` tool: every tool but `execute`, `rerun`, and `call`, folded into one
-`command` string (User's `grammar/interface`, its parameters his `doc/human/tools.md`).
+The `interface` tool: every tool but `execute`, `rerun`, `call`, and `bed`, folded into
+one `subcommand` string (User's `grammar/interface`, its parameters his
+`doc/human/tools.md`), the `interface` word optional and undocumented (User).
 The commands convert those tools as they were: same parameters, same results,
 same refusals. The parse is the interface crate's (`crate/interface`); this
 host binds it to its deny set and routes what it parses.

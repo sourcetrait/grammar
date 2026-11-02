@@ -64,9 +64,18 @@ pub(crate) async fn run_oneshot(
                     }))
                     .await
             }
-            CliTool::Interface { command } => {
+            CliTool::Interface { subcommand } => {
                 server
-                    .interface(mcp::Parameters(InterfaceParams { host, command }))
+                    .interface(mcp::Parameters(InterfaceParams { host, subcommand }))
+                    .await
+            }
+            CliTool::Bed { command, subcommand } => {
+                server
+                    .bed(mcp::Parameters(BedParams {
+                        host,
+                        command,
+                        subcommand,
+                    }))
                     .await
             }
         };

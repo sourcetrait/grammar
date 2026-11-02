@@ -201,9 +201,11 @@ for now: the expansion eventually lives in sourcetrait_agnostic, whose `XdgDir`
 keeps its default constants private (ExpandOntoAgnostic).
 
 ## enum DeniableTool
-The four tools, and an interface command by its words: `--deny 'purview
-configure'` withholds that one command while the tool stands, and `--deny
-interface` the tool whole. `Command` holds the table's own words
+The five tools, an interface command by its words, and a `grmr` command by its
+name: `--deny 'purview configure'` withholds that one command while the tool
+stands, and `--deny interface` the tool whole; `--deny 'grmr dbg'` withholds
+that command from `bed`, its description and its calls, and `--deny bed` the
+tool whole. `Embedded` holds the engine's own name (`GRMR_COMMANDS`). `Command` holds the table's own words
 (`server/interface/grammar.rs`), so a deny names exactly a command the parse
 registers, and a word sequence the table lacks is refused at the argument as an
 unknown tool is.

@@ -12,7 +12,7 @@ purviews. The names are User's: `interface <topic> <action>`, or
 
 ## const HELP_WORDS
 `interface help interface` answers with the commands' signatures and `interface
-help grimm` with grimm's: both words are reserved before any namepath is read.
+help grmr` with grmr's: both words are reserved before any namepath is read.
 
 ## enum ArgShape
 Three shapes cover every argument the commands take: a string, a list of
@@ -51,9 +51,18 @@ tools converted; `sync` sits after `open`, in the order of the handshake it
 serves. The remote engine commands, User's, sit under the Remote topic after
 the remote channels', the same six verbs and `import`.
 
+## fn with_head
+A subcommand sent without its head, `info` for `interface info` or `dbg {a: 1}`
+for `grmr dbg {a: 1}`, parses whole with the head prepended, quietly (User).
+The head is taken only as a whole word, so `interfaces` gains one. The length
+it added maps a position in the parsed text back to the text as it was sent.
+It sits beside the catalog because the interface's parse and the engine's bed
+parse both take it.
+
 ## fn render_command_list
 The tool's description's list, User's format: `# Command Signatures`, a `##`
-heading a topic, and a `- ` line a command, its words whole. The signatures
+heading a topic, and a `- ` line a subcommand, its words whole, the
+`interface` word left off as the end user leaves it (User). The signatures
 are `interface help interface`'s. `denied` takes a command's words, so the
 caller's deny set stays its own.
 
@@ -63,6 +72,6 @@ which `tool_docs` holds to it. Generated from the same table the parse
 registers, so the documentation can't drift from what parses, and a denied
 command leaves both at once.
 
-User's format: the note that each command begins with `interface `, then under
-each topic's heading two lines a command, its summary and its signature in
-backticks, with no bullet, no `def`, and the words after `interface` alone.
+User's format: under each topic's heading two lines a command, its summary and
+its signature in backticks, with no bullet, no `def`, and the subcommand's
+words alone, what the end user sends (User).

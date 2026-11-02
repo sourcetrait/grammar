@@ -91,7 +91,18 @@ fn the_catalog_holds_the_baseline_commands() {
         seen
     });
     assert_eq!(topics, ["General", "Process", "Purview", "Channel", "Remote", "Equip"]);
-    assert_eq!(HELP_WORDS, ["interface", "grimm"]);
+    assert_eq!(HELP_WORDS, ["interface", "grmr"]);
+}
+
+#[test]
+fn a_head_is_prepended_where_the_text_lacks_it_as_a_word() {
+    assert_eq!(with_head("info", INTERFACE), ("interface info".to_string(), 10));
+    assert_eq!(with_head("interface info", INTERFACE), ("interface info".to_string(), 0));
+    assert_eq!(with_head("  interface info", INTERFACE), ("  interface info".to_string(), 0));
+    assert_eq!(with_head("interface", INTERFACE), ("interface".to_string(), 0));
+    assert_eq!(with_head("interfaces", INTERFACE), ("interface interfaces".to_string(), 10));
+    assert_eq!(with_head("  ", INTERFACE), ("  ".to_string(), 0), "a blank text stays blank");
+    assert_eq!(with_head("dbg {a: 1}", "grmr"), ("grmr dbg {a: 1}".to_string(), 5));
 }
 
 #[test]
@@ -99,11 +110,12 @@ fn a_denied_command_leaves_both_blocks() {
     let all_list = render_command_list(|_| false);
     let all_signatures = render_signatures(|_| false);
     for spec in COMMANDS {
-        assert!(all_list.contains(spec.name), "{}", spec.name);
+        let line = format!("\n- {}\n", spec.words());
+        assert!(all_list.contains(&line), "{}", spec.name);
         assert!(all_signatures.contains(&spec.signature_text()), "{}", spec.name);
         let list = render_command_list(|words| words == spec.words());
         let signatures = render_signatures(|words| words == spec.words());
-        assert!(!list.contains(&format!("- {}\n", spec.name)), "{}", spec.name);
+        assert!(!list.contains(&line), "{}", spec.name);
         assert!(!signatures.contains(&format!("`{}`", spec.signature_text())), "{}", spec.name);
     }
 }
@@ -475,6 +487,13 @@ fn every_variant_has_its_vector() {
 #[test]
 fn a_call_takes_a_call_slot_and_every_other_request_a_control_one() {
     assert!(EngineRequest::Wire(call().into()).is_call());
+    let bed = BedRequest {
+        host: Host::Local,
+        nonce: nonce(),
+        command: "grmr".into(),
+        subcommand: "get_config_all".into(),
+    };
+    assert!(EngineRequest::Wire(bed.into()).is_call(), "a bed call runs an eval, so it takes a call slot");
     let control = ControlRequest { host: Host::Local, command: EngineCommand::Kill { nonce: "n".into() } };
     for (name, request) in [("control", EngineRequest::Wire(control.into())), ("info", EngineRequest::Info)] {
         assert!(!request.is_call(), "{name}");

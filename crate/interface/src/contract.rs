@@ -82,18 +82,23 @@ type Literals = HashMap<&'static str, (Literal, nu::Span)>;
 /// A refusal before it is positioned: its span, if any, and its message.
 type Refusal = (Option<nu::Span>, String);
 
-/// Hold `text` to the contract: one interface call, its arguments literals.
+/// Hold a subcommand to the contract: one interface call, its arguments literals.
+///
+/// `text` is the subcommand, `interface` prepended where it doesn't open with
+/// the word, so both forms parse; a refusal is positioned in `text` as sent.
 pub fn parse_command(
     engine: &nu::EngineState,
     text: &str,
 ) -> Result<InterfaceCommand, Vec<Diagnostic>> {
+    let (command, prefix) = with_head(text, INTERFACE);
     let mut ws = nu::StateWorkingSet::new(engine);
-    let block = nu::parse(&mut ws, Some(COMMAND_FILE), text.as_bytes(), false);
+    let block = nu::parse(&mut ws, Some(COMMAND_FILE), command.as_bytes(), false);
     let start = ws.get_span_for_filename(COMMAND_FILE).map_or(0, |span| span.start);
     let row = |(span, message): Refusal| -> Diagnostic {
         let position = match span {
             Some(span) => {
-                let (line, col) = span_to_line_col(text, span.start.saturating_sub(start));
+                let at = span.start.saturating_sub(start).saturating_sub(prefix);
+                let (line, col) = span_to_line_col(text, at);
                 [wide(line), wide(col)]
             }
             None => [0, 0],

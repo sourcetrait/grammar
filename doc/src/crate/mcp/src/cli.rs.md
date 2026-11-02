@@ -41,5 +41,6 @@ tool's data arrives as single-quoted NUON text, as an agent sends it, and the
 output is the tool's NUON envelope as the wire carries it, with no tty branch
 anywhere.
 
-`Interface` takes the command as one string, the text an agent sends, so the
-operator's command meets the same parse rather than a second grammar in clap.
+`Interface` takes the subcommand as one string, the text an agent sends, so the
+operator's command meets the same parse rather than a second grammar in clap,
+and `Bed` the embedded command and its subcommand as the bed tool takes them.

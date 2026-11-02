@@ -36,6 +36,12 @@ check.
 As `ExecuteRequest`, the data and the timeout still text: the engine holds them to
 the contract its rig index records for the function's `main`.
 
+## struct BedRequest
+A bed call's embedded command and its subcommand, both as the end user sent
+them: the engine holds them to the rules where it runs them, as it holds a
+definition to its contract, so a remote engine's grammar-ssh checks what it
+runs.
+
 ## enum EngineCommand
 Everything a host asks that isn't an eval, so one request type reaches the
 engine's state: its calls in flight, its health, its equips, and its
@@ -162,6 +168,11 @@ named.
 `host::unserved` refuses a request naming a host whose engine this process doesn't
 serve, before anything of it runs.
 
+A bed call's refusals are `bed::invalid` rows, gathered under `BedViolations`,
+each at its position in the subcommand as sent, or with no source for a command
+the engine doesn't embed. Its own variant goes last, so the ones before it keep
+their wire indices.
+
 `module::circular_import` is a TOP-LEVEL namespace rather than a `rig::` kind,
 because a resolution cycle is not a rig-structure rule even when the validator is
 what finds it. The validator already emits non-`rig::` kinds,
@@ -184,7 +195,7 @@ and never a violations error, which renders through its rows; `Display` joins
 those rows' messages.
 
 ## enum ToEngineSys
-The system's inbound messages. Each request type converts into its variant by
+The system's inbound messages, `Bed` last of them for the wire's indices. Each request type converts into its variant by
 `From`, and its answer type converts back out of `FromEngineSys` by `TryFrom`, an
 answer of the other variant subsys's `ResponseType`, its error for a reply of the
 wrong kind. Which answer type a request names is the engine's, in its

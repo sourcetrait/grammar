@@ -152,6 +152,7 @@ wire_request! {
     RerunRequest => ValueAnswer,
     CallRequest => ValueAnswer,
     ControlRequest => EngineResult<ControlAnswer>,
+    BedRequest => ValueAnswer,
 }
 
 impl TryFrom<FromEngine> for ValueAnswer {

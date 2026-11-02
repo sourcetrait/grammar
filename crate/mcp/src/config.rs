@@ -331,14 +331,16 @@ pub(crate) fn spec_default(var: &str) -> Option<PathBuf> {
     home_dir().map(|home| PathBuf::from(home).join(home_relative))
 }
 
-/// A tool `--deny` withholds, or one interface command by its words.
+/// A tool `--deny` withholds, or an interface or `grmr` command by its words.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeniableTool {
     Execute,
     Rerun,
     Call,
     Interface,
+    Bed,
     Command(&'static str),
+    Embedded(&'static str),
 }
 
 impl DeniableTool {
@@ -348,7 +350,11 @@ impl DeniableTool {
             "rerun" => Self::Rerun,
             "call" => Self::Call,
             "interface" => Self::Interface,
-            words => Self::Command(command_by_words(words)?.words()),
+            "bed" => Self::Bed,
+            words => match GRMR_COMMANDS.iter().copied().find(|name| *name == words) {
+                Some(name) => Self::Embedded(name),
+                None => Self::Command(command_by_words(words)?.words()),
+            },
         })
     }
 }
@@ -378,5 +384,15 @@ impl DenySet {
         self.denied
             .iter()
             .any(|tool| matches!(tool, DeniableTool::Command(denied) if *denied == words))
+    }
+
+    /// Whether the `grmr` command its name names is withheld from `bed`.
+    pub(crate) fn denies_embedded(
+        &self,
+        name: &str,
+    ) -> bool {
+        self.denied
+            .iter()
+            .any(|tool| matches!(tool, DeniableTool::Embedded(denied) if *denied == name))
     }
 }

@@ -6,6 +6,7 @@
   types: [
     [name,                           kind,   generics];
     [BackgroundJobsWarningEmergency, struct, ""],
+    [BedRequest,                     struct, ""],
     [Bounded,                        enum,   T],
     [CallDoc,                        struct, ""],
     [CallRequest,                    struct, ""],
@@ -227,6 +228,7 @@
     [EngineError,        24,    Timeout],
     [EngineError,        25,    HostUnserved],
     [EngineError,        26,    Internal],
+    [EngineError,        27,    BedViolations],
     [EngineRequest,      0,     Wire],
     [EngineRequest,      1,     Purview],
     [EngineRequest,      2,     Info],
@@ -609,6 +611,7 @@
     [ToEngineSys,        1,     Rerun],
     [ToEngineSys,        2,     Call],
     [ToEngineSys,        3,     Control],
+    [ToEngineSys,        4,     Bed],
     [TransportError,     0,     VersionMismatch],
     [TransportError,     1,     SchemaMismatch],
     [TransportError,     2,     CodecMismatch],
@@ -626,6 +629,10 @@
   fields: [
     [owner,                          variant,                 index, name,              type];
     [BackgroundJobsWarningEmergency, null,                    0,     job_count,         "u64"],
+    [BedRequest,                     null,                    0,     host,              Host],
+    [BedRequest,                     null,                    1,     nonce,             "datum::Nonce"],
+    [BedRequest,                     null,                    2,     command,           String],
+    [BedRequest,                     null,                    3,     subcommand,        String],
     [Bounded,                        Included,                0,     "0",               T],
     [Bounded,                        Excluded,                0,     "0",               T],
     [CallDoc,                        null,                    0,     src,               String],
@@ -756,6 +763,7 @@
     [EngineError,                    HostUnserved,            0,     host,              String],
     [EngineError,                    Internal,                0,     phase,             String],
     [EngineError,                    Internal,                1,     reason,            String],
+    [EngineError,                    BedViolations,           0,     diagnostics,       Vec<Diagnostic>],
     [EngineHealth,                   null,                    0,     hung,              Vec<HungEval>],
     [EngineHealth,                   null,                    1,     permits_held,      "u64"],
     [EngineHealth,                   null,                    2,     permits_cap,       "u64"],
@@ -1007,6 +1015,7 @@
     [ToEngineSys,                    Rerun,                   0,     "0",               RerunRequest],
     [ToEngineSys,                    Call,                    0,     "0",               CallRequest],
     [ToEngineSys,                    Control,                 0,     "0",               ControlRequest],
+    [ToEngineSys,                    Bed,                     0,     "0",               BedRequest],
     [TransportError,                 VersionMismatch,         0,     expected,          String],
     [TransportError,                 VersionMismatch,         1,     found,             String],
     [TransportError,                 SchemaMismatch,          0,     expected,          String],

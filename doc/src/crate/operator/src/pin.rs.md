@@ -7,7 +7,7 @@ lines, with one addition - a pin is bound to the LIFETIME OF A PROCESS rather th
 to be unset by hand.
 
 The table is PROCESS-WIDE because two sides use it: the operator's watchdog reads it on
-its tick, and the host's evals write it through `grimm pin_config`, which the host
+its tick, and the host's evals write it through `grmr pin_config`, which the host
 answers by calling `pin` on the eval's thread.
 
 THE MOTIVATING CASE is a training run: pin `vram_warn_headroom_mib` to 0 for the

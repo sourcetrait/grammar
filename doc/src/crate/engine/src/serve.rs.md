@@ -121,6 +121,15 @@ committed rig's own and the handle would point at something the agent does not o
 Arity is checked here rather than in the parser: `validate` happily returns a Rig or
 Module namepath, and only a call knows that it requires a Function.
 
+## fn serve_bed
+A bed call runs as a call of its own: its nonce the MCP minted, its logs under
+the cache's `calls/<nonce>/`, its `grmr` command acting for it, a send's origin
+`thread/<nonce>` and `dbg` that call's log. The command is held to the rules
+first (`bed.rs`), refused as `BedViolations`, then dispatched stateless under the
+default timeout with no definition cached, since nothing of it is a rerun's.
+Its value is the result as the command answers it, held to no declared type,
+the command's own signature having typed its output.
+
 ## fn processes
 Engine-scoped. The map is this engine's, so a one-shot CLI's own engine reports nothing in
 flight rather than reaching into another host's.

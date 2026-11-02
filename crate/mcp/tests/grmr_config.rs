@@ -1,4 +1,4 @@
-//! The `grimm` config surface, driven from real `execute` definitions.
+//! The `grmr` config surface, driven from real `execute` definitions.
 //!
 //! In-process is the right tier for these, and not merely the cheap one: the pin
 //! registry is a process-global, and `TestServer` shares the very process the
@@ -18,8 +18,8 @@ static TESTING: testing::ModuleWith<TestServer> = testing::module_with!(Integrat
 });
 
 #[tested]
-fn grimm_config_surface_is_sequenced() {
-    testing::Stepper::builder("grimm_config_surface")
+fn grmr_config_surface_is_sequenced() {
+    testing::Stepper::builder("grmr_config_surface")
         .init(|_t, _o: ()| {
             clear_config_pins();
             testing::StepState((), ())
@@ -99,7 +99,7 @@ fn get_config_all_mirrors_the_toml_tables(_t: &testing::Testable<'_, '_, '_>) {
         &reading(
             "record<tables: list<string>, channel_keys: list<string>, supervisor_keys: list<string>, \
              identity_absent: bool>",
-            "let cfg = (grimm get_config_all)\n\
+            "let cfg = (grmr get_config_all)\n\
              { tables: ($cfg | columns), channel_keys: ($cfg.channel | columns), \
                supervisor_keys: ($cfg.supervisor | columns), \
                identity_absent: ($cfg.identity == null) }",
@@ -149,8 +149,8 @@ fn a_dotted_key_is_a_path_into_the_record(_t: &testing::Testable<'_, '_, '_>) {
     let env = s.execute(
         &reading(
             "record<agree: bool, value: float>",
-            "let direct = (grimm get_config 'supervisor.cpu_warn_fraction')\n\
-             let walked = (grimm get_config_all | get supervisor.cpu_warn_fraction)\n\
+            "let direct = (grmr get_config 'supervisor.cpu_warn_fraction')\n\
+             let walked = (grmr get_config_all | get supervisor.cpu_warn_fraction)\n\
              { agree: ($direct == $walked), value: $direct }",
         ),
         "null",
@@ -167,7 +167,7 @@ fn a_dotted_key_is_a_path_into_the_record(_t: &testing::Testable<'_, '_, '_>) {
 fn an_unknown_key_errors_and_names_the_valid_ones(_t: &testing::Testable<'_, '_, '_>) {
     let s = TESTING.harness();
     let env = s.execute(
-        &reading("record<out: int>", "grimm get_config 'supervisor.nonesuch'\n{ out: 0 }"),
+        &reading("record<out: int>", "grmr get_config 'supervisor.nonesuch'\n{ out: 0 }"),
         "null",
     );
     // An error rather than a null: a typo and a genuinely-null setting are
@@ -187,7 +187,7 @@ fn an_unpinned_port_reads_as_null_rather_than_a_sentinel(_t: &testing::Testable<
     let env = s.execute(
         &reading(
             "record<is_null: bool>",
-            "{ is_null: ((grimm get_config 'channel.port') == null) }",
+            "{ is_null: ((grmr get_config 'channel.port') == null) }",
         ),
         "null",
     );
@@ -205,9 +205,9 @@ fn a_pin_changes_what_the_config_surface_reports(_t: &testing::Testable<'_, '_, 
         &pinning(
             "record<before: float, after: float>",
             "let key = 'supervisor.cpu_warn_fraction'\n\
-             let before = (grimm get_config $key)\n\
-             grimm pin_config $key $data.pid 0.25\n\
-             { before: $before, after: (grimm get_config $key) }",
+             let before = (grmr get_config $key)\n\
+             grmr pin_config $key $data.pid 0.25\n\
+             { before: $before, after: (grmr get_config $key) }",
         ),
         &my_pid(),
     );
@@ -230,8 +230,8 @@ fn the_motivating_case_is_zero_vram_headroom(_t: &testing::Testable<'_, '_, '_>)
     let env = s.execute(
         &pinning(
             "record<headroom: int>",
-            "grimm pin_config 'supervisor.vram_warn_headroom_mib' $data.pid 0\n\
-             { headroom: (grimm get_config 'supervisor.vram_warn_headroom_mib') }",
+            "grmr pin_config 'supervisor.vram_warn_headroom_mib' $data.pid 0\n\
+             { headroom: (grmr get_config 'supervisor.vram_warn_headroom_mib') }",
         ),
         &my_pid(),
     );
@@ -248,7 +248,7 @@ fn last_write_wins_across_calls(_t: &testing::Testable<'_, '_, '_>) {
             &pinning(
                 "record<ok: bool>",
                 &format!(
-                    "grimm pin_config 'supervisor.disk_warn_fraction' $data.pid {value}\n\
+                    "grmr pin_config 'supervisor.disk_warn_fraction' $data.pid {value}\n\
                      {{ ok: true }}",
                 ),
             ),
@@ -259,7 +259,7 @@ fn last_write_wins_across_calls(_t: &testing::Testable<'_, '_, '_>) {
     let env = s.execute(
         &reading(
             "record<value: float>",
-            "{ value: (grimm get_config 'supervisor.disk_warn_fraction') }",
+            "{ value: (grmr get_config 'supervisor.disk_warn_fraction') }",
         ),
         "null",
     );
@@ -281,7 +281,7 @@ fn only_the_supervisor_lines_are_pinnable(_t: &testing::Testable<'_, '_, '_>) {
         let env = s.execute(
             &pinning(
                 "record<out: int>",
-                &format!("grimm pin_config '{key}' $data.pid 1\n{{ out: 0 }}"),
+                &format!("grmr pin_config '{key}' $data.pid 1\n{{ out: 0 }}"),
             ),
             &my_pid(),
         );
@@ -306,7 +306,7 @@ fn a_pin_is_held_to_the_config_files_own_bounds(_t: &testing::Testable<'_, '_, '
             &pinning(
                 "record<out: int>",
                 &format!(
-                    "grimm pin_config 'supervisor.ram_warn_fraction' $data.pid {value}\n\
+                    "grmr pin_config 'supervisor.ram_warn_fraction' $data.pid {value}\n\
                      {{ out: 0 }}",
                 ),
             ),
@@ -325,7 +325,7 @@ fn a_pin_against_a_dead_process_is_refused(_t: &testing::Testable<'_, '_, '_>) {
     let env = s.execute(
         &reading(
             "record<out: int>",
-            "grimm pin_config 'supervisor.cpu_warn_fraction' 0 0.5\n{ out: 0 }",
+            "grmr pin_config 'supervisor.cpu_warn_fraction' 0 0.5\n{ out: 0 }",
         ),
         "null",
     );
@@ -339,7 +339,7 @@ fn a_pin_against_a_dead_process_is_refused(_t: &testing::Testable<'_, '_, '_>) {
     let after = s.execute(
         &reading(
             "record<value: float>",
-            "{ value: (grimm get_config 'supervisor.cpu_warn_fraction') }",
+            "{ value: (grmr get_config 'supervisor.cpu_warn_fraction') }",
         ),
         "null",
     );
@@ -354,12 +354,12 @@ fn a_pin_against_a_dead_process_is_refused(_t: &testing::Testable<'_, '_, '_>) {
 fn the_config_decls_reach_the_stateful_lane_too(_t: &testing::Testable<'_, '_, '_>) {
     let s = TESTING.harness();
     let env = s.execute(
-        "def --env execute [data: nothing]: nothing -> record<tables: int> { { tables: (grimm get_config_all | columns | length) } }",
+        "def --env execute [data: nothing]: nothing -> record<tables: int> { { tables: (grmr get_config_all | columns | length) } }",
         "null",
     );
     assert_eq!(
         env["result"]["tables"].as_i64(),
         Some(3),
-        "the whole grimm family registers per eval, on both lanes; got {env}",
+        "the whole grmr family registers per eval, on both lanes; got {env}",
     );
 }

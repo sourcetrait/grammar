@@ -3,7 +3,7 @@ use crate::*;
 /// Parameters for `interface help`.
 #[derive(Debug, ser::Deserialize, ser::Serialize)]
 pub struct InspectParams {
-    /// A namepath, a pattern ending in `/` or `:`, `*`, `.`, `interface`, or `grimm`.
+    /// A namepath, a pattern ending in `/` or `:`, `*`, `.`, `interface`, or `grmr`.
     pub namepath: String,
 }
 

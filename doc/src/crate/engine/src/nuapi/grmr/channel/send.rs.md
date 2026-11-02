@@ -1,6 +1,6 @@
 # send.rs
 
-## struct GrimmChannelSend
+## struct GrmrChannelSend
 The Channel is a notification lane, not a serialization lane. `event` says "state
 changed, here is a tiny summary"; the agent fetches the actual data itself. That
 premise is why the signature has two slots rather than one: an author with

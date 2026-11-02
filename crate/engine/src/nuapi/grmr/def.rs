@@ -2,15 +2,15 @@ use crate::*;
 
 const SPAN: nu::Span = nu::Span::unknown();
 
-impl GrimmChannelSend {
-    pub(crate) const DEF: nuin::SignatureDef<GrimmCategory> = nuin::SignatureDef {
-        name: "grimm channel send",
+impl GrmrChannelSend {
+    pub(crate) const DEF: nuin::SignatureDef<GrmrCategory> = nuin::SignatureDef {
+        name: "grmr channel send",
         description: "Emits a message to the Channel. Returns a message id on success.",
-        category: GrimmCategory::Tool,
+        category: GrmrCategory::Tool,
         examples: &[
             nuin::ExampleDef {
                 description: "Send arbitrary event data (as seen from: nu(execute))",
-                example: "grimm channel send 'my/adhoc/Thing' {foo:'bar', num:3}",
+                example: "grmr channel send 'my/adhoc/Thing' {foo:'bar', num:3}",
                 result_fn: || nu::Value::record(
                     nu::record! {
                         "event_id" => nu::Value::string("987654321X", nu::Span::unknown()),
@@ -20,7 +20,7 @@ impl GrimmChannelSend {
             },
             nuin::ExampleDef {
                 description: "Send arbitrary event data (as seen from: Channel)",
-                example: "grimm channel send 'my/adhoc/Thing' {foo:'bar', num:3}",
+                example: "grmr channel send 'my/adhoc/Thing' {foo:'bar', num:3}",
                 result_fn: || nu::Value::record(
                     nu::record! {
                         "id" => nu::Value::string("987654321X", SPAN),
@@ -53,15 +53,15 @@ impl GrimmChannelSend {
     };
 }
 
-impl GrimmRemoteChannelSend {
-    pub(crate) const DEF: nuin::SignatureDef<GrimmCategory> = nuin::SignatureDef {
-        name: "grimm remote channel send",
+impl GrmrRemoteChannelSend {
+    pub(crate) const DEF: nuin::SignatureDef<GrmrCategory> = nuin::SignatureDef {
+        name: "grmr remote channel send",
         description: "Emits a message to a remote Channel. Returns a message id on success.",
-        category: GrimmCategory::Tool,
+        category: GrmrCategory::Tool,
         examples: &[
             nuin::ExampleDef {
                 description: "Send arbitrary event data to a remote",
-                example: "grimm remote channel send '0123456789B' 'my/model/Event' {foo:'bar', num:3}",
+                example: "grmr remote channel send '0123456789B' 'my/model/Event' {foo:'bar', num:3}",
                 result_fn: || nu::Value::record(nu::record!{
                     "event_id" => nu::Value::string("0987654321Z", nu::Span::unknown()),
                 }, nu::Span::unknown()),

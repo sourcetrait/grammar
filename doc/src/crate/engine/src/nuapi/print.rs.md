@@ -8,7 +8,7 @@ client's log at best. This one keeps upstream's signature, flags, and rendering
 and writes to the running call's stderr log instead, the file an external's
 stderr already lands in.
 
-ONE DECL ON EVERY ENGINE, from `startup`, unlike the `grimm` family: `print` is
+ONE DECL ON EVERY ENGINE, from `startup`, unlike the `grmr` family: `print` is
 standard nushell, so the validator parses it as the eval runs it. It finds its
 call at RUN time from `$env.NONCE` (`NuapiCall::current`), never at parse time:
 a module an earlier stateful call parsed runs `print` in a later one, and a decl

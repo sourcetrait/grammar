@@ -5,7 +5,7 @@ use sourcetrait_common::testing::prelude::*;
 
 static TESTING: testing::Module = testing::module!(Integration, { .using_temp_dir() });
 
-/// initialize -> tools/list (exactly 4) -> an execute() round-trip. The rmcp stdio
+/// initialize -> tools/list (exactly 5) -> an execute() round-trip. The rmcp stdio
 /// transport + handshake are the system surface here.
 #[tested]
 fn tools_list_and_execute_round_trip() {
@@ -13,8 +13,8 @@ fn tools_list_and_execute_round_trip() {
     let mut host = Host::spawn(t.temp_dir());
 
     let names = host.tool_names();
-    assert_eq!(names.len(), 4, "expected 4 tools; got {names:?}");
-    for expected in ["execute", "rerun", "call", "interface"] {
+    assert_eq!(names.len(), 5, "expected 5 tools; got {names:?}");
+    for expected in ["execute", "rerun", "call", "interface", "bed"] {
         assert!(
             names.contains(&expected.to_string()),
             "missing `{expected}` in {names:?}",
@@ -57,14 +57,14 @@ fn every_tool_names_its_host() {
         ),
         ("rerun", json!({"nonce": "NoSuchNonce1", "data": "null"})),
         ("call", json!({"namepath": "sourcetrait/ghost:m:noop", "data": "null"})),
-        ("interface", json!({"command": "interface info"})),
+        ("interface", json!({"subcommand": "interface info"})),
     ] {
         args["host"] = json!("elsewhere");
         let resp = host.call(tool, args);
         assert_eq!(envelope_error_kind(&resp).as_deref(), Some("host::unknown"), "{tool}: {resp}");
     }
 
-    let id = host.request_as_given("interface", json!({"command": "interface info"}));
+    let id = host.request_as_given("interface", json!({"subcommand": "interface info"}));
     let resp = host.read_id(id);
     assert_eq!(resp["result"]["isError"], json!(true), "refused at the boundary; got {resp}");
     assert!(

@@ -9,14 +9,16 @@ unknown tool.
 rmcp routers compose with `+` at runtime, which is what makes conditional assembly possible
 at all rather than requiring a compile-time feature per tool.
 
-Each of the four tools is deniable on its own, and there is no implication between tokens -
+Each of the five tools is deniable on its own, and there is no implication between tokens -
 denying `execute` does not deny `rerun` - so an operator's config lists exactly what it
 means. A denied interface command leaves the tool standing: the command leaves the
 interface's parse and its description instead (`crate/interface`'s `grammar.rs`), and
 denying `interface` removes the tool whole.
 
-The interface's description is written here, after its router is built, because it is
-rendered from the deny set at runtime and the tool attribute takes only a constant.
+The interface's and bed's descriptions are written here, after their routers are built,
+because each is rendered from the deny set at runtime and the tool attribute takes only a
+constant. A denied `grmr` command leaves bed standing, its description and its calls
+without that command.
 
 ## const MCP_DOC
 User's `include/human/mcp/mcp.md`, verbatim: the envelope every tool answers, which he

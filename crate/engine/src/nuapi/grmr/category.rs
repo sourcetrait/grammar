@@ -2,20 +2,20 @@ use crate::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(unused)]
-pub(crate) enum GrimmCategory {
+pub(crate) enum GrmrCategory {
     Utility,
     Tool,
     Control,
 }
 
-impl GrimmCategory {
-    const ROOT: &'static str = "grimm";
-    const UTILITY: &'static str = "grimm::utility";
-    const TOOL: &'static str = "grimm::tool";
-    const CONTROL: &'static str = "grimm::control";
+impl GrmrCategory {
+    const ROOT: &'static str = "grmr";
+    const UTILITY: &'static str = "grmr::utility";
+    const TOOL: &'static str = "grmr::tool";
+    const CONTROL: &'static str = "grmr::control";
 }
 
-impl nuin::SignatureCategoryTrait for GrimmCategory {
+impl nuin::SignatureCategoryTrait for GrmrCategory {
     #[inline]
     fn root() -> &'static str { Self::ROOT }
     

@@ -4,7 +4,7 @@ use crate::*;
 const MCP_DOC: &str = include_str!("../../../../../include/human/mcp/mcp.md");
 
 impl NuSh {
-    /// The four tools the deny set leaves, `interface`'s description its commands.
+    /// The five tools the deny set leaves, `interface`'s and `bed`'s descriptions set.
     pub(crate) fn tool_router(deny: &DenySet) -> mcp::ToolRouter<Self> {
         let mut router = mcp::ToolRouter::new();
         if !deny.denies(DeniableTool::Execute) {
@@ -22,6 +22,13 @@ impl NuSh {
                 route.attr.description = Some(interface_description(deny).into());
             }
             router += interface;
+        }
+        if !deny.denies(DeniableTool::Bed) {
+            let mut bed = Self::bed_router();
+            if let Some(route) = bed.map.get_mut(BED_TOOL) {
+                route.attr.description = Some(bed_description(deny).into());
+            }
+            router += bed;
         }
         router
     }

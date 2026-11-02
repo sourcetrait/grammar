@@ -63,7 +63,10 @@ pub enum EngineRequest {
 impl EngineRequest {
     /// Whether the request is an eval, a rerun, or a call, which take a call's slot.
     pub fn is_call(&self) -> bool {
-        matches!(self, Self::Wire(ToEngineSys::Execute(_) | ToEngineSys::Rerun(_) | ToEngineSys::Call(_)))
+        matches!(
+            self,
+            Self::Wire(ToEngineSys::Execute(_) | ToEngineSys::Rerun(_) | ToEngineSys::Call(_) | ToEngineSys::Bed(_))
+        )
     }
 }
 
