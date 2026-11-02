@@ -205,6 +205,7 @@ fn transport_errors() -> Vec<(&'static str, TransportError)> {
         ("invalid_frame", T::InvalidFrame { reason: "a trailing byte".into() }),
         ("result_too_large", T::ResultTooLarge { limit: 8 << 20 }),
         ("session_lost", T::SessionLost { reason: "grammar-ssh's stream ended".into() }),
+        ("engine_restart", T::EngineRestart { nom: "fixturenom1".into(), failure: Some("grammar-ssh's stream ended".into()) }),
     ]
 }
 
@@ -468,7 +469,7 @@ fn every_variant_has_its_vector() {
         .collect();
     assert_eq!(kinds.len(), 15);
     let transport: BTreeSet<_> = transport_errors().iter().map(|(_, e)| e.kind()).collect();
-    assert_eq!(transport.len(), 12);
+    assert_eq!(transport.len(), 13);
 }
 
 #[test]
@@ -494,6 +495,9 @@ fn a_violations_refusal_reports_its_errors_alone() {
 #[test]
 fn a_transport_failure_keeps_what_never_ran_apart_from_what_may_have() {
     for (name, error) in transport_errors() {
+        if let TransportError::EngineRestart { .. } = error {
+            continue;
+        }
         assert!(error.kind().starts_with("remote::engine::"), "{name}");
         assert_eq!(error.clone().rows().len(), 1, "{name}");
     }
@@ -502,6 +506,22 @@ fn a_transport_failure_keeps_what_never_ran_apart_from_what_may_have() {
     assert_ne!(auth.kind(), lost.kind());
     assert!(auth.message().contains("before any request was sent"));
     assert!(lost.message().contains("its outcome unknown"), "{}", lost.message());
+}
+
+#[test]
+fn an_engine_restart_tells_its_failure_then_its_new_nom() {
+    let nom = || NuVal::Record(vec![("nom".into(), NuVal::String("fixturenom1".into()))]);
+    let told = TransportError::EngineRestart { nom: "fixturenom1".into(), failure: Some("grammar-ssh's stream ended".into()) };
+    assert_eq!(told.kind(), "engine::restart");
+    let rows = told.rows();
+    let kinds: Vec<&str> = rows.iter().map(|row| row.kind.as_str()).collect();
+    assert_eq!(kinds, ["engine::fail", "engine::restart"]);
+    assert_eq!((rows[0].message.as_str(), &rows[0].source, &rows[0].detail), ("grammar-ssh's stream ended", &None, &None));
+    assert_eq!((rows[1].message.as_str(), &rows[1].source), ("Grammar engine has a new nom", &None));
+    assert_eq!(rows[1].detail, Some(nom()));
+    let alone = TransportError::EngineRestart { nom: "fixturenom1".into(), failure: None }.rows();
+    assert_eq!(alone.len(), 1, "no failure known, no engine::fail");
+    assert_eq!((alone[0].kind.as_str(), &alone[0].detail), ("engine::restart", &Some(nom())));
 }
 
 #[test]

@@ -242,7 +242,7 @@ async fn ssh_pid(remote: &RemoteHandle, endpoint: &Endpoint) -> u32 {
 }
 
 #[test]
-fn a_lost_grammar_ssh_answers_its_calls_lost_and_the_next_request_opens_a_session() {
+fn a_lost_grammar_ssh_answers_its_calls_lost_and_the_next_request_its_restart() {
     let sshd = Sshd::start();
     let account = TestAccount::new();
     let endpoint = sshd.endpoint("lab", &account);
@@ -265,10 +265,23 @@ fn a_lost_grammar_ssh_answers_its_calls_lost_and_the_next_request_opens_a_sessio
             Err(lost) => assert_eq!(lost.kind(), "remote::engine::session_lost", "{}", lost.message()),
             Ok(other) => panic!("the call's loss, not {other:?}"),
         }
+        let told = remote.request(endpoint.clone(), EngineRequest::Info).await.expect_err("the restart, nothing run");
+        let TransportError::EngineRestart { nom, failure } = &told else {
+            panic!("the engine's restart, not {told:?}");
+        };
+        assert!(failure.as_deref().is_some_and(|f| f.ends_with("grammar-ssh's stream ended")), "{failure:?}");
+        let state = remote.states().await.into_iter().find(|state| state.alias == "lab").expect("its state");
+        assert_eq!((state.phase, state.nom.as_deref()), (SessionPhase::Open, Some(nom.as_str())), "the rows show its nom");
+        let kinds: Vec<String> = told.rows().into_iter().map(|row| row.kind).collect();
+        assert_eq!(kinds, ["engine::fail", "engine::restart"]);
         let next = ssh_pid(&remote, &endpoint).await;
-        assert_ne!(next, pid, "a new session, a new grammar-ssh");
-        remote.close().await;
+        assert_ne!(next, pid, "the call after the restart runs, on a new grammar-ssh");
+        assert!(remote.close_session("lab").await, "the session closes");
         assert!(holds_within(END_WAIT, || !alive(next)).await, "the close ends grammar-ssh");
+        let reopened = ssh_pid(&remote, &endpoint).await;
+        assert_ne!(reopened, next, "a call after a close opens a session with no restart told");
+        remote.close().await;
+        assert!(holds_within(END_WAIT, || !alive(reopened)).await, "the close ends grammar-ssh");
         RemoteHandle::stop(remote).await.expect("the system stops");
     });
 }

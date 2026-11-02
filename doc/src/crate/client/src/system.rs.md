@@ -87,23 +87,40 @@ A host's session while it opens, its outcome shared by every request that
 arrives meanwhile, then open.
 
 ## struct Hosts
-The slots by alias, and each alias's last open's failure, which the next
-success clears.
+The slots by alias, each alias's last open's failure, which the next success
+clears, and each alias's lost session, kept until a session after it tells its
+restart.
 
+### fn request
 ### fn connect
-The session a request would take, opened now where none is open.
+The session a request would take, opened now where none is open, telling a
+restart first.
+
+### fn tell_restart
+The controller's `engine_restart_notified`, tracked inside (User): a session
+opened after a lost one answers the first request or connect it serves with
+`engine::restart` in place of anything, and the one after it runs. The end user
+resends what was told, a connect included, its second answer the state. A
+restart is told once: the first waiter to finish the open takes the notice in
+the same poll that puts the session in its slot, before any later request can
+reach it, and a request that shared that open runs. Its failure is the lost
+session's end, read at the telling, by when the pump has seen grammar-ssh's
+exit.
 
 ### fn close_session
 The alias's slot taken: an open session closed, an opening one awaited, then
 closed. The answer is whether a live session closed, so a close of an alias
-with none says so.
+with none says so. The alias's lost session goes with it: a close and a later
+call open under a new nom on the end user's own act, with nothing to tell.
 
 ### fn states
 Each alias with a slot or a failure, an ended session read as closed.
 
 ### fn session
 An open session that hasn't ended serves; otherwise one opening is joined or
-a new open begins, an ended session it replaces closed on a task of its own.
+a new open begins, an ended session it replaces kept as the alias's lost one
+and closed on a task of its own. A session only ends in its slot by a loss,
+the MCP's own closes taking it from the slot first.
 The first waiter to see the open finish puts the session in its slot, or
 clears the slot after a failure, so the next request opens again and nothing
 is resubmitted. Each waiter records the open's outcome for the states: a
@@ -112,7 +129,7 @@ close began is closed at once and its request refused.
 
 ### fn close_all
 The close stops any session from opening, then closes each one, its requests
-in flight answering `remote::engine::session_lost`.
+in flight answering `remote::engine::session_lost`, and lets each lost one go.
 
 ## fn open_state
 An open session's state, its grammar-ssh's nom and pid from the hello's reply.

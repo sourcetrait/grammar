@@ -262,14 +262,17 @@ pub fn span_to_line_col(source: &str, byte_offset: usize) -> (usize, usize) {
 /// The most rows one lint reports.
 pub const LINT_VIOLATION_CAP: usize = 3;
 
-/// One agent-facing diagnostic row.
+/// One agent-facing diagnostic row: its kind, message, source, and detail.
 #[cereal::derived(Data)]
 pub struct Diagnostic {
     pub kind: String,
     #[serde(skip)]
     pub severity: Severity,
-    pub source: Option<Source>,
     pub message: String,
+    pub source: Option<Source>,
+    /// A record a program reads, on the rare row that must carry one.
+    #[serde(default, with = "nuval::plain")]
+    pub detail: Option<NuVal>,
 }
 
 impl Diagnostic {
@@ -281,8 +284,9 @@ impl Diagnostic {
         Self {
             kind: kind.into(),
             severity: Severity::Error,
-            source,
             message: message.into(),
+            source,
+            detail: None,
         }
     }
 
@@ -294,9 +298,16 @@ impl Diagnostic {
         Self {
             kind: kind.into(),
             severity: Severity::Warning,
-            source,
             message: message.into(),
+            source,
+            detail: None,
         }
+    }
+
+    /// The row with `detail`, a record a program reads.
+    pub fn with_detail(mut self, detail: NuVal) -> Self {
+        self.detail = Some(detail);
+        self
     }
 
     pub fn bucket(diagnostics: Vec<Diagnostic>) -> (Vec<Diagnostic>, Vec<Diagnostic>) {
@@ -310,6 +321,23 @@ impl Diagnostic {
         }
         (errors, warnings)
     }
+}
+
+/// The kind of the row telling what happened to an engine that restarted.
+pub(crate) const KIND_ENGINE_FAIL: &str = "engine::fail";
+
+/// The kind of the row telling an engine's restart, its new nom its detail.
+pub(crate) const KIND_ENGINE_RESTART: &str = "engine::restart";
+
+/// The restart row's message, the same on every restart.
+pub(crate) const ENGINE_RESTART_MESSAGE: &str = "Grammar engine has a new nom";
+
+/// A restart's rows: what happened to the engine where known, then its new nom.
+pub fn restart_rows(nom: &str, failure: Option<&str>) -> Vec<Diagnostic> {
+    let fail = failure.map(|reason| Diagnostic::error(KIND_ENGINE_FAIL, None, reason));
+    let detail = NuVal::Record(vec![("nom".to_string(), NuVal::String(nom.to_string()))]);
+    let restart = Diagnostic::error(KIND_ENGINE_RESTART, None, ENGINE_RESTART_MESSAGE).with_detail(detail);
+    fail.into_iter().chain([restart]).collect()
 }
 
 /// What the engine failed at, and why.

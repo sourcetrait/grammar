@@ -37,6 +37,11 @@ fn warning() -> Diagnostic {
     Diagnostic::warning("lint::summary_length", None, "a summary past its length")
 }
 
+fn detailed() -> Diagnostic {
+    let detail = NuVal::Record(vec![("nom".into(), NuVal::String("fixturenom1".into())), ("n".into(), NuVal::Int(-1))]);
+    Diagnostic::error("engine::restart", None, "Grammar engine has a new nom").with_detail(detail)
+}
+
 /// Every command, by its variant.
 fn commands() -> Vec<(&'static str, EngineCommand)> {
     use EngineCommand as C;
@@ -119,7 +124,7 @@ fn engine_errors() -> Vec<(&'static str, EngineError)> {
             E::FunctionNotDefined { rig: "sourcetrait/gram".into(), module_path: "get".into(), name: "nothing".into() },
         ),
         ("namepath_invalid", E::NamepathInvalid { namepath: "::".into(), reason: "empty".into() }),
-        ("definition_violations", E::DefinitionViolations { diagnostics: vec![located()] }),
+        ("definition_violations", E::DefinitionViolations { diagnostics: vec![located(), detailed()] }),
         ("data_invalid", E::DataInvalid { reason: "not NUON".into() }),
         ("result_invalid", E::ResultInvalid { reason: "a string".into() }),
         ("timeout_invalid", E::TimeoutInvalid { reason: "negative".into() }),
@@ -441,6 +446,29 @@ fn a_diagnostic_keeps_its_severity_in_bitcode_and_not_in_its_envelope() {
         panic!("a diagnostic serializes as a record");
     };
     assert!(!envelope.iter().any(|(key, _)| key == "severity"), "{envelope:?}");
+}
+
+#[test]
+fn a_diagnostic_shows_its_kind_and_message_then_its_source_and_detail() {
+    let rows = restart_rows("fixturenom1", Some("grammar-ssh's stream ended"));
+    let NuVal::List(shown) = nuval::to_nuval(&rows).expect("their serde value") else {
+        panic!("rows serialize as a list");
+    };
+    for row in &shown {
+        let NuVal::Record(fields) = row else { panic!("a row is a record: {row:?}") };
+        let keys: Vec<&str> = fields.iter().map(|(key, _)| key.as_str()).collect();
+        assert_eq!(keys, ["kind", "message", "source", "detail"]);
+    }
+    assert_eq!(shown[0].get("detail"), Some(&NuVal::Nothing));
+    let nom = NuVal::Record(vec![("nom".into(), NuVal::String("fixturenom1".into()))]);
+    assert_eq!(shown[1].get("detail"), Some(&nom), "a detail shows as the record it holds");
+    assert_eq!(
+        nuval::to_nuon(&rows, nuval::NuonStyle::Raw).expect("their text"),
+        "[[kind,message,source,detail];[\"engine::fail\",\"grammar-ssh's stream ended\",null,null],\
+         [\"engine::restart\",\"Grammar engine has a new nom\",null,{nom:\"fixturenom1\"}]]",
+    );
+    let back: Vec<Diagnostic> = nuval::from_nuval(NuVal::List(shown)).expect("read back");
+    assert_eq!(back, rows);
 }
 
 #[test]

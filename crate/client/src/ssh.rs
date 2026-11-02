@@ -22,6 +22,8 @@ pub struct RemoteSession {
     jump: Option<Through>,
     /// The pump of the channel's messages, which ends with the channel.
     pump: std::sync::Mutex<Option<tk::JoinHandle<()>>>,
+    /// What the pump saw of grammar-ssh, its exit among it.
+    witness: Arc<std::sync::Mutex<Witness>>,
 }
 
 impl RemoteSession {
@@ -38,6 +40,16 @@ impl RemoteSession {
     /// Whether the session has ended.
     pub fn has_ended(&self) -> bool {
         self.session.has_ended()
+    }
+
+    /// What ended the session, grammar-ssh's exit first where its channel told one.
+    pub fn ended_by(&self) -> Option<String> {
+        let reason = self.session.ended_by()?;
+        let witness = self.witness.lock().unwrap_or_else(|e| e.into_inner());
+        Some(match &witness.exit {
+            Some(exit) => format!("grammar-ssh {exit}: {reason}"),
+            None => reason,
+        })
     }
 
     /// The session closed by the MCP: its close written, then the connection ended.
@@ -92,6 +104,7 @@ pub async fn open(
                     tunnel_closed: through.tunnel_closed,
                 }),
                 pump: std::sync::Mutex::new(Some(pump)),
+                witness,
             },
             events,
         )),

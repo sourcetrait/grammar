@@ -189,7 +189,7 @@ pub(crate) mod tk {
 }
 
 pub use crate::{
-    cache::{CacheKind, DEFINITION_FILE, cache_dir, definition_file, remove_call_cache},
+    cache::{CacheKind, DEFINITION_FILE, cache_dir, definition_file},
     cycle::detect_import_cycle,
     embed::EVAL_STACK_SIZE,
     engine::NU_VERSION,

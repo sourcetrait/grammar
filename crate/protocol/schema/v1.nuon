@@ -620,7 +620,8 @@
     [TransportError,     8,     Busy],
     [TransportError,     9,     InvalidFrame],
     [TransportError,     10,    ResultTooLarge],
-    [TransportError,     11,    SessionLost]
+    [TransportError,     11,    SessionLost],
+    [TransportError,     12,    EngineRestart]
   ],
   fields: [
     [owner,                          variant,                 index, name,              type];
@@ -693,8 +694,9 @@
     [DateData,                       null,                    2,     utc_offset_minus,  "i32"],
     [Diagnostic,                     null,                    0,     kind,              String],
     [Diagnostic,                     null,                    1,     severity,          Severity],
-    [Diagnostic,                     null,                    2,     source,            Option<Source>],
-    [Diagnostic,                     null,                    3,     message,           String],
+    [Diagnostic,                     null,                    2,     message,           String],
+    [Diagnostic,                     null,                    3,     source,            Option<Source>],
+    [Diagnostic,                     null,                    4,     detail,            Option<NuVal>],
     [DiskWarningEmergency,           null,                    0,     mount,             String],
     [DiskWarningEmergency,           null,                    1,     used_pct,          "u32"],
     [DiskWarningEmergency,           null,                    2,     threshold_pct,     "u32"],
@@ -1020,6 +1022,8 @@
     [TransportError,                 InvalidFrame,            0,     reason,            String],
     [TransportError,                 ResultTooLarge,          0,     limit,             "u64"],
     [TransportError,                 SessionLost,             0,     reason,            String],
+    [TransportError,                 EngineRestart,           0,     nom,               String],
+    [TransportError,                 EngineRestart,           1,     failure,           Option<String>],
     [TypedRangeData,                 null,                    0,     start,             T],
     [TypedRangeData,                 null,                    1,     step,              T],
     [TypedRangeData,                 null,                    2,     end,               Bounded<T>],

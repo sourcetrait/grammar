@@ -267,3 +267,70 @@ fn an_older_entry_is_refused_until_a_set_moves_it_to_the_new_fields() {
     }
     open_run_close(&mut host, "lab");
 }
+
+/// A response's error rows, its result a panic.
+fn error_rows(resp: &Value) -> Vec<NuVal> {
+    match envelope_error(resp) {
+        Some(NuVal::List(rows)) => rows,
+        other => panic!("error rows, not {other:?}: {resp}"),
+    }
+}
+
+/// `lab`'s grammar-ssh killed, then its session seen lost in the MCP's rows.
+fn kill_and_see_lost(host: &mut Host, pid: u32) {
+    nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid as i32), nix::sys::signal::Signal::SIGKILL)
+        .expect("grammar-ssh killed");
+    let deadline = std::time::Instant::now() + END_WAIT;
+    loop {
+        let row = answered(&host.interface("interface remote engine get 'lab'"));
+        if row["state"] == "closed" {
+            return;
+        }
+        assert!(std::time::Instant::now() < deadline, "the MCP sees the session lost: {row}");
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// A restart's rows, what happened to the engine then its new nom, which they return.
+fn restart_told(resp: &Value) -> String {
+    let rows = error_rows(resp);
+    let kinds: Vec<&str> = rows.iter().filter_map(|row| row["kind"].as_str()).collect();
+    assert_eq!(kinds, ["engine::fail", "engine::restart"], "{resp}");
+    let (fail, restart) = (&rows[0], &rows[1]);
+    let columns: Vec<&str> = restart.as_record().unwrap_or_default().iter().map(|(key, _)| key.as_str()).collect();
+    assert_eq!(columns, ["kind", "message", "source", "detail"], "{resp}");
+    assert!(fail["message"].as_str().is_some_and(|m| m.ends_with("grammar-ssh's stream ended")), "{resp}");
+    assert!(fail["source"].is_nothing() && fail["detail"].is_nothing(), "{resp}");
+    assert_eq!(restart["message"], "Grammar engine has a new nom", "{resp}");
+    assert!(restart["source"].is_nothing(), "{resp}");
+    restart["detail"]["nom"].as_str().expect("the new nom in its detail").to_string()
+}
+
+#[test]
+fn a_lost_engine_tells_its_restart_once_on_its_next_call_or_connect() {
+    let sshd = Sshd::start();
+    let account = TestAccount::new();
+    let root = tempfile::tempdir().expect("a scratch root");
+    let mut host = bare_host(root.path());
+    write_source(&root.path().join("agent"), ".grammar/remotes.toml", &engine_toml(&sshd.endpoint("lab", &account)));
+    let _ = answered(&interface_within(&mut host, "interface remote engine connect 'lab'"));
+    let first = ssh_pid(&mut host, "lab");
+
+    kill_and_see_lost(&mut host, first);
+    let id = host.request("execute", json!({"host": "lab", "definition": PID, "data": "null"}));
+    let nom = restart_told(&host.read_id_within(id, CONNECT));
+    let row = answered(&host.interface("interface remote engine get 'lab'"));
+    assert_eq!((row["state"].as_str(), row["nom"].as_str()), (Some("open"), Some(nom.as_str())), "{row}");
+    let second = ssh_pid(&mut host, "lab");
+    assert_ne!(second, first, "the call after the restart runs, on a new grammar-ssh");
+
+    kill_and_see_lost(&mut host, second);
+    let nom = restart_told(&interface_within(&mut host, "interface remote engine connect 'lab'"));
+    let opened = answered(&host.interface("interface remote engine connect 'lab'"));
+    assert_eq!((opened["state"].as_str(), opened["nom"].as_str()), (Some("open"), Some(nom.as_str())), "{opened}");
+    let third = ssh_pid(&mut host, "lab");
+    assert_ne!(third, second, "a connect told the restart, and the call after it runs");
+    let closed = answered(&host.interface("interface remote engine close 'lab'"));
+    assert!(closed.is_nothing(), "{closed}");
+    assert!(eventually(END_WAIT, || !alive(third)), "the close ends grammar-ssh");
+}

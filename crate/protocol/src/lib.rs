@@ -46,7 +46,7 @@ pub use crate::{
         Diagnostic, EngineCommand, EngineError, EngineHealth, EngineResult, ExecuteRequest,
         FromEngineSys, Host, HungEval, InspectDoc, LINT_VIOLATION_CAP, Lane, ModuleDoc,
         ProcessRow, RerunRequest, RigDoc, Severity, SignaturesDoc, Source, ToEngineSys,
-        ValueAnswer, builtin_equip, builtin_name, display_equip, span_to_line_col,
+        ValueAnswer, builtin_equip, builtin_name, display_equip, restart_rows, span_to_line_col,
     },
     error::{LOCAL_HOST, RuntimeError, TransportError},
     hello::{

@@ -21,7 +21,12 @@ A stderr line longer than `LINE_MAX` is logged in pieces; the last
 How long a close waits for its frame to leave and the channel to end.
 
 ## struct RemoteSession
-The session, and the connection it rides, held so it lasts.
+The session, and the connection it rides, held so it lasts, with what the pump
+saw of grammar-ssh.
+
+### fn ended_by
+The session's end with grammar-ssh's exit before it, where its channel told
+one: `grammar-ssh was killed by KILL: grammar-ssh's stream ended`.
 
 ### fn close
 The session's close is written and its stream ended, then the connection is

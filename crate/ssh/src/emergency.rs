@@ -33,7 +33,7 @@ impl EmergencyPolicy {
         }
     }
 
-    /// An emergency logged, then sent to the session's MCP, which logs and announces it.
+    /// An emergency logged, then sent to the session's MCP to log and announce.
     pub(crate) fn respond(
         &self,
         emergency: Emergency,

@@ -117,6 +117,24 @@ Per-condition data (`timeout_ms`, names, reason) lives IN `message`, not a typed
 per-variant field: it is text either way, and a per-variant field would vary its
 shape by kind.
 
+The envelope's columns are `kind`, `message`, `source`, and `detail`, the ones
+never null first, as User's result contract orders them (User). `detail` is a
+record a program reads, for the rare row that must carry data in a parseable
+form, null on every other row (User). It is written through `nuval::plain`, so
+an envelope shows the record itself rather than NuVal's tagged variant, and a
+row read back without the column takes none.
+
+## const KIND_ENGINE_FAIL
+## const KIND_ENGINE_RESTART
+## const ENGINE_RESTART_MESSAGE
+## fn restart_rows
+An engine's restart is an exceptional notice, told as a pair of rows (User):
+`engine::fail`, what happened to the engine, its message the reason, present
+only where something is known of it; then `engine::restart`, the change alone,
+its source always null, its message always the same, and its detail the new
+nom, `{nom: <nom>}`. A restart the end user asked for, should the API ever
+offer one, would answer the new nom as its success and tell nothing.
+
 ## enum EngineError
 Everything an eval reports is prose bound for `thread::returned_error`, with ONE
 exception: a module-resolution cycle is a CONDITION an agent can route on, so it

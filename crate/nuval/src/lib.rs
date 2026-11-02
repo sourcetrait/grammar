@@ -11,6 +11,7 @@ pub(crate) mod kind {
 }
 pub(crate) mod text {
     pub(crate) mod de;
+    pub mod plain;
     pub(crate) mod read;
     pub(crate) mod ser;
     pub(crate) mod write;
@@ -32,6 +33,7 @@ pub(crate) mod width;
 #[cfg(all(test, feature = "nushell"))]
 mod tests {
     mod access;
+    mod plain;
     mod text;
     mod ty {
         mod check;
@@ -87,6 +89,7 @@ pub use crate::{
     },
     text::{
         de::{from_nuon, from_nuval},
+        plain,
         ser::{to_nuon, to_nuval},
         write::NuonStyle,
     },

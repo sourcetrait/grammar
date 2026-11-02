@@ -59,5 +59,13 @@ its session, so its outcome is unknown and nothing resubmits it; an agent tells
 a retry that is safe from one that may repeat an effect. `Unavailable` is a
 grammar-ssh that couldn't start, its own failure's kind and text in the reason,
 a held namespace among them. `ResultTooLarge` is an answer past the session's
-frame or its decode budget, refused alone while the session goes on. Each new
-variant goes last, so the ones before it keep their wire indices.
+frame or its decode budget, refused alone while the session goes on.
+`EngineRestart` tells the end user the engine its request reached restarted
+since it last met it, a session lost and opened again on a new engine, and
+the request didn't run, so it is resent as it was; it reports under the
+engine's own kinds, `engine::fail` and `engine::restart`, as `restart_rows`
+makes them (User). Each new variant goes last, so the ones before it keep
+their wire indices.
+
+### fn rows
+A restart reports its pair of rows; every other failure one row.

@@ -27,7 +27,8 @@ One file a nushell error type's family of kinds, the error model's tables.
 ## mod text
 NUON text without nushell: the reader and the writer port nushell's own, and
 the serde serializer and deserializer carry any type to and from a NuVal and
-so to and from the text.
+so to and from the text. `plain` is public as a module, the path a field's
+`#[serde(with)]` names.
 
 ## mod ty
 The nu type: `model` its enum, its fields, and a `.nutype` file; `text` its
@@ -63,6 +64,6 @@ taken at nu-protocol's.
 ## pub use
 The value, its error and result, the data each kind of value holds, every
 family of error kinds, and `wide`; the NUON text's style, error, and serde
-conversions; the type, its field, a `.nutype` file, and the type's error and
+conversions, and `plain`, a NuVal field written as the value it holds; the type, its field, a `.nutype` file, and the type's error and
 result; with `nushell`, the two conversion traits and the conversion's
 error.

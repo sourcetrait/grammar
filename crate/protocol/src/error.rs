@@ -143,7 +143,7 @@ impl RuntimeError {
     }
 }
 
-/// Why a session with grammar-ssh failed, apart from what its engine answered.
+/// Why a request to grammar-ssh got no answer from its engine.
 #[cereal::derived(Data)]
 pub enum TransportError {
     VersionMismatch { expected: String, found: String },
@@ -164,6 +164,8 @@ pub enum TransportError {
     ResultTooLarge { limit: u64 },
     /// The session ended with the request in flight: its outcome is unknown.
     SessionLost { reason: String },
+    /// The engine restarted since the end user last met it; the request didn't run.
+    EngineRestart { nom: String, failure: Option<String> },
 }
 
 impl TransportError {
@@ -182,6 +184,7 @@ impl TransportError {
             Self::InvalidFrame { .. } => "remote::engine::invalid_frame",
             Self::ResultTooLarge { .. } => "remote::engine::result_too_large",
             Self::SessionLost { .. } => "remote::engine::session_lost",
+            Self::EngineRestart { .. } => engine::KIND_ENGINE_RESTART,
         }
     }
 
@@ -216,11 +219,15 @@ impl TransportError {
             Self::SessionLost { reason } => {
                 format!("the session ended with the request in flight, its outcome unknown: {reason}")
             }
+            Self::EngineRestart { .. } => engine::ENGINE_RESTART_MESSAGE.to_string(),
         }
     }
 
-    /// The one error row the failure reports.
+    /// The error rows the failure reports: a restart's pair, else one.
     pub fn rows(self) -> Vec<Diagnostic> {
-        vec![Diagnostic::error(self.kind(), None, self.message())]
+        match self {
+            Self::EngineRestart { nom, failure } => restart_rows(&nom, failure.as_deref()),
+            single => vec![Diagnostic::error(single.kind(), None, single.message())],
+        }
     }
 }

@@ -1,7 +1,7 @@
-//! The engine's start, and the engine's host asks routed by grammar-ssh's controller.
+//! The engine's start, and its host asks routed by grammar-ssh's controller.
 use crate::*;
 
-/// The engine started on the config's namespace, homes, and workdir, and the scratch.
+/// The engine started on the config's namespace, homes, workdir, and scratch.
 pub(crate) fn init_engine(
     config: &Config,
     scratch: &ScratchDirs,
@@ -33,7 +33,7 @@ pub(crate) fn ensure_substrate() -> GrammarSshResult<()> {
     Ok(())
 }
 
-/// The controller's handler of the engine: a pin held here, every other ask the MCP's.
+/// The controller's engine handler: a pin held here, every other ask the MCP's.
 #[derive(Clone)]
 pub(crate) struct HostRoute {
     /// The session's MCP, which answers every ask but a pin.

@@ -1,4 +1,4 @@
-//! The operator's handler and observer: its emergencies to the policy, the engine seen.
+//! The operator's handler, its emergencies to the policy, and its engine observer.
 use crate::*;
 
 /// The controller's handler of the operator: its emergencies to the policy.

@@ -40,6 +40,10 @@ and nothing resubmits it.
 The first reason stands; a later end, the writer's and the reader's both
 seeing one loss, changes nothing.
 
+### fn ended_by
+The end's own words, a loss's reason without the in-flight request's
+preamble, for the restart that tells it.
+
 ## struct Session
 ### fn open
 The hello is sent and the reply read within `REPLY_DEADLINE`, grammar-ssh's
@@ -54,6 +58,9 @@ it at once.
 ### fn close
 The close queued as the last frame, unless the session has ended already, and
 the session ended, every waiter let go.
+
+### fn ended_by
+Why the session ended, once it has, for its owner.
 
 ### fn finish
 The close, then the writer awaited within its deadline, so the close is

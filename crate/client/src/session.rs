@@ -109,6 +109,15 @@ impl Shared {
     fn has_ended(&self) -> bool {
         self.ended.lock().unwrap_or_else(|e| e.into_inner()).is_some()
     }
+
+    /// What ended the session, in its own words, once it has.
+    fn ended_by(&self) -> Option<String> {
+        let ended = self.ended.lock().unwrap_or_else(|e| e.into_inner());
+        ended.as_ref().map(|reason| match reason {
+            TransportError::SessionLost { reason } => reason.clone(),
+            other => other.message(),
+        })
+    }
 }
 
 /// The MCP's end of one session with grammar-ssh.
@@ -196,6 +205,11 @@ impl Session {
     /// Whether the session has ended.
     pub fn has_ended(&self) -> bool {
         self.shared.has_ended()
+    }
+
+    /// What ended the session, in its own words, once it has.
+    pub fn ended_by(&self) -> Option<String> {
+        self.shared.ended_by()
     }
 
     /// The session ended by the MCP: its close the last frame, every request let go.

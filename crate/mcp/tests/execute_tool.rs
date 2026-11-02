@@ -248,7 +248,7 @@ fn a_non_eval_tool_answers_the_same_envelope() {
     assert_eq!(keys(&refused), vec!["error", "nonce"], "{refused}");
     let rows = refused["error"].as_list().expect("an error table");
     assert_eq!(rows.len(), 1, "{refused}");
-    assert_eq!(keys(&rows[0]), vec!["kind", "message", "source"], "{refused}");
+    assert_eq!(keys(&rows[0]), vec!["detail", "kind", "message", "source"], "{refused}");
     assert_eq!(error_kind(&refused), Some("equip::not_registered"), "{refused}");
 }
 

@@ -441,12 +441,14 @@ enum Slot {
     Open(Arc<RemoteSession>),
 }
 
-/// Each alias's session and each alias's last failure to open one.
+/// Each alias's session, its last failure to open one, and its lost session.
 struct Hosts {
     limits: Limits,
     slots: std::sync::Mutex<HashMap<String, Slot>>,
     /// The last open's failure by alias, cleared when an open succeeds.
     failures: std::sync::Mutex<HashMap<String, String>>,
+    /// The session each alias lost, until the session after it tells its restart.
+    lost: std::sync::Mutex<HashMap<String, Arc<RemoteSession>>>,
     uplink: Uplink,
     /// Set once the close begins, after which no session opens.
     closing: AtomicBool,
@@ -459,6 +461,7 @@ impl Hosts {
             limits: params.limits,
             slots: std::sync::Mutex::new(HashMap::new()),
             failures: std::sync::Mutex::new(HashMap::new()),
+            lost: std::sync::Mutex::new(HashMap::new()),
             uplink,
             closing: AtomicBool::new(false),
         }
@@ -474,20 +477,40 @@ impl Hosts {
         self.failures.lock().unwrap_or_else(|e| e.into_inner())
     }
 
+    /// The lost sessions, a poisoned lock taken as it stands.
+    fn lost(&self) -> std::sync::MutexGuard<'_, HashMap<String, Arc<RemoteSession>>> {
+        self.lost.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     /// `request`'s response from `endpoint`'s grammar-ssh, opening a session if none.
     async fn request(&self, endpoint: &Endpoint, request: EngineRequest) -> Result<EngineResponse, TransportError> {
-        self.session(endpoint).await?.request(request).await
+        let session = self.session(endpoint).await?;
+        self.tell_restart(&endpoint.alias, &session)?;
+        session.request(request).await
     }
 
     /// `endpoint`'s session opened now where none is open, and its state.
     async fn connect(&self, endpoint: &Endpoint) -> Result<SessionState, TransportError> {
         let session = self.session(endpoint).await?;
+        self.tell_restart(&endpoint.alias, &session)?;
         Ok(open_state(&endpoint.alias, &session, None))
+    }
+
+    /// The alias's restart told once, after a lost session, in place of an answer.
+    fn tell_restart(&self, alias: &str, session: &RemoteSession) -> Result<(), TransportError> {
+        let Some(lost) = self.lost().remove(alias) else {
+            return Ok(());
+        };
+        Err(TransportError::EngineRestart {
+            nom: session.ssh().nom.clone(),
+            failure: lost.ended_by(),
+        })
     }
 
     /// The alias's session, open or opening, closed; whether one was open.
     async fn close_session(&self, alias: &str) -> bool {
         let slot = self.slots().remove(alias);
+        self.lost().remove(alias);
         match slot {
             Some(Slot::Open(session)) => {
                 let live = !session.has_ended();
@@ -550,6 +573,7 @@ impl Hosts {
                     let opening = open_relayed(endpoint.clone(), self.limits, self.uplink.clone()).boxed().shared();
                     let ended = slots.insert(alias.to_string(), Slot::Opening(opening.clone()));
                     if let Some(Slot::Open(ended)) = ended {
+                        self.lost().insert(alias.to_string(), ended.clone());
                         tk::spawn(async move { ended.close().await });
                     }
                     opening
@@ -598,6 +622,7 @@ impl Hosts {
                 Slot::Opening(_) => None,
             })
             .collect();
+        self.lost().clear();
         join_all(sessions.iter().map(|session| session.close())).await;
     }
 }

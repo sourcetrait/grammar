@@ -34,21 +34,6 @@ pub(crate) fn call_log_dir(nonce: &str) -> Option<PathBuf> {
         .find(|dir| dir.is_dir())
 }
 
-/// The cache entries of the call `nonce` names removed, in each kind it may sit in.
-pub fn remove_call_cache(nonce: &str) {
-    if nonce.is_empty() || !nonce.chars().all(|c| c.is_ascii_alphanumeric()) {
-        return;
-    }
-    for kind in [CacheKind::Execute, CacheKind::Calls] {
-        let dir = cache_kind_dir(kind).join(nonce);
-        if dir.is_dir()
-            && let Err(e) = fs::remove_dir_all(&dir)
-        {
-            eprintln!("grammar: the call cache {}: {e}", dir.display());
-        }
-    }
-}
-
 /// An `execute` call's definition, cached beside its logs for `rerun`.
 pub const DEFINITION_FILE: &str = "definition.nu";
 

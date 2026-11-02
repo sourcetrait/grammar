@@ -62,7 +62,7 @@ const DATA: HomeSpec = HomeSpec { name: "data", uenv: "UENV_USR_DATA", standard:
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 const CACHE: HomeSpec = HomeSpec { name: "cache", uenv: "UENV_USR_CACHE", standard: Some("XDG_CACHE_HOME"), default: Default::UnderHome("Library/Caches") };
 
-/// grammar-ssh's homes, each an existing absolute directory, the runtime's optional.
+/// grammar-ssh's homes, each an existing absolute directory, the runtime optional.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Homes {
     pub data: PathBuf,
