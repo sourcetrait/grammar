@@ -24,11 +24,12 @@ record<
 	nonce: string
 	error: table<
 		kind: string
+		message: string
 		source: oneof<nothing, record<
 			path: oneof<nothing, string>
 			position: list<int>
 		>>
-		message: string
+		detail: oneof<nothing, record>
 	>
 >
 ```
