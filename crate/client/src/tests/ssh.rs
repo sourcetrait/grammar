@@ -141,6 +141,7 @@ fn a_windows_hosts_worker_line_goes_bare() {
         user: "worker".to_string(),
         key: "/keys/worker".to_string(),
         host_keys: Vec::new(),
+        jump: None,
         command: r"C:\Users\worker\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe".to_string(),
         id: "fixture".to_string(),
         namespace: "default".to_string(),
@@ -180,6 +181,58 @@ fn each_platform_holds_its_own_paths() {
     assert!(check_path(r"C:\Users\worker\work", linux).is_err());
 }
 
+/// A host key's line, its key test-only.
+const HOST_KEY: &str = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJdD7y3aLq454yWBdwLWbieU1ebz9/cu7/QEXn9OIeZJ example";
+
+/// An endpoint of `alias` whose every field passes its check, reached directly.
+fn whole(alias: &str) -> Endpoint {
+    Endpoint {
+        alias: alias.to_string(),
+        platform: Platform::Linux,
+        host: "build.example".to_string(),
+        port: 2222,
+        user: "worker".to_string(),
+        key: "/keys/worker".to_string(),
+        host_keys: vec![HOST_KEY.to_string()],
+        jump: None,
+        command: WORKER_COMMAND.to_string(),
+        id: "fixture".to_string(),
+        namespace: "default".to_string(),
+        workdir: None,
+    }
+}
+
+#[test]
+fn a_jump_names_its_hop_and_is_held_to_a_logins_checks() {
+    let gate = Jump::of(&Endpoint {
+        host: "gate.example".to_string(),
+        port: 22,
+        ..whole("gate")
+    });
+    let endpoint = Endpoint {
+        jump: Some(gate.clone()),
+        ..whole("lab")
+    };
+    assert!(endpoint.check().is_ok(), "{:?}", endpoint.check());
+    assert_eq!(gate.place(), "the jump `gate` at gate.example:22");
+    assert_eq!(endpoint.place(), "build.example:2222 through the jump `gate`");
+    assert_eq!(whole("lab").place(), "build.example:2222", "a direct host names its address alone");
+    let itself = Endpoint {
+        jump: Some(Jump::of(&whole("lab"))),
+        ..whole("lab")
+    };
+    assert!(itself.check().expect_err("a jump to itself").contains("jump names the entry itself"));
+    let keyless = Endpoint {
+        jump: Some(Jump {
+            host_keys: Vec::new(),
+            ..gate
+        }),
+        ..whole("lab")
+    };
+    let refusal = keyless.check().expect_err("a jump pins a key");
+    assert!(refusal.starts_with("[[engine]] `gate`: known_hosts"), "the jump's own alias and field: {refusal}");
+}
+
 #[test]
 fn a_platform_is_named_windows_linux_or_macos() {
     for name in Platform::NAMES {
@@ -200,6 +253,7 @@ fn the_worker_runs_through_the_accounts_login_shell() {
         user: "worker".to_string(),
         key: "/keys/worker".to_string(),
         host_keys: Vec::new(),
+        jump: None,
         command: WORKER_COMMAND.to_string(),
         id: "fixture".to_string(),
         namespace: "default".to_string(),

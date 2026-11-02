@@ -18,6 +18,8 @@ pub struct RemoteSession {
     session: Session,
     /// The connection, held so the session lasts and ended at its close.
     connection: tk::AsyncMutex<russh::client::Handle<Pinned>>,
+    /// The jump's connection the session rides through, ended after the session's.
+    jump: Option<Through>,
     /// The pump of the channel's messages, which ends with the channel.
     pump: std::sync::Mutex<Option<tk::JoinHandle<()>>>,
 }
@@ -41,12 +43,16 @@ impl RemoteSession {
     /// The session closed by the MCP: its close written, then the connection ended.
     pub async fn close(&self) {
         self.session.finish(CLOSE_FLUSH).await;
-        let _ = self
-            .connection
-            .lock()
-            .await
-            .disconnect(russh::Disconnect::ByApplication, "the MCP closed the session", "en")
-            .await;
+        let connection = self.connection.lock().await;
+        match &self.jump {
+            Some(through) => {
+                let jump = through.connection.lock().await;
+                let hop = Some((&*jump, &*through.tunnel_closed));
+                end(&*connection, hop, "the MCP closed the session").await;
+            }
+            None => end(&*connection, None, "the MCP closed the session").await,
+        }
+        drop(connection);
         let pump = self.pump.lock().unwrap_or_else(|e| e.into_inner()).take();
         if let Some(pump) = pump {
             let _ = tk::timeout(CLOSE_FLUSH, pump).await;
@@ -60,23 +66,17 @@ pub async fn open(
     requested: Limits,
 ) -> Result<(RemoteSession, tk::UnboundedReceiver<SessionEvent>), TransportError> {
     let instance = endpoint.instance()?;
-    let pinned = endpoint.pinned_keys().map_err(|reason| TransportError::HostKeyRejected { reason })?;
-    let key = keys::load_secret_key(&endpoint.key, None).map_err(|e| TransportError::AuthenticationFailed {
-        reason: format!("the key file {} couldn't be read: {e}", endpoint.key),
-    })?;
-    let (connection, channel) = match tk::timeout(AUTH_DEADLINE, connect(endpoint, pinned, key)).await {
-        Ok(connected) => connected?,
-        Err(_) => {
-            return Err(TransportError::ConnectFailed {
-                reason: format!(
-                    "no session with {}:{} in {} s",
-                    endpoint.host,
-                    endpoint.port,
-                    AUTH_DEADLINE.as_secs()
-                ),
-            });
-        }
-    };
+    let target = Login::target(endpoint)?;
+    let jump = endpoint.jump.as_ref().map(Login::jump).transpose()?;
+    let (connection, through, channel) =
+        match tk::timeout(AUTH_DEADLINE, connect(target, jump, endpoint.command_line())).await {
+            Ok(connected) => connected?,
+            Err(_) => {
+                return Err(TransportError::ConnectFailed {
+                    reason: format!("no session with {} in {} s", endpoint.place(), AUTH_DEADLINE.as_secs()),
+                });
+            }
+        };
     let (read, write) = channel.split();
     let (output, input) = tk::duplex(PIPE_BYTES);
     let witness = Arc::new(std::sync::Mutex::new(Witness::default()));
@@ -87,14 +87,17 @@ pub async fn open(
             RemoteSession {
                 session,
                 connection: tk::AsyncMutex::new(connection),
+                jump: through.map(|through| Through {
+                    connection: tk::AsyncMutex::new(through.connection),
+                    tunnel_closed: through.tunnel_closed,
+                }),
                 pump: std::sync::Mutex::new(Some(pump)),
             },
             events,
         )),
         Err(refusal) => {
-            let _ = connection
-                .disconnect(russh::Disconnect::ByApplication, "the session didn't open", "en")
-                .await;
+            let hop = through.as_ref().map(|through| (&through.connection, &*through.tunnel_closed));
+            end(&connection, hop, "the session didn't open").await;
             let _ = tk::timeout(CLOSE_FLUSH, &mut pump).await;
             let witness = witness.lock().unwrap_or_else(|e| e.into_inner());
             Err(witness.explain(refusal, &endpoint.command))
@@ -116,57 +119,195 @@ fn preferred() -> russh::Preferred {
     }
 }
 
+/// A session's connection, its jump's where it takes one, and its exec channel.
+type Connected = (
+    russh::client::Handle<Pinned>,
+    Option<Gate<russh::client::Handle<Pinned>>>,
+    russh::Channel<russh::client::Msg>,
+);
+
+/// A jump's connection and the signal its host gives when it closes the tunnel.
+struct Gate<C> {
+    connection: C,
+    tunnel_closed: Arc<tk::Notify>,
+}
+
+/// A session's jump, held as long as the session's connection is.
+type Through = Gate<tk::AsyncMutex<russh::client::Handle<Pinned>>>;
+
+/// One hop's login: its place, the keys its host may show, the key it signs with.
+struct Login {
+    /// Where the hop is, as its refusals name it.
+    place: String,
+    /// Whether a jump is taken, so that every refusal names its hop.
+    hop_named: bool,
+    host: String,
+    port: u16,
+    user: String,
+    pinned: Vec<keys::PublicKey>,
+    key: Arc<keys::PrivateKey>,
+}
+
+impl Login {
+    /// The engine's own host's login, named by its hop where a jump is taken.
+    fn target(endpoint: &Endpoint) -> Result<Self, TransportError> {
+        let hop_named = endpoint.jump.is_some();
+        let pinned = endpoint.pinned_keys();
+        Self::new(endpoint.place(), hop_named, &endpoint.host, endpoint.port, &endpoint.user, &endpoint.key, pinned)
+    }
+
+    /// The jump host's login, always named by its hop.
+    fn jump(jump: &Jump) -> Result<Self, TransportError> {
+        Self::new(jump.place(), true, &jump.host, jump.port, &jump.user, &jump.key, jump.pinned_keys())
+    }
+
+    /// A login whose pinned keys and key file are read before any connection.
+    fn new(
+        place: String,
+        hop_named: bool,
+        host: &str,
+        port: u16,
+        user: &str,
+        key: &str,
+        pinned: Result<Vec<keys::PublicKey>, String>,
+    ) -> Result<Self, TransportError> {
+        let named = |reason: String| if hop_named { format!("{place}: {reason}") } else { reason };
+        let pinned = pinned.map_err(|reason| TransportError::HostKeyRejected { reason: named(reason) })?;
+        let secret = keys::load_secret_key(key, None).map_err(|e| TransportError::AuthenticationFailed {
+            reason: named(format!("the key file {key} couldn't be read: {e}")),
+        })?;
+        Ok(Self {
+            place,
+            hop_named,
+            host: host.to_string(),
+            port,
+            user: user.to_string(),
+            pinned,
+            key: Arc::new(secret),
+        })
+    }
+
+    /// `reason` named by the hop's place where a jump is taken.
+    fn named(&self, reason: String) -> String {
+        if self.hop_named { format!("{}: {reason}", self.place) } else { reason }
+    }
+}
+
 /// The connection authenticated and the worker's command running on its channel.
 async fn connect(
-    endpoint: &Endpoint,
-    pinned: Vec<keys::PublicKey>,
-    key: keys::PrivateKey,
-) -> Result<(russh::client::Handle<Pinned>, russh::Channel<russh::client::Msg>), TransportError> {
-    let place = format!("{}:{}", endpoint.host, endpoint.port);
-    let tcp = tk::TcpStream::connect((endpoint.host.as_str(), endpoint.port))
+    target: Login,
+    jump: Option<Login>,
+    command_line: String,
+) -> Result<Connected, TransportError> {
+    let (mut connection, through) = match jump {
+        None => (handshake(tcp(&target).await?, &target, Arc::default()).await?, None),
+        Some(jump) => {
+            let tunnel_closed = Arc::new(tk::Notify::new());
+            let mut gate = handshake(tcp(&jump).await?, &jump, tunnel_closed.clone()).await?;
+            authenticate(&mut gate, &jump).await?;
+            let tunnel = gate
+                .channel_open_direct_tcpip(target.host.clone(), u32::from(target.port), "127.0.0.1", 0)
+                .await
+                .map_err(|e| TransportError::ConnectFailed {
+                    reason: format!("{} opened no channel to {}:{}: {e}", jump.place, target.host, target.port),
+                })?;
+            let connection = handshake(tunnel.into_stream(), &target, Arc::default()).await?;
+            (connection, Some(Gate { connection: gate, tunnel_closed }))
+        }
+    };
+    authenticate(&mut connection, &target).await?;
+    let place = &target.place;
+    let channel = connection.channel_open_session().await.map_err(|e| TransportError::Unavailable {
+        reason: format!("{place} opened no session channel: {e}"),
+    })?;
+    channel.exec(true, command_line).await.map_err(|e| TransportError::Unavailable {
+        reason: format!("{place} took no command: {e}"),
+    })?;
+    Ok((connection, through, channel))
+}
+
+/// A TCP connection to the hop's host, its failure named by the hop's place.
+async fn tcp(login: &Login) -> Result<tk::TcpStream, TransportError> {
+    let tcp = tk::TcpStream::connect((login.host.as_str(), login.port))
         .await
-        .map_err(|e| TransportError::ConnectFailed { reason: format!("{place}: {e}") })?;
+        .map_err(|e| TransportError::ConnectFailed { reason: format!("{}: {e}", login.place) })?;
     let _ = tcp.set_nodelay(true);
+    Ok(tcp)
+}
+
+/// The SSH handshake over `stream`, the host held to the hop's pinned keys.
+async fn handshake<S>(
+    stream: S,
+    login: &Login,
+    closed: Arc<tk::Notify>,
+) -> Result<russh::client::Handle<Pinned>, TransportError>
+where
+    S: tk::AsyncRead + tk::AsyncWrite + Unpin + Send + 'static,
+{
     let rejected = Arc::new(std::sync::Mutex::new(None));
     let handler = Pinned {
-        keys: pinned,
+        keys: login.pinned.clone(),
         rejected: rejected.clone(),
+        closed,
     };
     let config = Arc::new(russh::client::Config {
         preferred: preferred(),
         nodelay: true,
         ..Default::default()
     });
-    let mut connection = match russh::client::connect_stream(config, tcp, handler).await {
-        Ok(connection) => connection,
-        Err(e) => {
-            let rejected = rejected.lock().unwrap_or_else(|e| e.into_inner()).take();
-            return Err(match rejected {
-                Some(reason) => TransportError::HostKeyRejected { reason },
-                None => TransportError::ConnectFailed {
-                    reason: format!("the SSH handshake with {place}: {e}"),
-                },
-            });
+    russh::client::connect_stream(config, stream, handler).await.map_err(|e| {
+        match rejected.lock().unwrap_or_else(|e| e.into_inner()).take() {
+            Some(reason) => TransportError::HostKeyRejected { reason: login.named(reason) },
+            None => TransportError::ConnectFailed {
+                reason: format!("the SSH handshake with {}: {e}", login.place),
+            },
         }
-    };
-    let hash = rsa_hash(&connection, &key).await?;
-    let signer = keys::PrivateKeyWithHashAlg::new(Arc::new(key), hash);
+    })
+}
+
+/// The hop's account authenticated with its key.
+async fn authenticate(
+    connection: &mut russh::client::Handle<Pinned>,
+    login: &Login,
+) -> Result<(), TransportError> {
+    let hash = rsa_hash(connection, &login.key).await.map_err(|refusal| match refusal {
+        TransportError::AuthenticationFailed { reason } => {
+            TransportError::AuthenticationFailed { reason: login.named(reason) }
+        }
+        other => other,
+    })?;
+    let signer = keys::PrivateKeyWithHashAlg::new(login.key.clone(), hash);
     let auth = connection
-        .authenticate_publickey(endpoint.user.clone(), signer)
+        .authenticate_publickey(login.user.clone(), signer)
         .await
-        .map_err(|e| TransportError::AuthenticationFailed { reason: e.to_string() })?;
+        .map_err(|e| TransportError::AuthenticationFailed { reason: login.named(e.to_string()) })?;
     if !auth.success() {
         return Err(TransportError::AuthenticationFailed {
-            reason: format!("{place} refused the key for `{}`", endpoint.user),
+            reason: format!("{} refused the key for `{}`", login.place, login.user),
         });
     }
-    let channel = connection.channel_open_session().await.map_err(|e| TransportError::Unavailable {
-        reason: format!("{place} opened no session channel: {e}"),
-    })?;
-    channel.exec(true, endpoint.command_line()).await.map_err(|e| TransportError::Unavailable {
-        reason: format!("{place} took no command: {e}"),
-    })?;
-    Ok((connection, channel))
+    Ok(())
+}
+
+/// The connection ended, then its jump's once the jump's host has closed the tunnel.
+async fn end(
+    connection: &russh::client::Handle<Pinned>,
+    jump: Option<(&russh::client::Handle<Pinned>, &tk::Notify)>,
+    reason: &str,
+) {
+    disconnect(connection, reason).await;
+    if let Some((jump, tunnel_closed)) = jump {
+        let _ = tk::timeout(CLOSE_FLUSH, tunnel_closed.notified()).await;
+        disconnect(jump, reason).await;
+    }
+}
+
+/// A connection ended by the MCP, `reason` told to its host.
+async fn disconnect(
+    connection: &russh::client::Handle<Pinned>,
+    reason: &str,
+) {
+    let _ = connection.disconnect(russh::Disconnect::ByApplication, reason, "en").await;
 }
 
 /// The hash an RSA key signs with, SHA-2 alone; none for any other key.
@@ -191,6 +332,8 @@ pub(crate) struct Pinned {
     keys: Vec<keys::PublicKey>,
     /// Why the host's key was refused, kept for the connect's error.
     rejected: Arc<std::sync::Mutex<Option<String>>>,
+    /// Told when the host closes a channel: a jump's one channel is its tunnel.
+    closed: Arc<tk::Notify>,
 }
 
 impl russh::client::Handler for Pinned {
@@ -208,6 +351,15 @@ impl russh::client::Handler for Pinned {
                 Some(format!("the host presented {}", key.fingerprint(keys::HashAlg::Sha256)));
         }
         Ok(matched)
+    }
+
+    async fn channel_close(
+        &mut self,
+        _channel: russh::ChannelId,
+        _session: &mut russh::client::Session,
+    ) -> Result<(), Self::Error> {
+        self.closed.notify_one();
+        Ok(())
     }
 }
 

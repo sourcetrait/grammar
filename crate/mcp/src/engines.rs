@@ -37,6 +37,7 @@ struct EngineToml {
     alias: Option<String>,
     platform: Option<String>,
     address: Option<String>,
+    jump: Option<String>,
     user: Option<String>,
     key: Option<String>,
     known_hosts: Option<KnownHosts>,
@@ -70,6 +71,8 @@ pub(crate) struct EngineEntry {
     pub platform: Option<String>,
     /// The host as `<host>[:<port>]`.
     pub address: Option<String>,
+    /// Another entry's alias, whose host the session reaches this one through.
+    pub jump: Option<String>,
     pub user: Option<String>,
     /// The private key file, its path unexpanded.
     pub key: Option<String>,
@@ -85,6 +88,7 @@ pub(crate) struct EngineEntry {
 pub(crate) struct EngineChange {
     pub platform: Option<String>,
     pub address: Option<String>,
+    pub jump: Option<String>,
     pub user: Option<String>,
     pub key: Option<String>,
     pub known_hosts: Option<KnownHosts>,
@@ -125,6 +129,7 @@ impl EngineEntry {
         let EngineChange {
             platform,
             address,
+            jump,
             user,
             key,
             known_hosts,
@@ -137,6 +142,7 @@ impl EngineEntry {
             alias: alias.to_string(),
             platform,
             address,
+            jump,
             user,
             key,
             known_hosts,
@@ -144,6 +150,27 @@ impl EngineEntry {
             id,
             namespace,
             workdir,
+        }
+    }
+
+    /// The entry as `change` leaves it, each field it gives in place of the entry's.
+    pub(crate) fn changed(
+        &self,
+        change: &EngineChange,
+    ) -> Self {
+        let pick = |given: &Option<String>, own: &Option<String>| given.clone().or_else(|| own.clone());
+        Self {
+            alias: self.alias.clone(),
+            platform: pick(&change.platform, &self.platform),
+            address: pick(&change.address, &self.address),
+            jump: pick(&change.jump, &self.jump),
+            user: pick(&change.user, &self.user),
+            key: pick(&change.key, &self.key),
+            known_hosts: change.known_hosts.clone().or_else(|| self.known_hosts.clone()),
+            command: pick(&change.command, &self.command),
+            id: pick(&change.id, &self.id),
+            namespace: pick(&change.namespace, &self.namespace),
+            workdir: pick(&change.workdir, &self.workdir),
         }
     }
 
@@ -163,6 +190,7 @@ impl EngineEntry {
             alias,
             platform: raw.platform,
             address: raw.address,
+            jump: raw.jump,
             user: raw.user,
             key: raw.key,
             known_hosts: raw.known_hosts,
@@ -189,6 +217,12 @@ impl EngineEntry {
         };
         if let Some(address) = &self.address {
             parse_address(address).map_err(refuse("address"))?;
+        }
+        if let Some(jump) = &self.jump {
+            check_alias(jump).map_err(refuse("jump"))?;
+            if *jump == self.alias {
+                return Err(refuse("jump")("names the entry itself".to_string()));
+            }
         }
         if let Some(user) = &self.user {
             check_word(user).map_err(refuse("user"))?;
@@ -234,9 +268,10 @@ impl EngineEntry {
             .collect()
     }
 
-    /// The endpoint a session opens on: every field resolved, defaults taken, checked.
+    /// The endpoint a session opens on, each field resolved, its jump among `entries`.
     pub(crate) fn endpoint(
         &self,
+        entries: &[EngineEntry],
         defaults: &EngineDefaults,
     ) -> Result<Endpoint, String> {
         let missing = self.missing();
@@ -259,6 +294,20 @@ impl EngineEntry {
             }
             None => Vec::new(),
         };
+        let jump = match &self.jump {
+            Some(alias) => {
+                let hop = entries
+                    .iter()
+                    .find(|entry| entry.alias == *alias)
+                    .ok_or_else(|| refuse("jump", format!("`{alias}` names no engine in the remotes file")))?;
+                if hop.jump.is_some() {
+                    return Err(refuse("jump", format!("`{alias}` takes a jump of its own; a session takes one")));
+                }
+                let reached = hop.endpoint(&[], defaults).map_err(|why| refuse("jump", why))?;
+                Some(Jump::of(&reached))
+            }
+            None => None,
+        };
         let endpoint = Endpoint {
             alias: self.alias.clone(),
             platform,
@@ -267,6 +316,7 @@ impl EngineEntry {
             user: text(&self.user),
             key: expanded_key(&text(&self.key))?,
             host_keys,
+            jump,
             command: self.command.clone().unwrap_or_else(|| WORKER_COMMAND.to_string()),
             id: self.id.clone().unwrap_or_else(|| defaults.id.clone()),
             namespace: self.namespace.clone().unwrap_or_else(|| defaults.namespace.clone()),
@@ -337,7 +387,24 @@ pub(crate) fn parse_engines(text: &str) -> Result<Vec<EngineEntry>, String> {
         }
         entries.push(entry);
     }
+    check_jumps(&entries)?;
     Ok(entries)
+}
+
+/// Each entry's jump held to the file: an engine in it, taking no jump of its own.
+pub(crate) fn check_jumps(entries: &[EngineEntry]) -> Result<(), String> {
+    for entry in entries {
+        let Some(jump) = &entry.jump else {
+            continue;
+        };
+        let refuse = |why: &str| format!("[[engine]] `{}`: jump `{jump}` {why}", entry.alias);
+        match entries.iter().find(|hop| hop.alias == *jump) {
+            None => return Err(refuse("names no engine in the remotes file")),
+            Some(hop) if hop.jump.is_some() => return Err(refuse("takes a jump of its own; a session takes one")),
+            Some(_) => {}
+        }
+    }
+    Ok(())
 }
 
 /// The endpoint the remotes file's entry for `alias` opens a session on.
@@ -346,11 +413,12 @@ pub(crate) fn engine_endpoint(
     alias: &str,
     defaults: &EngineDefaults,
 ) -> Result<Endpoint, String> {
-    read_engines(path)?
-        .into_iter()
+    let entries = read_engines(path)?;
+    entries
+        .iter()
         .find(|entry| entry.alias == alias)
         .ok_or_else(|| format!("no remote engine `{alias}` in the remotes file"))?
-        .endpoint(defaults)
+        .endpoint(&entries, defaults)
 }
 
 /// `text` with `alias`'s engine made or changed by `change`, its comments kept.
@@ -391,6 +459,7 @@ pub(crate) fn set_engine(
     let given = [
         ("platform", text_value(&change.platform)),
         ("address", text_value(&change.address)),
+        ("jump", text_value(&change.jump)),
         ("user", text_value(&change.user)),
         ("key", text_value(&change.key)),
         ("known_hosts", known_hosts),
@@ -432,7 +501,9 @@ pub(crate) fn unset_engine(
         .position(|table| alias_of(table) == Some(alias))
         .ok_or_else(missing)?;
     tables.remove(index);
-    Ok(doc.to_string())
+    let edited = doc.to_string();
+    parse_engines(&edited)?;
+    Ok(edited)
 }
 
 /// A table's `alias`, when it holds a string one.

@@ -4,8 +4,9 @@ A worker reached over SSH. The MCP connects to the host with russh, holds the
 host's key to the pinned ones, authenticates with its key file, and runs the
 worker on an exec channel, through the account's login shell on Unix; the
 channel's data is the session's reader, its writer the session's writer, and
-its stderr the MCP's log under the engine's alias. No system ssh, agent,
-forwarding, or PTY is involved.
+its stderr the MCP's log under the engine's alias. No system ssh, agent, or
+PTY is involved, and no forwarding but a jump's: an entry naming a jump has its
+session ride a direct-tcpip channel of the jump's own session.
 
 ## const PIPE_BYTES
 The worker's output the pump holds before the session reads it; past it the
@@ -24,25 +25,53 @@ The session, and the connection it rides, held so it lasts.
 
 ### fn close
 The session's close is written and its stream ended, then the connection is
-ended. The worker ends with its session either way, on the close or on its
-stdin's end.
+ended, then the jump's, whose channel the connection rode, so the jump's
+session ends with the engine's. The worker ends with its session either way, on
+the close or on its stdin's end.
 
 ## fn open
-The pinned keys and the key file are read first, so a bad one fails before a
-connection is made. The connection, the authentication, and the exec run
-within `AUTH_DEADLINE`. A session that doesn't open ends its connection and
-waits for the pump, so a worker that exited before its reply is told as what
-it did: its exit and its last stderr lines.
+The pinned keys and the key file are read first, the jump's with the engine's,
+so a bad one fails before a connection is made. Both hops' connections, their
+authentications, and the exec run within `AUTH_DEADLINE`. A session that
+doesn't open ends its connections and waits for the pump, so a worker that
+exited before its reply is told as what it did: its exit and its last stderr
+lines.
 
 ## fn preferred
 russh's own key exchanges, ciphers, and MACs, which carry no SHA-1, and its
 host key algorithms less `ssh-rsa`, whose signatures are SHA-1's.
+
+## struct Login
+One hop's login. Where a jump is taken, each hop is named in its refusals by
+its place, `the jump `<alias>` at <host>:<port>` or `<host>:<port> through the
+jump `<alias>``, so a refusal says which hop failed under the transport's own
+kinds; a direct session's refusals read as they did before jumps.
 
 ## fn connect
 TCP, the SSH handshake, the public key authentication, the session channel,
 and the exec, each failure its own transport error: the host unreached is
 `connect_failed`, a key not pinned `host_key_rejected`, the key refused
 `authentication_failed`, and a channel or a command refused `unavailable`.
+
+Through a jump, the jump's TCP, handshake, and login come first, then a
+direct-tcpip channel from its session to the engine's address, `127.0.0.1`
+port 0 its originator, and the engine's own handshake runs over that channel,
+its host held to its own pinned keys, then its login and the exec. The jump's
+session carries the channel alone and starts no worker; a channel the jump
+refuses is `connect_failed` on the jump's hop.
+
+## fn handshake
+Generic over its stream, a TCP connection's or a jump channel's, so both hops
+share one handshake and one host key check.
+
+## fn end
+The engine's own disconnect crosses the jump's tunnel, and russh's session takes
+a channel's data and its own messages from two queues in no set order, so a jump
+disconnected at once could end before the tunnel's last bytes left: the
+engine's host logged a dropped connection, never the close, as the macOS VM's
+loopback sshd showed. The jump's host closes the tunnel only after everything
+sent on it, so the jump waits for that close, up to `CLOSE_FLUSH`, then
+disconnects.
 
 ## fn rsa_hash
 An RSA key signs with the strongest SHA-2 hash the host names, and a host
@@ -51,7 +80,8 @@ naming none refuses it; any other key carries its own algorithm.
 ## struct Pinned
 The connection's handler. The host's key matches a pinned one by its key data,
 so a comment never matters, and a refusal keeps the presented key's SHA-256
-fingerprint for the error.
+fingerprint for the error. It tells `end` when the host closes a channel: a
+jump's one channel is its tunnel.
 
 ## struct Witness
 What the pump saw beside the worker's output: the host refusing the command,

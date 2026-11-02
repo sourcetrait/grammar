@@ -178,6 +178,16 @@ pub struct Sshd {
 impl Sshd {
     /// An sshd listening on a free loopback port, its keys and config its own.
     pub fn start() -> Self {
+        Self::start_forwarding(false)
+    }
+
+    /// An sshd as `start`'s that opens a client's direct-tcpip channels, as a jump host does.
+    pub fn start_jump() -> Self {
+        Self::start_forwarding(true)
+    }
+
+    /// An sshd on a free loopback port, local forwarding allowed where `forwards`.
+    fn start_forwarding(forwards: bool) -> Self {
         assert!(Path::new(SSHD).is_file(), "OpenSSH's sshd is needed at {SSHD}");
         let dir = private_dir();
         let root = dir.path().to_path_buf();
@@ -192,7 +202,7 @@ impl Sshd {
         for _ in 0..PORT_TRIES {
             let port = free_port();
             let config = root.join("sshd_config");
-            write_private(&config, config_text(&root, port).as_bytes());
+            write_private(&config, config_text(&root, port, forwards).as_bytes());
             let log = fs::File::create(root.join("sshd.log")).expect("sshd's log");
             let mut child = Command::new(SSHD)
                 .args(["-D", "-e", "-f"])
@@ -235,6 +245,7 @@ impl Sshd {
             user: self.user.clone(),
             key: self.user_key.path(),
             host_keys: vec![self.host_key.public.clone()],
+            jump: None,
             command: worker.command().display().to_string(),
             id: WORKER_ID.to_string(),
             namespace: "default".to_string(),
@@ -262,8 +273,12 @@ pub fn engine_toml(endpoint: &Endpoint) -> String {
         Some(workdir) => format!("workdir = \"{workdir}\"\n"),
         None => String::new(),
     };
+    let jump = match &endpoint.jump {
+        Some(jump) => format!("jump = \"{}\"\n", jump.alias),
+        None => String::new(),
+    };
     format!(
-        "[[engine]]\nalias = \"{}\"\nplatform = \"{}\"\naddress = \"{}:{}\"\nuser = \"{}\"\nkey = \"{}\"\nknown_hosts = [{}]\ncommand = \"{}\"\nid = \"{}\"\nnamespace = \"{}\"\n{workdir}\n",
+        "[[engine]]\nalias = \"{}\"\nplatform = \"{}\"\naddress = \"{}:{}\"\n{jump}user = \"{}\"\nkey = \"{}\"\nknown_hosts = [{}]\ncommand = \"{}\"\nid = \"{}\"\nnamespace = \"{}\"\n{workdir}\n",
         endpoint.alias,
         endpoint.platform.name(),
         endpoint.host,
@@ -392,9 +407,15 @@ fn read_log(path: &Path) -> String {
     }
 }
 
-/// The sshd's config: loopback, its own keys and login shell, public keys alone, nothing forwarded.
-fn config_text(root: &Path, port: u16) -> String {
+/// The sshd's config: loopback, its own keys and login shell, public keys alone,
+/// and nothing forwarded but a jump host's local channels where `forwards`.
+fn config_text(
+    root: &Path,
+    port: u16,
+    forwards: bool,
+) -> String {
     let at = |name: &str| root.join(name).display().to_string();
+    let tcp_forwarding = if forwards { "AllowTcpForwarding local" } else { "AllowTcpForwarding no" };
     [
         format!("ListenAddress 127.0.0.1:{port}"),
         format!("HostKey {}", at("host_ed25519")),
@@ -408,7 +429,7 @@ fn config_text(root: &Path, port: u16) -> String {
         "PermitRootLogin no".to_string(),
         "PermitUserRC no".to_string(),
         "PermitUserEnvironment no".to_string(),
-        "AllowTcpForwarding no".to_string(),
+        tcp_forwarding.to_string(),
         "AllowStreamLocalForwarding no".to_string(),
         "AllowAgentForwarding no".to_string(),
         "X11Forwarding no".to_string(),

@@ -419,6 +419,7 @@ fn command(
             alias: text(literals, "alias"),
             platform: optional_text(literals, "platform"),
             address: optional_text(literals, "address"),
+            jump: optional_text(literals, "jump"),
             user: optional_text(literals, "user"),
             key: optional_text(literals, "key"),
             known_hosts: optional_texts(literals, "known-hosts"),

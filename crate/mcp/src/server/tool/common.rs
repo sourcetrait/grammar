@@ -103,10 +103,10 @@ impl NuSh {
         }
         let entries = read_engines(&self.controller.config.remotes_file)
             .map_err(|reason| GrammarMcpError::RemotesFile { reason })?;
-        match entries.into_iter().find(|entry| entry.alias == alias) {
+        match entries.iter().find(|entry| entry.alias == alias) {
             Some(entry) => {
                 entry
-                    .endpoint(&EngineDefaults::of(&self.controller.config))
+                    .endpoint(&entries, &EngineDefaults::of(&self.controller.config))
                     .map_err(|reason| GrammarMcpError::RemoteEngineInvalidParams { reason })?;
                 Ok(Route::Remote(alias.to_string()))
             }

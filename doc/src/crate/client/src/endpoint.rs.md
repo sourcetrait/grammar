@@ -21,6 +21,16 @@ Linux and macOS alike in `is_unix`. It decides the exec command and the path
 rules and nothing else. An entry gives it with no default, so no host takes
 another's exec command by an omission.
 
+## struct Jump
+The host a session reaches its engine's host through, as another entry names
+it: that entry's host, port, user, key, and pinned keys, taken from its own
+resolved endpoint, so the jump is trusted and logged in by its own fields.
+A jump runs no worker, so its command, its id, and its workdir play no part.
+
+### fn place
+`the jump `<alias>` at <host>:<port>`, which every refusal on the jump's hop
+carries, so a failure says the jump failed, not the engine's own host.
+
 ## struct Endpoint
 The entry's fields resolved, the address split into its host and port, the
 known hosts read into the pinned keys, and the defaults taken, every field a
@@ -28,7 +38,14 @@ string, a number, or an optional string, so the remote system takes an
 endpoint as a request's data.
 
 ### fn check
-Each field held to its check, the refusal naming the field.
+Each field held to its check, the refusal naming the field. A jump naming the
+entry itself is refused, and a jump's own fields are held to a login's checks
+under the jump's alias.
+
+### fn place
+The host's address, and where a jump is taken `<host>:<port> through the jump
+`<alias>``, which every refusal on the engine's own hop carries then; a
+direct session's refusals read as they did before jumps.
 
 ### fn command_line
 The exec command sshd hands the account's shell: `exec /bin/sh -c 'exec
@@ -77,6 +94,10 @@ OpenSSH's known hosts write it; a bare one is refused, its colons ambiguous.
 ## fn known_hosts_name
 The name a known hosts file lists a host under, OpenSSH's own:
 `[host]:port` off port 22.
+
+## fn check_login
+The fields every SSH login takes, the engine's own and its jump's alike, in
+the order a refusal reports them.
 
 ## fn check_word
 The host and the user are one word each.

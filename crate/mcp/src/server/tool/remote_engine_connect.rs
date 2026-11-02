@@ -8,13 +8,13 @@ impl NuSh {
         p: RemoteAliasParams,
     ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
         let connect = async {
-            let entry = self
-                .engine_entries()?
-                .into_iter()
+            let entries = self.engine_entries()?;
+            let entry = entries
+                .iter()
                 .find(|entry| entry.alias == p.alias)
                 .ok_or_else(|| engine_invalid(format!("no remote engine `{}` in the remotes file", p.alias)))?;
             let endpoint = entry
-                .endpoint(&EngineDefaults::of(&self.controller.config))
+                .endpoint(&entries, &EngineDefaults::of(&self.controller.config))
                 .map_err(engine_invalid)?;
             self.controller.remote_connect(endpoint).await?;
             self.engine_row(&p.alias).await

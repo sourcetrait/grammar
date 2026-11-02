@@ -74,10 +74,11 @@ command. Peers trust each other by known public key. A send reports
 ## RemoteEngine
 `.grammar/remotes.toml` names each remote engine as an `[[engine]]` alias:
 `platform`, `windows`, `linux`, or `macos`; `address`, `user`, `key`, and
-`known_hosts`, a list or a file; `command` (`grammar-ssh` by default), `id`,
-`namespace`, and `workdir` optional. Its worker runs in the account's login
-shell, `command not found: <command>` when missing, and ends with its session,
-opened at the first call or a connect.
+`known_hosts`, a list or a file; `jump` (the engine whose host it is reached
+through), `command` (`grammar-ssh` by default), `id`, `namespace`, and
+`workdir` optional. Its worker runs in the account's login shell, `command not
+found: <command>` when missing, and ends with its session, opened at the first
+call or a connect.
 
 ## SEQUENCE: OpenGrammarChannel
 1. `interface channel open async`, or `interface channel open sync` where
@@ -175,7 +176,7 @@ List the remote engines, configured and live: each one's entry and state.
 One remote engine's entry and state.
 `remote engine get [alias: string]: nothing -> record`
 Make or change a remote engine's entry in `remotes.toml`.
-`remote engine set [alias: string, --platform: string, --address: string, --user: string, --key: string, --known-hosts: list<string>, --known-hosts-file: string, --command: string, --id: string, --namespace: string, --workdir: string]: nothing -> record`
+`remote engine set [alias: string, --platform: string, --address: string, --jump: string, --user: string, --key: string, --known-hosts: list<string>, --known-hosts-file: string, --command: string, --id: string, --namespace: string, --workdir: string]: nothing -> record`
 Remove a remote engine's entry from `remotes.toml`; a live session stays.
 `remote engine unset [alias: string]: nothing -> nothing`
 Open a remote engine's session and start its worker now.

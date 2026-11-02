@@ -9,6 +9,8 @@ pub(crate) struct RemoteEngineRow {
     /// The host's platform, as the file writes it.
     pub platform: Option<String>,
     pub address: Option<String>,
+    /// The engine whose host this one's session is reached through.
+    pub jump: Option<String>,
     pub user: Option<String>,
     /// The private key file, as the file writes it.
     pub key: Option<String>,
@@ -37,6 +39,7 @@ impl RemoteEngineRow {
         let EngineEntry {
             platform,
             address,
+            jump,
             user,
             key,
             known_hosts,
@@ -51,6 +54,7 @@ impl RemoteEngineRow {
             configured: entry.is_some(),
             platform,
             address,
+            jump,
             user,
             key,
             known_hosts,

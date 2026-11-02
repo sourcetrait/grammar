@@ -44,6 +44,52 @@ impl Platform {
     }
 }
 
+/// The host a session reaches its engine's host through, from the jump's entry.
+#[cereal::derived(Data, Eq)]
+pub struct Jump {
+    /// The jump's own alias, which a refusal on its hop names.
+    pub alias: String,
+    /// The jump host's name or address.
+    pub host: String,
+    pub port: u16,
+    /// The account the jump's session logs in as.
+    pub user: String,
+    /// The private key file the jump's session authenticates with, on the MCP's host.
+    pub key: String,
+    /// The jump host's public keys as OpenSSH lines, one of which it must present.
+    pub host_keys: Vec<String>,
+}
+
+impl Jump {
+    /// The jump an engine's resolved endpoint makes: its host, its login, its keys.
+    pub fn of(endpoint: &Endpoint) -> Self {
+        Self {
+            alias: endpoint.alias.clone(),
+            host: endpoint.host.clone(),
+            port: endpoint.port,
+            user: endpoint.user.clone(),
+            key: endpoint.key.clone(),
+            host_keys: endpoint.host_keys.clone(),
+        }
+    }
+
+    /// The jump held to its rules, each refusal naming the jump and the field.
+    pub fn check(&self) -> Result<(), String> {
+        check_alias(&self.alias)?;
+        check_login(&self.alias, &self.host, self.port, &self.user, &self.key, &self.host_keys)
+    }
+
+    /// Where the jump is, as a refusal on its hop names it.
+    pub fn place(&self) -> String {
+        format!("the jump `{}` at {}:{}", self.alias, self.host, self.port)
+    }
+
+    /// The jump host's pinned keys, each parsed.
+    pub(crate) fn pinned_keys(&self) -> Result<Vec<keys::PublicKey>, String> {
+        self.host_keys.iter().map(|line| pinned_key(line)).collect()
+    }
+}
+
 /// A remote engine as the MCP's entry resolves it, each field checked by `check`.
 #[cereal::derived(Data, Eq)]
 pub struct Endpoint {
@@ -60,6 +106,8 @@ pub struct Endpoint {
     pub key: String,
     /// The host's public keys as OpenSSH lines, one of which it must present.
     pub host_keys: Vec<String>,
+    /// The host the session reaches this one through, where the entry names a jump.
+    pub jump: Option<Jump>,
     /// The worker's command: a name the login's `PATH` finds, or an absolute path.
     pub command: String,
     /// The worker's id.
@@ -74,12 +122,8 @@ impl Endpoint {
     /// The entry held to its rules, each refusal naming the field it is about.
     pub fn check(&self) -> Result<(), String> {
         check_alias(&self.alias)?;
+        check_login(&self.alias, &self.host, self.port, &self.user, &self.key, &self.host_keys)?;
         let fields = [
-            ("host", check_word(&self.host)),
-            ("port", check_port(self.port)),
-            ("user", check_word(&self.user)),
-            ("key", check_key(&self.key)),
-            ("known_hosts", check_host_keys(&self.host_keys)),
             ("command", check_command(&self.command, self.platform)),
             ("workdir", self.workdir.as_deref().map_or(Ok(()), |path| check_path(path, self.platform))),
             ("id or namespace", check_instance(&self.id, &self.namespace)),
@@ -87,7 +131,21 @@ impl Endpoint {
         for (field, checked) in fields {
             checked.map_err(|why| format!("[[engine]] `{}`: {field} {why}", self.alias))?;
         }
+        if let Some(jump) = &self.jump {
+            if jump.alias == self.alias {
+                return Err(format!("[[engine]] `{}`: jump names the entry itself", self.alias));
+            }
+            jump.check()?;
+        }
         Ok(())
+    }
+
+    /// Where the host is, as a refusal names it, through its jump where it takes one.
+    pub fn place(&self) -> String {
+        match &self.jump {
+            None => format!("{}:{}", self.host, self.port),
+            Some(jump) => format!("{}:{} through the jump `{}`", self.host, self.port, jump.alias),
+        }
     }
 
     /// The exec command: the worker's line, through the login shell on Unix.
@@ -177,6 +235,28 @@ pub fn known_hosts_name(
     port: u16,
 ) -> String {
     if port == SSH_PORT { host.to_string() } else { format!("[{host}]:{port}") }
+}
+
+/// A login's host, port, user, key, and pinned keys, a refusal naming its field.
+fn check_login(
+    alias: &str,
+    host: &str,
+    port: u16,
+    user: &str,
+    key: &str,
+    host_keys: &[String],
+) -> Result<(), String> {
+    let fields = [
+        ("host", check_word(host)),
+        ("port", check_port(port)),
+        ("user", check_word(user)),
+        ("key", check_key(key)),
+        ("known_hosts", check_host_keys(host_keys)),
+    ];
+    for (field, checked) in fields {
+        checked.map_err(|why| format!("[[engine]] `{alias}`: {field} {why}"))?;
+    }
+    Ok(())
 }
 
 /// A host or a user: one word, not empty, with no whitespace or control character.

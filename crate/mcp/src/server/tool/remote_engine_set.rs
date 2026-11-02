@@ -11,6 +11,7 @@ impl NuSh {
             alias,
             platform,
             address,
+            jump,
             user,
             key,
             known_hosts,
@@ -32,6 +33,7 @@ impl NuSh {
         let change = EngineChange {
             platform,
             address,
+            jump,
             user,
             key,
             known_hosts,
@@ -53,6 +55,15 @@ impl NuSh {
         change: &EngineChange,
     ) -> GrammarMcpResult<RemoteEngineRow> {
         EngineEntry::of(alias, change).check_given().map_err(engine_invalid)?;
+        if change.jump.is_some() {
+            let entries = self.engine_entries()?;
+            let mut after: Vec<EngineEntry> = entries.iter().filter(|entry| entry.alias != alias).cloned().collect();
+            after.push(match entries.iter().find(|entry| entry.alias == alias) {
+                Some(entry) => entry.changed(change),
+                None => EngineEntry::of(alias, change),
+            });
+            check_jumps(&after).map_err(engine_invalid)?;
+        }
         edit_remotes(&self.controller.config.remotes_file, |text| set_engine(text, alias, change))
             .map_err(|reason| GrammarMcpError::RemotesFile { reason })?;
         self.engine_row(alias).await
@@ -65,9 +76,12 @@ impl NuSh {
         p: RemoteAliasParams,
     ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
         let unset = || -> GrammarMcpResult<()> {
-            if !self.engine_entries()?.iter().any(|entry| entry.alias == p.alias) {
+            let entries = self.engine_entries()?;
+            if !entries.iter().any(|entry| entry.alias == p.alias) {
                 return Err(engine_invalid(format!("no remote engine `{}` in the remotes file", p.alias)));
             }
+            let after: Vec<EngineEntry> = entries.into_iter().filter(|entry| entry.alias != p.alias).collect();
+            check_jumps(&after).map_err(engine_invalid)?;
             edit_remotes(&self.controller.config.remotes_file, |text| unset_engine(text, &p.alias))
                 .map_err(|reason| GrammarMcpError::RemotesFile { reason })
         };

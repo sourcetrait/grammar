@@ -191,13 +191,14 @@ fn a_remote_takes_its_flags() {
 /// A remote engine command takes its flags: a platform, an address, known hosts as a list.
 #[test]
 fn a_remote_engine_takes_its_flags() {
-    let set = "interface remote engine set 'lab' --platform 'linux' --address 'lab.example:2222' \
+    let set = "interface remote engine set 'lab' --platform 'linux' --address 'lab.example:2222' --jump 'gate' \
                --known-hosts ['ssh-ed25519 AAAA one', 'ssh-rsa AAAA other'] --workdir '/srv/work'";
     match parse(set) {
         Ok(InterfaceCommand::RemoteEngine(RemoteEngineCommand::Set(p))) => {
             assert_eq!(p.alias, "lab");
             assert_eq!(p.platform.as_deref(), Some("linux"));
             assert_eq!(p.address.as_deref(), Some("lab.example:2222"));
+            assert_eq!(p.jump.as_deref(), Some("gate"));
             assert_eq!(
                 p.known_hosts,
                 Some(vec!["ssh-ed25519 AAAA one".to_string(), "ssh-rsa AAAA other".to_string()])

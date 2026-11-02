@@ -52,7 +52,7 @@ pub(crate) mod tk {
         net::TcpStream,
         spawn,
         sync::{
-            Mutex as AsyncMutex,
+            Mutex as AsyncMutex, Notify,
             mpsc::{Sender, UnboundedReceiver, UnboundedSender, unbounded_channel},
             oneshot,
         },
@@ -68,7 +68,7 @@ pub(crate) mod tku {
 
 pub use crate::{
     endpoint::{
-        Endpoint, Platform, SSH_PORT, WORKER_COMMAND, check_alias, check_command,
+        Endpoint, Jump, Platform, SSH_PORT, WORKER_COMMAND, check_alias, check_command,
         check_host_keys, check_instance, check_key, check_path, check_port, check_word,
         known_hosts_name, parse_address,
     },

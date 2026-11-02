@@ -115,6 +115,8 @@ pub struct RemoteEngineSetParams {
     pub platform: Option<String>,
     /// The host as `<host>[:<port>]`.
     pub address: Option<String>,
+    /// The engine whose host this one's session is reached through.
+    pub jump: Option<String>,
     /// The account the session logs in as.
     pub user: Option<String>,
     /// The private key file the session authenticates with.

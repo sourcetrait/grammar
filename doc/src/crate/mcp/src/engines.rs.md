@@ -6,7 +6,8 @@ links' `[[channel]]` ones, which the MCP reads at each use and writes by its
 (User): an `address`, `known_hosts` a list of keys or a file, and the worker's
 `command`, `id`, `namespace`, and `workdir` optional. Its `platform` names the
 host's operating system, `windows`, `linux`, or `macos`, with no default
-(User). An entry may be partial:
+(User), and its optional `jump`, another entry's alias, the host its session is
+reached through. An entry may be partial:
 `set` and `import` build one a field at a time, so the file holds what was
 given, and a session opens on a whole one alone. The peer crate reads the same
 file for its channels and owns its locked edit (`crate/peer`'s `remotes.rs`),
@@ -53,15 +54,19 @@ known hosts file. A row serializes it the same way.
 The fields as the file writes them, so `list` and `get` show what was written,
 a `~` key path among them; the key expands where a session needs it.
 
+### fn changed
+The entry as a set would leave it, so the jump's rules hold on the entries the
+set would write before the file is touched.
+
 ### fn check_given
 Each field the entry gives held to the client's check for it (`crate/client`'s
 `endpoint.rs`), so a bad value is refused at the command that gave it rather
-than at a later connect. The key is checked expanded, and the id and the
-namespace together. A known hosts file is checked as a path alone; it is read
-where a session opens, so an entry may name one not yet written. The command
-and the workdir are the host's paths, held to its platform's rule, so they wait
-on the platform: an entry naming none keeps them as given, and the set that
-names it holds them then.
+than at a later connect. A jump is an alias, never the entry's own. The key is
+checked expanded, and the id and the namespace together. A known hosts file is
+checked as a path alone; it is read where a session opens, so an entry may name
+one not yet written. The command and the workdir are the host's paths, held to
+its platform's rule, so they wait on the platform: an entry naming none keeps
+them as given, and the set that names it holds them then.
 
 ### fn missing
 The required fields the entry lacks, in the file's order, which a row reports
@@ -73,7 +78,10 @@ expanded, a known hosts file read for the address's keys, and the defaults
 taken, `grammar-ssh` for the command and the MCP's own id and namespace, then
 held to the client's `check`. A file holding no key for the host is refused by
 its path and the name it was read for. The command and the workdir are the
-host's paths, not this one's, so they never expand.
+host's paths, not this one's, so they never expand. A jump resolves to its own
+entry's endpoint among the file's, whose host, login, and keys the session's
+first hop takes; a jump the given entries lack, or one taking a jump of its
+own, is refused, as `check_jumps` refuses it in the file.
 
 ## struct EngineDefaults
 What a session needs from the MCP that an entry leaves out, made from the
@@ -95,9 +103,15 @@ The file read and matched by the client's reader (`crate/client`'s
 An absent file is no engines, the ordinary state of a host that reaches none.
 
 ## fn parse_engines
-Each entry held as `check_given` holds it, and an alias names one engine
-alone. An engine's alias and a remote channel's never meet in one command, so
-the two may share a name.
+Each entry held as `check_given` holds it, an alias names one engine alone, and
+each jump is held by `check_jumps`. An engine's alias and a remote channel's
+never meet in one command, so the two may share a name.
+
+## fn check_jumps
+One hop is all a session takes: a jump names an engine in the file, and that
+engine takes no jump of its own, so neither a chain nor a loop forms. The rule
+holds the whole file, so a set, an import, or an unset that would break it is
+refused before the file is written.
 
 ## fn engine_endpoint
 The endpoint of the entry the file holds for an alias, with the defaults.
@@ -111,7 +125,9 @@ it is returned, so a set never writes a file the next read would refuse.
 
 ## fn unset_engine
 Comments written above the entry go with it, `toml_edit` keeping a table's
-leading decor as the table's own.
+leading decor as the table's own. The result is held to `parse_engines` as a
+set's is, so an unset never leaves an entry jumping through an engine the file
+no longer names.
 
 ## struct SshResolved
 ## fn parse_ssh_g

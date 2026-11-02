@@ -59,7 +59,7 @@ cert = \"/keys/peer.pem\"
 
 #[test]
 fn an_entry_opens_on_its_fields_and_the_mcps_defaults() {
-    let endpoint = one_entry(&engine_text(&engine_fields("build"))).endpoint(&defaults()).expect("a whole entry");
+    let endpoint = one_entry(&engine_text(&engine_fields("build"))).endpoint(&[], &defaults()).expect("a whole entry");
     assert_eq!((endpoint.host.as_str(), endpoint.port), ("build.example", 22), "port 22 by default");
     assert_eq!(endpoint.namespace, "lab", "the MCP's own namespace by default");
     assert_eq!(
@@ -74,7 +74,7 @@ fn an_entry_opens_on_its_fields_and_the_mcps_defaults() {
         KEY_LINE.to_string(),
         format!("known_hosts = [\"{HOST_KEY}\"]"),
     ];
-    let endpoint = one_entry(&engine_text(&least)).endpoint(&defaults()).expect("the required fields alone");
+    let endpoint = one_entry(&engine_text(&least)).endpoint(&[], &defaults()).expect("the required fields alone");
     assert_eq!(endpoint.port, 2222);
     assert_eq!(endpoint.worker_line(), "grammar-ssh serve --id agent --namespace lab", "every default taken");
     assert!(parse_engines("").expect("an empty file").is_empty(), "no engine unless the file names one");
@@ -95,7 +95,7 @@ fn a_windows_entry_takes_drive_paths_and_its_line_goes_bare() {
     };
     let entry = one_entry(&windows(r"C:\Users\worker\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe", r"C:\Users\worker\work"));
     assert_eq!(entry.platform.as_deref(), Some("windows"));
-    let endpoint = entry.endpoint(&defaults()).expect("a whole Windows entry");
+    let endpoint = entry.endpoint(&[], &defaults()).expect("a whole Windows entry");
     assert_eq!(endpoint.platform, Platform::Windows);
     assert_eq!(
         endpoint.command_line(),
@@ -121,11 +121,59 @@ fn a_command_waits_on_its_entrys_platform_for_its_check() {
     assert!(parse_engines(&text("platform = \"windows\"\n", r"C:\opt\grammar-ssh.exe")).is_ok());
 }
 
+/// `alias`'s entry jumping through `jump`, every other field valid.
+fn jumping(alias: &str, jump: &str) -> String {
+    let mut fields = engine_fields(alias);
+    fields.push(format!("jump = \"{jump}\""));
+    engine_text(&fields)
+}
+
+#[test]
+fn a_jump_is_another_engine_taking_no_jump_of_its_own() {
+    let gate = engine_text(&engine_fields("gate"));
+    let file = format!("{gate}{}", jumping("lab", "gate"));
+    let entries = parse_engines(&file).expect("a jump to another engine");
+    let lab = entries.iter().find(|entry| entry.alias == "lab").expect("lab's entry");
+    let jump = lab.endpoint(&entries, &defaults()).expect("lab through gate").jump.expect("the jump");
+    assert_eq!((jump.alias.as_str(), jump.host.as_str(), jump.port), ("gate", "build.example", 22));
+    assert_eq!(jump.host_keys, vec![HOST_KEY.to_string()], "the jump's own pinned keys");
+
+    let missing = parse_engines(&jumping("lab", "gate")).expect_err("a jump to no engine");
+    assert!(missing.contains("`lab`: jump `gate` names no engine"), "{missing}");
+    let chained = parse_engines(&format!("{}{}", jumping("gate", "lab"), jumping("lab", "gate"))).expect_err("a jump's jump");
+    assert!(chained.contains("takes a jump of its own"), "{chained}");
+    let itself = parse_engines(&jumping("lab", "lab")).expect_err("a jump to itself");
+    assert!(itself.contains("`lab`: jump names the entry itself"), "{itself}");
+}
+
+#[test]
+fn an_engine_another_jumps_through_is_unset_after_it() {
+    let two = format!("{}{}", engine_text(&engine_fields("gate")), jumping("lab", "gate"));
+    let refusal = unset_engine(&two, "gate").expect_err("lab still jumps through gate");
+    assert!(refusal.contains("jump `gate` names no engine"), "{refusal}");
+    let one = unset_engine(&two, "lab").expect("lab goes first");
+    assert!(unset_engine(&one, "gate").is_ok(), "then gate");
+}
+
+#[test]
+fn a_change_leaves_the_fields_it_doesnt_give() {
+    let entry = one_entry(&engine_text(&engine_fields("lab")));
+    let change = EngineChange {
+        jump: Some("door".to_string()),
+        user: Some("other".to_string()),
+        ..EngineChange::default()
+    };
+    let changed = entry.changed(&change);
+    assert_eq!((changed.jump.as_deref(), changed.user.as_deref()), (Some("door"), Some("other")));
+    assert_eq!(changed.address, entry.address, "a field not given stays");
+    assert_eq!(changed.known_hosts, entry.known_hosts);
+}
+
 #[test]
 fn an_incomplete_entry_is_kept_and_names_what_it_lacks() {
     let entry = one_entry("[[engine]]\nalias = \"build\"\naddress = \"build.example\"\n");
     assert_eq!(entry.missing(), ["platform", "user", "key", "known_hosts"]);
-    let err = entry.endpoint(&defaults()).expect_err("an incomplete entry opens no session");
+    let err = entry.endpoint(&[], &defaults()).expect_err("an incomplete entry opens no session");
     for field in entry.missing() {
         assert!(err.contains(&format!("`{field}`")), "{field}: {err}");
     }

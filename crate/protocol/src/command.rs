@@ -258,6 +258,12 @@ const ENGINE_SET_FLAGS: &[ArgSpec] = &[
         summary: "The host as `<host>[:<port>]`, port 22 by default, an IPv6 host in brackets.",
     },
     ArgSpec {
+        name: "jump",
+        shape: ArgShape::String,
+        optional: true,
+        summary: "The engine whose host this one is reached through; none by default.",
+    },
+    ArgSpec {
         name: "user",
         shape: ArgShape::String,
         optional: true,
