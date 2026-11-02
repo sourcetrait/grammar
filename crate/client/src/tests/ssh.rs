@@ -139,7 +139,7 @@ fn a_windows_hosts_grammar_ssh_line_goes_bare() {
         host: "windows.example".to_string(),
         port: SSH_PORT,
         user: "vm".to_string(),
-        key: "/keys/vm".to_string(),
+        key: KEY.to_string(),
         host_keys: Vec::new(),
         jump: None,
         command: r"C:\Users\vm\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe".to_string(),
@@ -184,6 +184,9 @@ fn each_platform_holds_its_own_paths() {
 /// A host key's line, its key test-only.
 const HOST_KEY: &str = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJdD7y3aLq454yWBdwLWbieU1ebz9/cu7/QEXn9OIeZJ example";
 
+/// A login key's path, absolute on the platform the tests run on, as a key's check holds it.
+const KEY: &str = if cfg!(windows) { r"C:\keys\vm" } else { "/keys/vm" };
+
 /// An endpoint of `alias` whose every field passes its check, reached directly.
 fn whole(alias: &str) -> Endpoint {
     Endpoint {
@@ -192,7 +195,7 @@ fn whole(alias: &str) -> Endpoint {
         host: "build.example".to_string(),
         port: 2222,
         user: "vm".to_string(),
-        key: "/keys/vm".to_string(),
+        key: KEY.to_string(),
         host_keys: vec![HOST_KEY.to_string()],
         jump: None,
         command: GRAMMAR_SSH_COMMAND.to_string(),
@@ -251,7 +254,7 @@ fn grammar_ssh_runs_through_the_accounts_login_shell() {
         host: "build.example".to_string(),
         port: SSH_PORT,
         user: "vm".to_string(),
-        key: "/keys/vm".to_string(),
+        key: KEY.to_string(),
         host_keys: Vec::new(),
         jump: None,
         command: GRAMMAR_SSH_COMMAND.to_string(),

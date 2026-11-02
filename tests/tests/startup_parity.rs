@@ -154,8 +154,17 @@ impl Parity {
     }
 
     /// `$NU_PLUGIN_DIRS` as nushell sets it: config home's `plugins`, the exe's dir.
+    ///
+    /// The dir is `current_exe`'s, as nushell takes it: canonical on Linux, which
+    /// reads `/proc/self/exe`, and the path the host was started by elsewhere, a
+    /// junction in it kept on Windows.
     fn plugin_dirs(&self) -> NuVal {
-        let exe = dunce::canonicalize(grammar_mcp_bin()).expect("canonicalize the host");
+        let bin = grammar_mcp_bin();
+        let exe = if cfg!(target_os = "linux") {
+            dunce::canonicalize(&bin).expect("canonicalize the host")
+        } else {
+            std::path::absolute(&bin).expect("the host's absolute path")
+        };
         let exe_dir = exe.parent().expect("the host's dir");
         NuVal::List(vec![
             NuVal::from(path_str(&self.dirs.config_home.join("plugins"))),
