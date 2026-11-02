@@ -6,6 +6,8 @@ pub(crate) struct RemoteEngineRow {
     pub alias: String,
     /// Whether the remotes file holds the alias's entry; a live session can outlast it.
     pub configured: bool,
+    /// The host's platform, as the file writes it.
+    pub platform: Option<String>,
     pub address: Option<String>,
     pub user: Option<String>,
     /// The private key file, as the file writes it.
@@ -33,6 +35,7 @@ impl RemoteEngineRow {
         state: Option<&SessionState>,
     ) -> Self {
         let EngineEntry {
+            platform,
             address,
             user,
             key,
@@ -46,6 +49,7 @@ impl RemoteEngineRow {
         Self {
             alias: alias.to_string(),
             configured: entry.is_some(),
+            platform,
             address,
             user,
             key,

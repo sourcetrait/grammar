@@ -417,6 +417,7 @@ fn command(
         CommandKind::EngineGet => remote_engine(RemoteEngineCommand::Get(alias(literals))),
         CommandKind::EngineSet => remote_engine(RemoteEngineCommand::Set(RemoteEngineSetParams {
             alias: text(literals, "alias"),
+            platform: optional_text(literals, "platform"),
             address: optional_text(literals, "address"),
             user: optional_text(literals, "user"),
             key: optional_text(literals, "key"),

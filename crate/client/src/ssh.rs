@@ -267,7 +267,13 @@ impl Witness {
         match self.status {
             Some(127) => said(command),
             Some(126) => named_missing(),
-            Some(1) => said(&format!("Command `{command}` not found")) || said(&format!("`{command}` is neither a Nushell built-in")),
+            Some(1) => {
+                said(&format!("Command `{command}` not found"))
+                    || said(&format!("`{command}` is neither a Nushell built-in"))
+                    || said(&format!("The term '{command}' is not recognized"))
+                    || said(&format!("'{command}' is not recognized as an internal or external command"))
+                    || (command.contains('\\') && said("The system cannot find the path specified."))
+            }
             _ => false,
         }
     }

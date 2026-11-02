@@ -4,7 +4,9 @@ The remote engines' entries, `[[engine]]` in the remotes file beside the peer
 links' `[[channel]]` ones, which the MCP reads at each use and writes by its
 `interface remote engine` commands (User). An entry is aligned with a channel's
 (User): an `address`, `known_hosts` a list of keys or a file, and the worker's
-`command`, `id`, `namespace`, and `workdir` optional. An entry may be partial:
+`command`, `id`, `namespace`, and `workdir` optional. Its `platform` names the
+host's operating system, `windows`, `linux`, or `macos`, with no default
+(User). An entry may be partial:
 `set` and `import` build one a field at a time, so the file holds what was
 given, and a session opens on a whole one alone. The peer crate reads the same
 file for its channels and owns its locked edit (`crate/peer`'s `remotes.rs`),
@@ -18,7 +20,7 @@ They render in `error.rs` rather than through the protocol's `RuntimeError`,
 which schema v1 fixed.
 
 ## const REQUIRED
-The fields a session needs; every other one has a default.
+The fields a session needs, the platform first; every other one has a default.
 
 ## const RETIRED
 The fields an older entry wrote, `host` and `port` in one `address` now and
@@ -56,19 +58,22 @@ Each field the entry gives held to the client's check for it (`crate/client`'s
 `endpoint.rs`), so a bad value is refused at the command that gave it rather
 than at a later connect. The key is checked expanded, and the id and the
 namespace together. A known hosts file is checked as a path alone; it is read
-where a session opens, so an entry may name one not yet written.
+where a session opens, so an entry may name one not yet written. The command
+and the workdir are the host's paths, held to its platform's rule, so they wait
+on the platform: an entry naming none keeps them as given, and the set that
+names it holds them then.
 
 ### fn missing
 The required fields the entry lacks, in the file's order, which a row reports
 and the endpoint's refusal names.
 
 ### fn endpoint
-A whole entry resolved: its address split, its key expanded, a known hosts
-file read for the address's keys, and the defaults taken, `grammar-ssh` for
-the command and the MCP's own id and namespace, then held to the client's
-`check`. A file holding no key for the host is refused by its path and the name
-it was read for. The command and the workdir are the host's paths, not this
-one's, so they never expand.
+A whole entry resolved: its platform read, its address split, its key
+expanded, a known hosts file read for the address's keys, and the defaults
+taken, `grammar-ssh` for the command and the MCP's own id and namespace, then
+held to the client's `check`. A file holding no key for the host is refused by
+its path and the name it was read for. The command and the workdir are the
+host's paths, not this one's, so they never expand.
 
 ## struct EngineDefaults
 What a session needs from the MCP that an entry leaves out, made from the
@@ -137,7 +142,9 @@ trying each in turn; the host keys are every one the known hosts files hold for
 the host, under its `HostKeyAlias` where it names one. A host never connected
 to has none, so the import refuses it rather than pin nothing. The command,
 the id, the namespace, and the workdir are the worker's, which no ssh
-configuration knows, so an import leaves them to their defaults or a `set`.
+configuration knows, so an import leaves them to their defaults or a `set`;
+the platform, which no ssh configuration names either, it leaves to its
+operator's `set`.
 
 ## fn import_known_hosts
 `.grammar/remote/<alias>/known_hosts` beside the remotes file, the alias's

@@ -9,7 +9,7 @@ use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 use russh::keys::{Algorithm, PrivateKey, key::safe_rng, ssh_key::LineEnding};
-use sourcetrait_grammar_client::Endpoint;
+use sourcetrait_grammar_client::{Endpoint, Platform};
 
 use crate::grammar_mcp_bin;
 
@@ -229,6 +229,7 @@ impl Sshd {
     pub fn endpoint(&self, alias: &str, worker: &TestWorker) -> Endpoint {
         Endpoint {
             alias: alias.to_string(),
+            platform: if cfg!(target_os = "macos") { Platform::Macos } else { Platform::Linux },
             host: "127.0.0.1".to_string(),
             port: self.port,
             user: self.user.clone(),
@@ -262,8 +263,9 @@ pub fn engine_toml(endpoint: &Endpoint) -> String {
         None => String::new(),
     };
     format!(
-        "[[engine]]\nalias = \"{}\"\naddress = \"{}:{}\"\nuser = \"{}\"\nkey = \"{}\"\nknown_hosts = [{}]\ncommand = \"{}\"\nid = \"{}\"\nnamespace = \"{}\"\n{workdir}\n",
+        "[[engine]]\nalias = \"{}\"\nplatform = \"{}\"\naddress = \"{}:{}\"\nuser = \"{}\"\nkey = \"{}\"\nknown_hosts = [{}]\ncommand = \"{}\"\nid = \"{}\"\nnamespace = \"{}\"\n{workdir}\n",
         endpoint.alias,
+        endpoint.platform.name(),
         endpoint.host,
         endpoint.port,
         endpoint.user,

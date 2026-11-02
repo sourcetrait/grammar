@@ -246,6 +246,12 @@ const ENGINE_ALIAS_ARGS: &[ArgSpec] = &[ArgSpec {
 
 const ENGINE_SET_FLAGS: &[ArgSpec] = &[
     ArgSpec {
+        name: "platform",
+        shape: ArgShape::String,
+        optional: true,
+        summary: "The host's platform, `windows`, `linux`, or `macos`, which a session needs.",
+    },
+    ArgSpec {
         name: "address",
         shape: ArgShape::String,
         optional: true,

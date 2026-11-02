@@ -120,9 +120,9 @@ fn a_signature_line_names_each_parameter_and_the_result() {
     let engine = command_by_words("remote engine set").expect("engine set");
     assert_eq!(
         engine.signature_text(),
-        "remote engine set [alias: string, --address: string, --user: string, --key: string, \
-         --known-hosts: list<string>, --known-hosts-file: string, --command: string, --id: string, \
-         --namespace: string, --workdir: string]: nothing -> record",
+        "remote engine set [alias: string, --platform: string, --address: string, --user: string, \
+         --key: string, --known-hosts: list<string>, --known-hosts-file: string, --command: string, \
+         --id: string, --namespace: string, --workdir: string]: nothing -> record",
     );
 }
 

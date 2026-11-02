@@ -2,10 +2,10 @@
 
 A worker reached over SSH. The MCP connects to the host with russh, holds the
 host's key to the pinned ones, authenticates with its key file, and runs the
-worker through the account's login shell on an exec channel; the channel's
-data is the session's reader, its writer the session's writer, and its stderr
-the MCP's log under the engine's alias. No system ssh, agent, forwarding, or
-PTY is involved.
+worker on an exec channel, through the account's login shell on Unix; the
+channel's data is the session's reader, its writer the session's writer, and
+its stderr the MCP's log under the engine's alias. No system ssh, agent,
+forwarding, or PTY is involved.
 
 ## const PIPE_BYTES
 The worker's output the pump holds before the session reads it; past it the
@@ -71,6 +71,13 @@ macOS's sh, bash 3.2, exits 126 for a missing absolute path, naming it with
 found`` and its help line. A 127 not naming the command is a missing shell or
 another failure, and a 126 without those words a command found but not run, so
 each stands as what the worker did.
+
+Windows' shells, as measured on Windows Server 2025, each exit 1: PowerShell
+with ``The term '<command>' is not recognized``, cmd with ``'<command>' is not
+recognized as an internal or external command``, and nu with its own words.
+cmd answers a drive path whose folder is missing with ``The system cannot find
+the path specified.``, read as a missing command only for a command holding a
+`\`: for a bare name the line can only be the worker's own.
 
 ## fn pump
 The channel's messages in order: data into the session's reader, stderr into

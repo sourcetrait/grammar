@@ -68,9 +68,9 @@ pub(crate) mod tku {
 
 pub use crate::{
     endpoint::{
-        Endpoint, SSH_PORT, WORKER_COMMAND, check_alias, check_command, check_host_keys,
-        check_instance, check_key, check_path, check_port, check_word, known_hosts_name,
-        parse_address,
+        Endpoint, Platform, SSH_PORT, WORKER_COMMAND, check_alias, check_command,
+        check_host_keys, check_instance, check_key, check_path, check_port, check_word,
+        known_hosts_name, parse_address,
     },
     known_hosts::known_host_keys,
     session::{Responder, Session, SessionEvent},

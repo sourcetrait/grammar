@@ -9,6 +9,7 @@ impl NuSh {
     ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
         let RemoteEngineSetParams {
             alias,
+            platform,
             address,
             user,
             key,
@@ -29,6 +30,7 @@ impl NuSh {
             (None, None) => None,
         };
         let change = EngineChange {
+            platform,
             address,
             user,
             key,

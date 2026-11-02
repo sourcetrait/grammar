@@ -132,7 +132,7 @@ fn every_command_answers_through_the_interface() {
     assert_eq!(result_of(&made)["configured"], true, "got {made}");
     assert_eq!(result_of(&made)["address"], "lab.example:2222", "got {made}");
     assert_eq!(result_of(&made)["state"], "closed", "got {made}");
-    assert_eq!(result_of(&made)["missing"], nuon("[user, key, known_hosts]"), "got {made}");
+    assert_eq!(result_of(&made)["missing"], nuon("[platform, user, key, known_hosts]"), "got {made}");
     let got = s.interface("interface remote engine get 'lab'");
     assert_eq!(result_of(&got), result_of(&made), "got {got}");
     let listed = s.interface("interface remote engine list");

@@ -188,14 +188,15 @@ fn a_remote_takes_its_flags() {
     );
 }
 
-/// A remote engine command takes its flags: an address, known hosts as a list.
+/// A remote engine command takes its flags: a platform, an address, known hosts as a list.
 #[test]
 fn a_remote_engine_takes_its_flags() {
-    let set = "interface remote engine set 'lab' --address 'lab.example:2222' \
+    let set = "interface remote engine set 'lab' --platform 'linux' --address 'lab.example:2222' \
                --known-hosts ['ssh-ed25519 AAAA one', 'ssh-rsa AAAA other'] --workdir '/srv/work'";
     match parse(set) {
         Ok(InterfaceCommand::RemoteEngine(RemoteEngineCommand::Set(p))) => {
             assert_eq!(p.alias, "lab");
+            assert_eq!(p.platform.as_deref(), Some("linux"));
             assert_eq!(p.address.as_deref(), Some("lab.example:2222"));
             assert_eq!(
                 p.known_hosts,
@@ -210,6 +211,7 @@ fn a_remote_engine_takes_its_flags() {
     match parse("interface remote engine set 'lab' --known-hosts []") {
         Ok(InterfaceCommand::RemoteEngine(RemoteEngineCommand::Set(p))) => {
             assert_eq!(p.known_hosts, Some(Vec::new()), "an empty list given is kept, for the check");
+            assert_eq!(p.platform, None, "a flag not given is no change");
         }
         other => panic!("got {other:?}"),
     }

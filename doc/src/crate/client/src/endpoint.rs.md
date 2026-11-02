@@ -14,6 +14,13 @@ The worker's command when an entry names none: a bare name, found on the
 `PATH` of the account's login, where a complete install links each of
 grammar's binaries from the user's local bin.
 
+## enum Platform
+The host's operating system as its entry names it, `windows`, `linux`, or
+`macos`, never a family (User): the code groups them where a choice needs it,
+Linux and macOS alike in `is_unix`. It decides the exec command and the path
+rules and nothing else. An entry gives it with no default, so no host takes
+another's exec command by an omission.
+
 ## struct Endpoint
 The entry's fields resolved, the address split into its host and port, the
 known hosts read into the pinned keys, and the defaults taken, every field a
@@ -36,8 +43,14 @@ nothing at all. The outer line reads alike in sh, bash, zsh, fish, and nu;
 worker, so the worker holds the channel's stdin and stdout itself, a bare
 command resolves on the login's `PATH`, and every call's externals see the
 login's environment. A shell taking no `-l -c`, csh's or tcsh's, can't run a
-worker. The wrapper is a Unix host's; a Windows host's SSH shell, cmd,
-PowerShell, or nu, would take the worker's line bare.
+worker.
+
+A `windows` host's line goes bare. Windows has no `/bin/sh`, and its sshd
+hands the line to the shell `DefaultShell` names, PowerShell, cmd, or nu, each
+of which runs `<command> <args>` as it stands, a bare command found by the
+shell's own lookup on the login's `Path`. Windows' sshd builds a session's
+environment from the account's registry, so the worker sees the account's
+variables with no login shell between.
 
 ### fn worker_line
 The worker's own line, its workdir given where the entry names one, every
@@ -81,11 +94,17 @@ algorithm whose signatures aren't SHA-1's: DSA's are, and a certificate is
 refused, since no authority is configured to vouch for one.
 
 ## fn check_command
-The command is an absolute path or a bare name, the protocol's name rule, so
-it never names a path relative to wherever the login starts.
+The command is an absolute path on the entry's platform or a bare name, the
+protocol's name rule, so it never names a path relative to wherever the login
+starts.
 
 ## fn check_path
-The workdir is absolute; see `shell_neutral_path`.
+The workdir is absolute on the entry's platform; see `shell_neutral_path`.
+
+## fn is_absolute
+Unix's absolute path starts at `/`, Windows' at a drive, `C:\`: a rooted
+`\path` or a drive-relative `C:path` resolves against the session's current
+drive or directory, so neither passes.
 
 ## fn check_instance
 The id and the namespace are an instance's.
@@ -94,6 +113,11 @@ The id and the namespace are an instance's.
 One pinned line: an OpenSSH public key, its comment ignored.
 
 ## fn shell_neutral_path
-A path held absolute and to letters, digits, `/`, `.`, `_`, `-`, and `+` alone,
-so the command line reaches any login shell, sh, zsh, or nu, as it stands, with
-nothing to quote, through the wrapper's three layers.
+A Unix path held absolute and to letters, digits, `/`, `.`, `_`, `-`, and `+`
+alone, so the command line reaches any login shell, sh, zsh, or nu, as it
+stands, with nothing to quote, through the wrapper's three layers.
+
+A Windows path is held, past its drive's `C:`, to letters, digits, `\`, `.`,
+`_`, and `-` alone. Its line goes bare to PowerShell, cmd, or nu: a space parts
+it in each, and `$`, `%`, `^`, `&`, `;`, `+`, and the quotes each mean something
+to one of them.

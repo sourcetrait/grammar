@@ -15,6 +15,7 @@ const HOST_KEY: &str ="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJdD7y3aLq454yWBdwLWb
 fn engine_fields(alias: &str) -> Vec<String> {
     vec![
         format!("alias = \"{alias}\""),
+        "platform = \"linux\"".to_string(),
         "address = \"build.example\"".to_string(),
         "user = \"worker\"".to_string(),
         KEY_LINE.to_string(),
@@ -67,6 +68,7 @@ fn an_entry_opens_on_its_fields_and_the_mcps_defaults() {
     );
     let least = vec![
         "alias = \"build\"".to_string(),
+        "platform = \"linux\"".to_string(),
         "address = \"build.example:2222\"".to_string(),
         "user = \"worker\"".to_string(),
         KEY_LINE.to_string(),
@@ -80,9 +82,49 @@ fn an_entry_opens_on_its_fields_and_the_mcps_defaults() {
 }
 
 #[test]
+fn a_windows_entry_takes_drive_paths_and_its_line_goes_bare() {
+    let windows = |command: &str, workdir: &str| -> String {
+        let mut fields: Vec<String> = engine_fields("windows")
+            .into_iter()
+            .filter(|field| !["platform ", "command ", "workdir "].iter().any(|key| field.starts_with(key)))
+            .collect();
+        fields.push("platform = \"windows\"".to_string());
+        fields.push(format!("command = '{command}'"));
+        fields.push(format!("workdir = '{workdir}'"));
+        engine_text(&fields)
+    };
+    let entry = one_entry(&windows(r"C:\Users\worker\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe", r"C:\Users\worker\work"));
+    assert_eq!(entry.platform.as_deref(), Some("windows"));
+    let endpoint = entry.endpoint(&defaults()).expect("a whole Windows entry");
+    assert_eq!(endpoint.platform, Platform::Windows);
+    assert_eq!(
+        endpoint.command_line(),
+        r"C:\Users\worker\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe serve --id fixture --namespace lab --workdir C:\Users\worker\work",
+        "the line as it stands, no Unix wrapper"
+    );
+    for (command, workdir) in [("/opt/grammar/bin/grammar-ssh", r"C:\Users\worker\work"), (r"C:\Program Files\grammar-ssh.exe", r"C:\Users\worker\work")] {
+        assert!(parse_engines(&windows(command, workdir)).is_err(), "{command}");
+    }
+    assert!(parse_engines(&windows("grammar-ssh", "/srv/work")).is_err(), "a Unix workdir on Windows");
+}
+
+#[test]
+fn a_command_waits_on_its_entrys_platform_for_its_check() {
+    let text = |platform: &str, command: &str| format!("[[engine]]\nalias = \"build\"\n{platform}command = '{command}'\n");
+    for command in ["/opt/grammar/bin/grammar-ssh", r"C:\opt\grammar-ssh.exe", "bin/grammar-ssh"] {
+        let entry = one_entry(&text("", command));
+        assert_eq!(entry.missing()[0], "platform", "{command} is held once the entry names its platform");
+    }
+    let linux = "platform = \"linux\"\n";
+    assert!(parse_engines(&text(linux, "bin/grammar-ssh")).is_err(), "a relative command");
+    assert!(parse_engines(&text(linux, r"C:\opt\grammar-ssh.exe")).is_err(), "a drive path on Linux");
+    assert!(parse_engines(&text("platform = \"windows\"\n", r"C:\opt\grammar-ssh.exe")).is_ok());
+}
+
+#[test]
 fn an_incomplete_entry_is_kept_and_names_what_it_lacks() {
     let entry = one_entry("[[engine]]\nalias = \"build\"\naddress = \"build.example\"\n");
-    assert_eq!(entry.missing(), ["user", "key", "known_hosts"]);
+    assert_eq!(entry.missing(), ["platform", "user", "key", "known_hosts"]);
     let err = entry.endpoint(&defaults()).expect_err("an incomplete entry opens no session");
     for field in entry.missing() {
         assert!(err.contains(&format!("`{field}`")), "{field}: {err}");
@@ -111,6 +153,9 @@ fn an_entry_breaking_a_rule_is_refused() {
     for (line, says) in [
         ("alias = \"local\"", "MCP's own engine"),
         ("alias = \"\"", "missing `alias`"),
+        ("platform = \"unix\"", "no platform"),
+        ("platform = \"Windows\"", "no platform"),
+        ("command = 'C:\\opt\\grammar-ssh.exe'", "neither"),
         ("address = \"build.example:0\"", "isn't a port"),
         ("address = \"build.example:ssh\"", "isn't a port"),
         ("address = \"::1\"", "brackets"),

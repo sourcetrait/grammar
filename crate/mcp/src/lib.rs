@@ -131,7 +131,7 @@ pub(crate) use crate::server::{
 };
 
 pub(crate) use sourcetrait_grammar_client::{
-    Endpoint, FromRemote, RemoteAsk, RemoteEmergency, RemoteHandle, RemoteSysParams,
+    Endpoint, FromRemote, Platform, RemoteAsk, RemoteEmergency, RemoteHandle, RemoteSysParams,
     RemoteSysPaths, RemoteSystem, SSH_PORT, SessionPhase, SessionState, ToRemote, WORKER_COMMAND,
     check_alias, check_command, check_host_keys, check_instance, check_key, check_path,
     check_word, known_host_keys, known_hosts_name, parse_address,

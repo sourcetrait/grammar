@@ -52,6 +52,11 @@ fn key_line(public: &str) -> String {
     public.split_whitespace().take(2).collect::<Vec<_>>().join(" ")
 }
 
+/// `set`'s flag for `endpoint`'s platform, which its operator names.
+fn platform_flag(endpoint: &Endpoint) -> String {
+    format!("--platform {}", nu_literal(endpoint.platform.name()))
+}
+
 /// `set`'s flags for the worker's fields of `endpoint`: its command, id, and workdir.
 fn worker_flags(endpoint: &Endpoint) -> String {
     format!(
@@ -101,7 +106,7 @@ fn an_entry_set_whole_opens_closes_and_is_unset() {
         nu_literal(&sshd.address()),
         nu_literal(&endpoint.user),
     )));
-    assert_eq!(partial["missing"], nuon("[key, known_hosts]"), "{partial}");
+    assert_eq!(partial["missing"], nuon("[platform, key, known_hosts]"), "{partial}");
     assert_eq!(partial["address"], sshd.address().as_str(), "{partial}");
     let refused = host.interface("interface remote engine connect 'lab'");
     assert_eq!(envelope_error_kind(&refused).as_deref(), Some("remote::engine::invalid_params"), "{refused}");
@@ -114,11 +119,13 @@ fn an_entry_set_whole_opens_closes_and_is_unset() {
     ));
     assert_eq!(envelope_error_kind(&both).as_deref(), Some("remote::engine::invalid_params"), "{both}");
     let whole = answered(&host.interface(&format!(
-        "interface remote engine set 'lab' --key {} --known-hosts [{}] {}",
+        "interface remote engine set 'lab' {} --key {} --known-hosts [{}] {}",
+        platform_flag(&endpoint),
         nu_literal(&endpoint.key),
         nu_literal(&endpoint.host_keys[0]),
         worker_flags(&endpoint),
     )));
+    assert_eq!(whole["platform"], endpoint.platform.name(), "{whole}");
     assert_eq!(whole["missing"], nuon("[]"), "{whole}");
     assert_eq!(whole["state"], "closed", "a set opens nothing: {whole}");
     let file = std::fs::read_to_string(root.path().join("agent/.grammar/remotes.toml")).expect("the remotes file");
@@ -194,7 +201,11 @@ fn an_import_takes_its_entry_from_an_ssh_config() {
     assert_eq!(imported["user"], endpoint.user.as_str(), "{imported}");
     assert_eq!(imported["key"], endpoint.key.as_str(), "{imported}");
     assert_eq!(imported["known_hosts"], "remote/lab/known_hosts", "{imported}");
-    assert_eq!(imported["missing"], nuon("[]"), "the worker's fields take their defaults: {imported}");
+    assert_eq!(
+        imported["missing"],
+        nuon("[platform]"),
+        "the platform left to its operator, the worker's fields taking their defaults: {imported}"
+    );
     let grammar = root.path().join("agent/.grammar");
     let written = std::fs::read_to_string(grammar.join("remote/lab/known_hosts")).expect("the import's known hosts");
     let line = format!("[{}]:{} {}", endpoint.host, endpoint.port, key_line(&endpoint.host_keys[0]));
@@ -216,7 +227,11 @@ fn an_import_takes_its_entry_from_an_ssh_config() {
     assert!(error_message(&kept).contains("isn't an import's"), "{kept}");
     assert_eq!(std::fs::read_to_string(&foreign).expect("the foreign file"), "# kept by hand\n", "left as it was");
 
-    let whole = answered(&host.interface(&format!("interface remote engine set 'lab' {}", worker_flags(&endpoint))));
+    let whole = answered(&host.interface(&format!(
+        "interface remote engine set 'lab' {} {}",
+        platform_flag(&endpoint),
+        worker_flags(&endpoint),
+    )));
     assert_eq!(whole["missing"], nuon("[]"), "{whole}");
     open_run_close(&mut host, "lab");
 }
@@ -239,7 +254,8 @@ fn an_older_entry_is_refused_until_a_set_moves_it_to_the_new_fields() {
     assert!(error_message(&refused).contains("`host` is retired; `address` takes its place"), "{refused}");
 
     let moved = answered(&host.interface(&format!(
-        "interface remote engine set 'lab' --address {} --known-hosts [{}] {}",
+        "interface remote engine set 'lab' {} --address {} --known-hosts [{}] {}",
+        platform_flag(&endpoint),
         nu_literal(&sshd.address()),
         nu_literal(&endpoint.host_keys[0]),
         worker_flags(&endpoint),

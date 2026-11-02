@@ -111,6 +111,8 @@ pub struct RemoteChannelCloseParams {
 pub struct RemoteEngineSetParams {
     /// The engine to make or change.
     pub alias: String,
+    /// The host's platform: `windows`, `linux`, or `macos`.
+    pub platform: Option<String>,
     /// The host as `<host>[:<port>]`.
     pub address: Option<String>,
     /// The account the session logs in as.

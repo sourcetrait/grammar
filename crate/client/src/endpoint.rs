@@ -7,11 +7,50 @@ pub const SSH_PORT: u16 = 22;
 /// The worker's command when an entry names none, found on the login's `PATH`.
 pub const WORKER_COMMAND: &str = "grammar-ssh";
 
+/// The host's operating system, as its entry names it.
+#[cereal::derived(Data, Copy, Eq)]
+pub enum Platform {
+    Windows,
+    Linux,
+    Macos,
+}
+
+impl Platform {
+    /// Every platform's name, as an entry writes it.
+    pub const NAMES: [&'static str; 3] = ["windows", "linux", "macos"];
+
+    /// The platform a name gives: `windows`, `linux`, or `macos`.
+    pub fn parse(name: &str) -> Result<Self, String> {
+        match name {
+            "windows" => Ok(Self::Windows),
+            "linux" => Ok(Self::Linux),
+            "macos" => Ok(Self::Macos),
+            _ => Err(format!("`{name}` is no platform: `windows`, `linux`, or `macos`")),
+        }
+    }
+
+    /// The platform's name, as an entry writes it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Windows => "windows",
+            Self::Linux => "linux",
+            Self::Macos => "macos",
+        }
+    }
+
+    /// Whether the host's login takes the Unix wrapper and Unix paths.
+    pub fn is_unix(self) -> bool {
+        !matches!(self, Self::Windows)
+    }
+}
+
 /// A remote engine as the MCP's entry resolves it, each field checked by `check`.
 #[cereal::derived(Data, Eq)]
 pub struct Endpoint {
     /// The name a tool's `host` gives the engine.
     pub alias: String,
+    /// The host's operating system, which decides the exec command and the paths.
+    pub platform: Platform,
     /// The host's name or address.
     pub host: String,
     pub port: u16,
@@ -41,8 +80,8 @@ impl Endpoint {
             ("user", check_word(&self.user)),
             ("key", check_key(&self.key)),
             ("known_hosts", check_host_keys(&self.host_keys)),
-            ("command", check_command(&self.command)),
-            ("workdir", self.workdir.as_deref().map_or(Ok(()), check_path)),
+            ("command", check_command(&self.command, self.platform)),
+            ("workdir", self.workdir.as_deref().map_or(Ok(()), |path| check_path(path, self.platform))),
             ("id or namespace", check_instance(&self.id, &self.namespace)),
         ];
         for (field, checked) in fields {
@@ -51,9 +90,14 @@ impl Endpoint {
         Ok(())
     }
 
-    /// The exec command: the worker's line run by the account's login shell.
+    /// The exec command: the worker's line, through the login shell on Unix.
     pub fn command_line(&self) -> String {
-        format!("exec /bin/sh -c 'exec \"$SHELL\" -l -c \"exec {}\"'", self.worker_line())
+        match self.platform {
+            Platform::Windows => self.worker_line(),
+            Platform::Linux | Platform::Macos => {
+                format!("exec /bin/sh -c 'exec \"$SHELL\" -l -c \"exec {}\"'", self.worker_line())
+            }
+        }
     }
 
     /// The worker's own command line, as the login shell runs it.
@@ -164,9 +208,12 @@ pub fn check_host_keys(lines: &[String]) -> Result<(), String> {
 }
 
 /// The worker's command: a name the login's `PATH` finds, or an absolute path.
-pub fn check_command(command: &str) -> Result<(), String> {
-    if command.starts_with('/') {
-        return shell_neutral_path(command);
+pub fn check_command(
+    command: &str,
+    platform: Platform,
+) -> Result<(), String> {
+    if is_absolute(command, platform) {
+        return shell_neutral_path(command, platform);
     }
     if valid_name(command) {
         Ok(())
@@ -178,8 +225,25 @@ pub fn check_command(command: &str) -> Result<(), String> {
 }
 
 /// The worker's workdir: absolute, of characters login shells keep.
-pub fn check_path(path: &str) -> Result<(), String> {
-    shell_neutral_path(path)
+pub fn check_path(
+    path: &str,
+    platform: Platform,
+) -> Result<(), String> {
+    shell_neutral_path(path, platform)
+}
+
+/// Whether `path` is absolute on the platform: `/` on Unix, `X:\` on Windows.
+fn is_absolute(
+    path: &str,
+    platform: Platform,
+) -> bool {
+    match platform {
+        Platform::Windows => {
+            let bytes = path.as_bytes();
+            bytes.len() >= 3 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' && bytes[2] == b'\\'
+        }
+        Platform::Linux | Platform::Macos => path.starts_with('/'),
+    }
 }
 
 /// The worker's id and namespace, each held to the instance names' rule.
@@ -202,15 +266,36 @@ pub(crate) fn pinned_key(line: &str) -> Result<keys::PublicKey, String> {
 }
 
 /// `path` held absolute and to the characters every login shell reads as they are.
-fn shell_neutral_path(path: &str) -> Result<(), String> {
-    if !path.starts_with('/') {
-        return Err(format!("`{path}` isn't absolute"));
-    }
-    let neutral = path.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'/' | b'.' | b'_' | b'-' | b'+'));
-    if !neutral {
-        return Err(format!(
-            "`{path}` holds a character a login shell might read: only letters, digits, `/`, `.`, `_`, `-`, and `+` pass"
-        ));
+fn shell_neutral_path(
+    path: &str,
+    platform: Platform,
+) -> Result<(), String> {
+    match platform {
+        Platform::Windows => {
+            if !is_absolute(path, platform) {
+                return Err(format!("`{path}` isn't a drive's absolute path, `C:\\...`"));
+            }
+            let neutral = path[2..]
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'\\' | b'.' | b'_' | b'-'));
+            if !neutral {
+                return Err(format!(
+                    "`{path}` holds a character a Windows shell might read: past its drive, only letters, digits, `\\`, `.`, `_`, and `-` pass"
+                ));
+            }
+        }
+        Platform::Linux | Platform::Macos => {
+            if !is_absolute(path, platform) {
+                return Err(format!("`{path}` isn't absolute"));
+            }
+            let neutral =
+                path.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'/' | b'.' | b'_' | b'-' | b'+'));
+            if !neutral {
+                return Err(format!(
+                    "`{path}` holds a character a login shell might read: only letters, digits, `/`, `.`, `_`, `-`, and `+` pass"
+                ));
+            }
+        }
     }
     Ok(())
 }

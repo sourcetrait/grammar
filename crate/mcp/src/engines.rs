@@ -8,7 +8,7 @@ pub(crate) const KIND_ENGINE_INVALID: &str = "remote::engine::invalid_params";
 pub(crate) const KIND_ENGINE_NOT_OPEN: &str = "remote::engine::not_open";
 
 /// The fields a session needs, in the file's order, each an entry may still lack.
-const REQUIRED: [&str; 4] = ["address", "user", "key", "known_hosts"];
+const REQUIRED: [&str; 5] = ["platform", "address", "user", "key", "known_hosts"];
 
 /// The fields an older entry wrote, each with the field that took its place.
 const RETIRED: [(&str, &str); 3] = [("host", "address"), ("port", "address"), ("host_keys", "known_hosts")];
@@ -35,6 +35,7 @@ struct EnginesToml {
 #[serde(deny_unknown_fields)]
 struct EngineToml {
     alias: Option<String>,
+    platform: Option<String>,
     address: Option<String>,
     user: Option<String>,
     key: Option<String>,
@@ -65,6 +66,8 @@ pub(crate) enum KnownHosts {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct EngineEntry {
     pub alias: String,
+    /// The host's platform as written: `windows`, `linux`, or `macos`.
+    pub platform: Option<String>,
     /// The host as `<host>[:<port>]`.
     pub address: Option<String>,
     pub user: Option<String>,
@@ -80,6 +83,7 @@ pub(crate) struct EngineEntry {
 /// The fields a `set` or an `import` gives, each replacing the entry's own.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct EngineChange {
+    pub platform: Option<String>,
     pub address: Option<String>,
     pub user: Option<String>,
     pub key: Option<String>,
@@ -119,6 +123,7 @@ impl EngineEntry {
         change: &EngineChange,
     ) -> Self {
         let EngineChange {
+            platform,
             address,
             user,
             key,
@@ -130,6 +135,7 @@ impl EngineEntry {
         } = change.clone();
         Self {
             alias: alias.to_string(),
+            platform,
             address,
             user,
             key,
@@ -155,6 +161,7 @@ impl EngineEntry {
         }
         let entry = Self {
             alias,
+            platform: raw.platform,
             address: raw.address,
             user: raw.user,
             key: raw.key,
@@ -176,6 +183,10 @@ impl EngineEntry {
             let field = field.to_string();
             move |why: String| format!("[[engine]] `{alias}`: {field} {why}")
         };
+        let platform = match &self.platform {
+            Some(name) => Some(Platform::parse(name).map_err(refuse("platform"))?),
+            None => None,
+        };
         if let Some(address) = &self.address {
             parse_address(address).map_err(refuse("address"))?;
         }
@@ -190,11 +201,13 @@ impl EngineEntry {
             Some(KnownHosts::File(path)) => check_file(path).map_err(refuse("known_hosts"))?,
             None => {}
         }
-        if let Some(command) = &self.command {
-            check_command(command).map_err(refuse("command"))?;
-        }
-        if let Some(workdir) = &self.workdir {
-            check_path(workdir).map_err(refuse("workdir"))?;
+        if let Some(platform) = platform {
+            if let Some(command) = &self.command {
+                check_command(command, platform).map_err(refuse("command"))?;
+            }
+            if let Some(workdir) = &self.workdir {
+                check_path(workdir, platform).map_err(refuse("workdir"))?;
+            }
         }
         if self.id.is_some() || self.namespace.is_some() {
             let id = self.id.as_deref().unwrap_or(NAME_STAND_IN);
@@ -207,6 +220,7 @@ impl EngineEntry {
     /// The fields a session needs that the entry lacks, in the file's order.
     pub(crate) fn missing(&self) -> Vec<String> {
         let given = [
+            self.platform.is_some(),
             self.address.is_some(),
             self.user.is_some(),
             self.key.is_some(),
@@ -236,6 +250,7 @@ impl EngineEntry {
         }
         let refuse = |field: &str, why: String| format!("[[engine]] `{}`: {field} {why}", self.alias);
         let text = |field: &Option<String>| field.clone().unwrap_or_default();
+        let platform = Platform::parse(&text(&self.platform)).map_err(|why| refuse("platform", why))?;
         let (host, port) = parse_address(&text(&self.address)).map_err(|why| refuse("address", why))?;
         let host_keys = match &self.known_hosts {
             Some(KnownHosts::Keys(lines)) => lines.clone(),
@@ -246,6 +261,7 @@ impl EngineEntry {
         };
         let endpoint = Endpoint {
             alias: self.alias.clone(),
+            platform,
             host,
             port,
             user: text(&self.user),
@@ -373,6 +389,7 @@ pub(crate) fn set_engine(
         KnownHosts::File(path) => toml_edit::value(path.as_str()),
     });
     let given = [
+        ("platform", text_value(&change.platform)),
         ("address", text_value(&change.address)),
         ("user", text_value(&change.user)),
         ("key", text_value(&change.key)),

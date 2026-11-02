@@ -91,9 +91,110 @@ fn another_failure_keeps_its_exit_and_its_stderr() {
 }
 
 #[test]
+fn each_windows_shells_missing_command_is_command_not_found() {
+    // As each shell answered on Windows Server 2025, PowerShell's lines in its colors.
+    let cases: [(&str, &[&str]); 5] = [
+        (
+            "grammar-ssh",
+            &[
+                "\u{1b}[31;1mgrammar-ssh: \u{1b}[31;1mThe term 'grammar-ssh' is not recognized as a name of a cmdlet, function, script file, or executable program.\u{1b}[0m",
+            ],
+        ),
+        (
+            r"C:\opt\grammar\bin\grammar-ssh.exe",
+            &[
+                r"C:\opt\grammar\bin\grammar-ssh.exe: The term 'C:\opt\grammar\bin\grammar-ssh.exe' is not recognized as a name of a cmdlet, function, script file, or executable program.",
+            ],
+        ),
+        (
+            "grammar-ssh",
+            &["'grammar-ssh' is not recognized as an internal or external command,", "operable program or batch file."],
+        ),
+        (r"C:\opt\grammar\bin\grammar-ssh.exe", &["The system cannot find the path specified."]),
+        (r"C:\opt\grammar\bin\grammar-ssh.exe", &["   :            `-- Command `C:\\opt\\grammar\\bin\\grammar-ssh.exe` not found"]),
+    ];
+    for (command, lines) in cases {
+        let refusal = witness(1, lines).explain(lost(), command);
+        assert!(
+            matches!(&refusal, TransportError::Unavailable { reason } if *reason == format!("command not found: {command}")),
+            "{lines:?}: {refusal:?}"
+        );
+    }
+}
+
+#[test]
+fn a_bare_commands_path_message_is_no_missing_command() {
+    let refusal = witness(1, &["The system cannot find the path specified."]).explain(lost(), "grammar-ssh");
+    let TransportError::Unavailable { reason } = &refusal else {
+        panic!("{refusal:?}");
+    };
+    assert!(reason.starts_with("the worker exited 1 before its reply"), "{reason}");
+}
+
+#[test]
+fn a_windows_hosts_worker_line_goes_bare() {
+    let endpoint = Endpoint {
+        alias: "windows".to_string(),
+        platform: Platform::Windows,
+        host: "windows.example".to_string(),
+        port: SSH_PORT,
+        user: "worker".to_string(),
+        key: "/keys/worker".to_string(),
+        host_keys: Vec::new(),
+        command: r"C:\Users\worker\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe".to_string(),
+        id: "fixture".to_string(),
+        namespace: "default".to_string(),
+        workdir: Some(r"C:\Users\worker\work".to_string()),
+    };
+    let line = r"C:\Users\worker\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe serve --id fixture --namespace default --workdir C:\Users\worker\work";
+    assert_eq!(endpoint.worker_line(), line);
+    assert_eq!(endpoint.command_line(), line, "a Windows shell takes the line as it stands");
+    let macos = Endpoint {
+        platform: Platform::Macos,
+        command: WORKER_COMMAND.to_string(),
+        workdir: None,
+        ..endpoint
+    };
+    assert_eq!(
+        macos.command_line(),
+        "exec /bin/sh -c 'exec \"$SHELL\" -l -c \"exec grammar-ssh serve --id fixture --namespace default\"'",
+        "macOS's login takes the Unix wrapper"
+    );
+}
+
+#[test]
+fn each_platform_holds_its_own_paths() {
+    let windows = Platform::Windows;
+    let linux = Platform::Linux;
+    for good in [r"C:\Users\worker\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe", r"d:\grammar-ssh.exe", "grammar-ssh"] {
+        assert!(check_command(good, windows).is_ok(), "{good}");
+    }
+    for bad in [r"C:\Program Files\grammar\grammar-ssh.exe", "/opt/grammar/bin/grammar-ssh", r"\grammar-ssh.exe", r"C:grammar"] {
+        assert!(check_command(bad, windows).is_err(), "{bad}");
+    }
+    assert!(check_path(r"C:\Users\worker\work", windows).is_ok());
+    assert!(check_path(r"C:\Users\worker\my work", windows).is_err(), "a space parts the line");
+    assert!(check_path("/srv/work", windows).is_err(), "a Unix path on Windows");
+    assert!(check_command("/opt/grammar/bin/grammar-ssh", linux).is_ok());
+    assert!(check_command(r"C:\opt\grammar-ssh.exe", linux).is_err(), "a drive path on Linux");
+    assert!(check_path(r"C:\Users\worker\work", linux).is_err());
+}
+
+#[test]
+fn a_platform_is_named_windows_linux_or_macos() {
+    for name in Platform::NAMES {
+        assert_eq!(Platform::parse(name).map(Platform::name), Ok(name));
+    }
+    assert!(Platform::parse("unix").is_err());
+    assert!(Platform::parse("Windows").is_err());
+    assert!(Platform::Linux.is_unix() && Platform::Macos.is_unix() && !Platform::Windows.is_unix());
+}
+
+#[test]
 fn the_worker_runs_through_the_accounts_login_shell() {
     let endpoint = Endpoint {
         alias: "build".to_string(),
+        platform: Platform::Linux,
         host: "build.example".to_string(),
         port: SSH_PORT,
         user: "worker".to_string(),
