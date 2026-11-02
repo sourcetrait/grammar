@@ -9,7 +9,7 @@
   - status [background: record<BG_SCHEMA>, data<EXEC_SCHEMA>, timeout?(from prep)] -> result<STATUS_SCHEMA> # ran at intervals (default or provided to prepare) as a heart beat check
   - stop [background: record<BG_SCHEMA>, data<EXEC_SCHEMA>, timeout?(from prep)] -> result<CANCEL_SCHEMA> # tears down the process, attempting to do it cleanly
 
-  for execute (await) only: a timeout of 0ns will disable timeout checking for execute
+  for execute (await) only: a timeout of 0ns (indefinite) will disable timeout checking for execute
   would this cover what we currently using the long runner for?
 
 ## example
