@@ -14,6 +14,8 @@ pub struct Executor {
     env_jobs: Arc<std::sync::Mutex<nu::Jobs>>,
     semaphore: Arc<tk::Semaphore>,
     ready_target: usize,
+    /// The engine instance's nom, which every base it builds carries.
+    nom: String,
 }
 
 struct BaseHolder {
@@ -28,10 +30,10 @@ struct ReadyClone {
 }
 
 impl Executor {
-    /// Build the base once, snapshot the registry mtime, pre-fill the buffer.
-    pub fn new(env_jobs: Arc<std::sync::Mutex<nu::Jobs>>, ready_target: usize) -> Self {
+    /// The base built once under `nom`, the registry's mtime taken, the buffer filled.
+    pub fn new(env_jobs: Arc<std::sync::Mutex<nu::Jobs>>, ready_target: usize, nom: String) -> Self {
         let holder = BaseHolder {
-            engine: Arc::new(startup(Mode::Stateless)),
+            engine: Arc::new(instance_startup(Mode::Stateless, &nom)),
             generation: 0,
             registry_mtime: registry_mtime(),
         };
@@ -41,6 +43,7 @@ impl Executor {
             env_jobs,
             semaphore: Arc::new(tk::Semaphore::new(eval_concurrency_cap())),
             ready_target,
+            nom,
         };
         executor.refill_ready();
         executor
@@ -57,7 +60,7 @@ impl Executor {
             Ok(holder) => holder,
             Err(poisoned) => {
                 let mut holder = poisoned.into_inner();
-                holder.engine = Arc::new(startup(Mode::Stateless));
+                holder.engine = Arc::new(instance_startup(Mode::Stateless, &self.nom));
                 holder.generation += 1;
                 holder.registry_mtime = registry_mtime();
                 self.base.clear_poison();
@@ -112,7 +115,7 @@ impl Executor {
             if current == holder.registry_mtime {
                 return;
             }
-            holder.engine = Arc::new(startup(Mode::Stateless));
+            holder.engine = Arc::new(instance_startup(Mode::Stateless, &self.nom));
             holder.generation += 1;
             holder.registry_mtime = current;
         }

@@ -8,7 +8,9 @@ An entry's fields as the file writes them beside its session's state, so one
 row shows what is configured, what a session still needs, and whether one is
 open. A field left to its default is null, as the file leaves it out, and the
 known hosts are a list or a file's path, as written. `configured` tells an
-entry from a session the file no longer names, whose fields are null.
+entry from a session the file no longer names, whose fields are null. An open
+session shows grammar-ssh's nom, its engine's, and no process of it: the end
+user talks to the engine, grammar-ssh's process opaque to it (User).
 
 ### fn of
 An alias with no entry takes the default entry, every field null.

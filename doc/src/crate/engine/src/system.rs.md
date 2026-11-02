@@ -8,8 +8,8 @@ Its loop only receives. Each request is answered on a task of its own, so a long
 a lock wait holds no other request up, and the loop is always free to take a stop.
 
 ## struct EngineSysParams
-Unit, as `EngineSysConfig` is: the engine's own parameters arrive through `init`,
-process-wide, so the system takes none of its own.
+The instance's nom alone, which its evals carry as `$env.EQUIP_MCP_NOM`; the
+engine's other parameters arrive through `init`, process-wide.
 
 ## struct EngineSysPaths
 The namespace's homes as `init` set them: config, data, and state the data home, cache
@@ -54,13 +54,21 @@ command that waits for its answer, so it asks by the requester's blocking form. 
 requester holds the system weakly, so a link outliving its system answers that it is
 gone rather than keeping it alive.
 
+## struct EngineHandle
+An engine instance, one a controller (User), and its identity (`identity.rs`).
+
 ## fn EngineHandle::start
 The system starts on the namespace `init` set, so `init` comes first, and the equip store
-before both (`serve.rs`'s `EngineCore`).
+before both (`serve.rs`'s `EngineCore`). Each start draws the instance's identity, so
+an engine started again after a failure is a new instance under a new nom.
 
 The handler is the controller's. It hears the system's status and its end, an end it
 didn't ask for among them, and it answers the host asks (`on_request`). The engine sends
 nothing else unasked, so a handler's `on_packet` never sees a packet.
+
+## fn EngineHandle::identity
+The instance's identity, which its controller inherits: its nom, the one the agent
+and its user see, and the generator its controller's nonces come from.
 
 ## fn EngineHandle::request
 Generic over the request types, each naming its answer, so a controller gets the answer's

@@ -137,5 +137,5 @@ If the thread fails to spawn, which is effectively impossible, `rx` drops with t
 closure and every `eval()` surfaces the closed channel as an error rather than hanging.
 
 The tracker is overwritten fresh each eval, so a cancel reaches only the current call's
-external children. The host link is taken once, with the thread, the lane being its
-engine's for its whole life.
+external children. The host link and the nom are taken once, with the thread, the lane
+being its engine instance's for its whole life, a reset keeping both.

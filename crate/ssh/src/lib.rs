@@ -37,7 +37,7 @@ pub(crate) use futures_util::{SinkExt, StreamExt};
 pub(crate) use sourcetrait_common::{datum, subsys};
 pub(crate) use sourcetrait_grammar_engine::{
     self as engine, ControlAnswer, EngineCommand, EngineError, EngineHandle, EngineHealth,
-    EngineResult, EngineSystem, FromEngine, HostAsk, PinAsk, ToEngine, prepare_send,
+    EngineIdentity, EngineResult, EngineSystem, FromEngine, HostAsk, PinAsk, ToEngine, prepare_send,
 };
 pub(crate) use sourcetrait_grammar_operator::{
     FromOperatorSys, OperatorHandle, OperatorSysParams, OperatorSysPaths, OperatorSystem,

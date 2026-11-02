@@ -35,6 +35,16 @@ pub(crate) fn startup(mode: Mode) -> nu::EngineState {
     engine_state
 }
 
+/// An engine for `mode` as an instance runs evals, `EQUIP_MCP_NOM` its nom.
+pub(crate) fn instance_startup(
+    mode: Mode,
+    nom: &str,
+) -> nu::EngineState {
+    let mut engine_state = startup(mode);
+    engine_state.add_env_var("EQUIP_MCP_NOM".to_string(), nu::Value::string(nom, nu::Span::unknown()));
+    engine_state
+}
+
 /// The host's `print`, which writes to the running call's stderr log.
 fn add_print(engine_state: &mut nu::EngineState) {
     let mut working_set = nu::StateWorkingSet::new(engine_state);
@@ -67,7 +77,7 @@ fn seed_config(engine_state: &mut nu::EngineState) {
     );
 }
 
-/// Seed the process env into `$env`, plus the ambient EQUIP six.
+/// Seed the process env into `$env`, plus the host's five EQUIP values.
 fn seed_env(engine_state: &mut nu::EngineState) {
     if let Ok(cwd) = std::env::current_dir() {
         engine_state.add_env_var(
@@ -99,10 +109,6 @@ fn seed_env(engine_state: &mut nu::EngineState) {
     engine_state.add_env_var(
         "EQUIP_TRANSIENT".to_string(),
         nu::Value::string(params.transient_dir.to_string_lossy().into_owned(), span),
-    );
-    engine_state.add_env_var(
-        "EQUIP_MCP_NOM".to_string(),
-        nu::Value::string(params.mcp_nom.clone(), span),
     );
 }
 

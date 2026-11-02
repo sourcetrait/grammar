@@ -179,17 +179,18 @@ struct StatefulRequest {
 }
 
 impl StatefulEngine {
-    /// Spawn the stateful engine thread with the host-owned jobs table.
+    /// Spawn the stateful engine thread with the host-owned jobs table, under `nom`.
     pub(crate) fn spawn(
         env_jobs: Arc<std::sync::Mutex<nu::Jobs>>,
         host: HostLink,
+        nom: String,
     ) -> Self {
         let (tx, mut rx) = tk::unbounded_channel::<StatefulRequest>();
         let _ = std::thread::Builder::new()
             .stack_size(EVAL_STACK_SIZE)
             .name("nu-stateful".to_string())
             .spawn(move || {
-                let mut engine = startup(Mode::Stateful);
+                let mut engine = instance_startup(Mode::Stateful, &nom);
                 engine.jobs = env_jobs.clone();
                 while let Some(req) = rx.blocking_recv() {
                     let _finish = FinishGuard(req.finished.clone());
@@ -209,7 +210,7 @@ impl StatefulEngine {
                         Ok(r) => r,
                         Err(_) => {
                             heal_jobs(&env_jobs);
-                            engine = startup(Mode::Stateful);
+                            engine = instance_startup(Mode::Stateful, &nom);
                             engine.jobs = env_jobs.clone();
                             Err("panic during a stateful eval (caught); the stateful session reset"
                                 .to_string()

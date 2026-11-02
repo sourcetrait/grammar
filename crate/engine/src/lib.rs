@@ -14,6 +14,7 @@ pub(crate) mod equip {
 }
 pub(crate) mod execute;
 pub(crate) mod executor;
+pub(crate) mod identity;
 pub(crate) mod lint;
 pub(crate) mod mode;
 pub(crate) mod msg;
@@ -67,7 +68,7 @@ pub(crate) use crate::{
         register_hung, teardown_all_in_flight,
     },
     embed::{StatefulEngine, eval_in_process, eval_stateless, merge_env_no_chdir},
-    engine::startup,
+    engine::{instance_startup, startup},
     equip::{
         purview::{
             load_purviews, purview_add_rig, purview_configure, purview_list, purview_remove_rig,
@@ -114,7 +115,7 @@ pub(crate) use sourcetrait_grammar_protocol::{
 
 pub(crate) use std::{
     collections::HashMap,
-    fs,
+    fmt, fs,
     io::{self, Write},
     ops::ControlFlow,
     panic::{AssertUnwindSafe, catch_unwind},
@@ -212,6 +213,7 @@ pub use crate::{
     },
     execute::{ExecuteDef, analyze_definition},
     executor::{Executor, eval_concurrency_cap},
+    identity::EngineIdentity,
     lint::lint_block,
     msg::{FromEngine, HostAsk, PinAsk, ToEngine},
     namepath::{

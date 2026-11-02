@@ -22,6 +22,9 @@ stateless pool picks up a plugin the stateful lane just registered without a res
 In-flight evals finish on the clone they already hold, dispatched under the old
 state, which is fine; only the buffer and future clones pick the change up.
 
+The base carries its engine instance's nom, which every rebuild keeps
+(`engine.rs`'s `instance_startup`).
+
 ### fn semaphore
 The permit rides IN the eval thread and releases when the thread finishes, which is
 deliberate: a hung thread keeps its slot OCCUPIED - bounded and visible - rather than

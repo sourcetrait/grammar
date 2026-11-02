@@ -23,8 +23,8 @@ pub(crate) struct RemoteEngineRow {
     /// The fields a session needs that the entry lacks.
     pub missing: Vec<String>,
     pub state: SessionPhase,
+    /// grammar-ssh's nom, its engine's, while a session is open.
     pub nom: Option<String>,
-    pub pid: Option<u32>,
     /// The last open's failure, its kind first.
     pub failure: Option<String>,
 }
@@ -65,7 +65,6 @@ impl RemoteEngineRow {
             missing: entry.map(EngineEntry::missing).unwrap_or_default(),
             state: state.map_or(SessionPhase::Closed, |state| state.phase),
             nom: state.and_then(|state| state.nom.clone()),
-            pid: state.and_then(|state| state.pid),
             failure: state.and_then(|state| state.failure.clone()),
         }
     }

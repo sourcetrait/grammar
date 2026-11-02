@@ -9,10 +9,6 @@ standard variable alone would lose to a UENV tree in the environment.
 A `--xdg-*` value that does not expand is the operator's error: it comes back as
 an `Err` and the host exits 2 before anything reads the environment.
 
-## const LOCK_HOLDER
-What the namespace lock's record names a holder, beside grammar-ssh's own: a
-reader of the lock's file tells the two programs apart by it.
-
 ## const WORKER_STACK_SIZE
 Every runtime worker gets an eval thread's stack; an assertion holds it to the
 engine's `EVAL_STACK_SIZE`.
@@ -88,9 +84,8 @@ One engine a namespace, whichever program starts it: the server, the one-shot
 CLI, and grammar-ssh take the same lock, the data home's `host.lock`, so each
 refuses a namespace another holds, a worker on the same machine among them.
 It is taken before anything touches the namespace, the equip store's
-substrate included, and its record names this process: the holder, the
-identity, the pid, the start, the boot, and the process's nom, which `interface
-info` reports, so a reader tells which host holds it.
+substrate included; its record waits for the engine's nom, which the controller
+writes (`server/controller.rs`).
 
 ## fn resolve_namespace
 The namespace half of `--test` ends here, and that is what keeps the flag from

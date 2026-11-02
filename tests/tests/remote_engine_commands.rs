@@ -39,9 +39,10 @@ fn interface_within(host: &mut Host, command: &str) -> Value {
     host.read_id_within(id, CONNECT)
 }
 
-/// A row's grammar-ssh pid.
-fn ssh_pid(row: &NuVal) -> u32 {
-    match row.get("pid") {
+/// grammar-ssh's pid, as a call on `alias` answers it.
+fn ssh_pid(host: &mut Host, alias: &str) -> u32 {
+    let ran = answered(&host.call("execute", json!({"host": alias, "definition": PID, "data": "null"})));
+    match ran.get("pid") {
         Some(NuVal::Int(pid)) => *pid as u32,
         other => panic!("grammar-ssh's pid, not {other:?}"),
     }
@@ -76,12 +77,12 @@ fn workdir(endpoint: &Endpoint) -> &str {
 fn open_run_close(host: &mut Host, alias: &str) {
     let opened = answered(&interface_within(host, &format!("interface remote engine connect '{alias}'")));
     assert_eq!(opened["state"], "open", "{opened}");
-    let pid = ssh_pid(&opened);
+    assert!(!opened["nom"].is_nothing(), "an open session names its engine's nom: {opened}");
+    let pid = ssh_pid(host, alias);
     assert!(alive(pid), "grammar-ssh runs once connected");
     let listed = answered(&host.interface("interface remote engine list"));
     assert_eq!(listed[0]["state"], "open", "{listed}");
-    let ran = host.call("execute", json!({"host": alias, "definition": PID, "data": "null"}));
-    assert_eq!(answered(&ran)["pid"], i64::from(pid), "a call rides the open session: {ran}");
+    assert_eq!(ssh_pid(host, alias), pid, "a call rides the open session");
 
     let closed = answered(&host.interface(&format!("interface remote engine close '{alias}'")));
     assert!(closed.is_nothing(), "{closed}");
@@ -133,8 +134,8 @@ fn an_entry_set_whole_opens_closes_and_is_unset() {
 
     open_run_close(&mut host, "lab");
 
-    let opened = answered(&interface_within(&mut host, "interface remote engine connect 'lab'"));
-    let first = ssh_pid(&opened);
+    let _ = answered(&interface_within(&mut host, "interface remote engine connect 'lab'"));
+    let first = ssh_pid(&mut host, "lab");
     let moved = account.root().join("moved");
     std::fs::create_dir_all(&moved).expect("a second workdir");
     let changed = answered(&host.interface(&format!(
@@ -152,8 +153,7 @@ fn an_entry_set_whole_opens_closes_and_is_unset() {
     assert_eq!(after["work_dir"], moved.display().to_string().as_str(), "the next session takes the change: {after}");
     assert_ne!(after["pid"], i64::from(first), "a new grammar-ssh: {after}");
 
-    let live = answered(&host.interface("interface remote engine get 'lab'"));
-    let second = ssh_pid(&live);
+    let second = ssh_pid(&mut host, "lab");
     let unset = answered(&host.interface("interface remote engine unset 'lab'"));
     assert!(unset.is_nothing(), "{unset}");
     let orphan = answered(&host.interface("interface remote engine list"));

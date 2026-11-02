@@ -24,6 +24,11 @@ takes a terminal's foreground group. The teardown still walks the process table
 rather than signalling a group, since a descendant that starts its own session or
 group leaves the external's (`teardown.rs`).
 
+## fn instance_startup
+An instance's engines, its executor's base and its stateful engine, carry its nom
+as `$env.EQUIP_MCP_NOM`, set after the startup as nothing in it reads the nom. The
+parse and registration engines run no eval of the host's and take none.
+
 ## fn startup
 THE HOST'S ONE STARTUP, following nushell's own `main` (nu 0.116.1,
 `src/main.rs`) in its order, so a body sees the shell `nu --mcp -n` gives but
@@ -67,8 +72,8 @@ The whole OS env goes in because externals need `$env.PATH`.
 seeded below - the namespace is the sole controlled lib path, and letting the
 environment win would let a body reach outside the namespace.
 
-The four EQUIP values are set directly from the engine's params rather than
-inherited: eval is in-process with no spawn-env to carry them, and they are not
+The host's five EQUIP values are set directly from the engine's params rather
+than inherited, the nom alone being the instance's (`instance_startup`): eval is in-process with no spawn-env to carry them, and they are not
 in the host's own environment, so the engine seeds them from what the host gave
 it. They are set after the process env, so a parent's variable of the same name
 never stands in for the host's own value.

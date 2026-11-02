@@ -8,6 +8,9 @@ Built once, when the system starts. `CRYPTO_PROVIDER.default()` installs nushell
 provider so the `http` family works; nushell reads its own OnceLock here, never rustls's
 process-global, which is why this call rather than a rustls one.
 
+The core keeps its instance's nom (`identity.rs`), which its executor and its
+stateful engine give every eval as `$env.EQUIP_MCP_NOM`.
+
 The equips' locks are hydrated from the equip store at the start, so the store, and the
 builtins it holds, are the host's to make before the engine starts: an equip installed
 into the store behind the engine's back has no lock, and a call to it answers

@@ -14,17 +14,22 @@ pub(crate) struct EngineCore {
     pub(crate) lint_engine: LintEngine,
     /// The way an eval's `grimm` asks reach the engine's controller.
     pub(crate) host: HostLink,
+    /// The instance's nom, every eval's `$env.EQUIP_MCP_NOM`.
+    pub(crate) nom: String,
 }
 
 impl EngineCore {
-    /// The core started: the TLS provider, the stateless base, the locks, the host.
-    pub(crate) async fn start(host: HostLink) -> io::Result<Self> {
+    /// The core under `nom`: the TLS provider, the stateless base, the locks, the host.
+    pub(crate) async fn start(
+        host: HostLink,
+        nom: String,
+    ) -> io::Result<Self> {
         nu::CRYPTO_PROVIDER.default();
         let env_jobs = Arc::new(std::sync::Mutex::new(nu::Jobs::default()));
         let rig_locks = RigLocks::new();
         rig_locks.hydrate_from_disk().await?;
         Ok(Self {
-            executor: Executor::new(env_jobs.clone(), READY_POOL_TARGET),
+            executor: Executor::new(env_jobs.clone(), READY_POOL_TARGET, nom.clone()),
             stateful: tk::AsyncMutex::new(None),
             env_jobs,
             in_flight: Arc::new(tk::AsyncMutex::new(HashMap::new())),
@@ -32,6 +37,7 @@ impl EngineCore {
             rig_locks,
             lint_engine: LintEngine::new(),
             host,
+            nom,
         })
     }
 }

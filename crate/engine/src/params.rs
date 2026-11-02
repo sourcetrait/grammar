@@ -13,8 +13,6 @@ pub struct EngineParams {
     pub tmp_dir: PathBuf,
     /// The host's transient scratch directory, a definition's `$env.EQUIP_TRANSIENT`.
     pub transient_dir: PathBuf,
-    /// The host process's nom, a definition's `$env.EQUIP_MCP_NOM`.
-    pub mcp_nom: String,
     /// The namespace's data home: the lib dirs and the plugin registry.
     pub data_home: PathBuf,
     /// The namespace's cache home: the call logs and the cached definitions.

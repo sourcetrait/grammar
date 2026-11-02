@@ -47,6 +47,8 @@ pub struct GrammarSshController {
     supervision: std::sync::Mutex<Option<Supervision>>,
     /// The session's MCP, for the engine's asks and the operator's emergencies.
     asker: Arc<Asker>,
+    /// The engine's identity, which the host inherits.
+    identity: EngineIdentity,
     /// Set as the shutdown starts, so the systems' ends it asks for go unsaid.
     stopping: Arc<AtomicBool>,
 }
@@ -69,6 +71,7 @@ impl GrammarSshController {
             stopping: stopping.clone(),
         };
         let engine = Arc::new(EngineHandle::start(route).await.map_err(|e| failed(e.to_string()))?);
+        let identity = engine.identity().clone();
         let paths = OperatorSysPaths::new(config.paths.data.clone(), config.paths.cache.clone());
         let params = OperatorSysParams {
             test: false,
@@ -84,8 +87,14 @@ impl GrammarSshController {
             engine: std::sync::Mutex::new(Some(engine)),
             supervision: std::sync::Mutex::new(Some(Supervision { operator, observer })),
             asker,
+            identity,
             stopping,
         })
+    }
+
+    /// The engine's identity, which the host inherits.
+    pub(crate) fn identity(&self) -> &EngineIdentity {
+        &self.identity
     }
 
     /// The engine's system, or the failure a stopped one answers.

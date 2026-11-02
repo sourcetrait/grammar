@@ -4,6 +4,9 @@ use crate::*;
 /// How long the shutdown waits for in-flight requests to let the engine go.
 const ENGINE_RELEASE_GRACE: tk::TkDuration = tk::TkDuration::from_secs(1);
 
+/// What the controller's record in its namespace lock names its holder.
+const LOCK_HOLDER: &str = "grammar-mcp";
+
 /// A system's status change, logged unless a shutdown is running.
 pub(crate) fn log_status(
     system: &str,
@@ -31,6 +34,18 @@ pub(crate) fn log_closed(
 /// A slot's lock, a poisoned one taken as it stands.
 fn held<T>(slot: &std::sync::Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     slot.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// `lock`'s record written: this process its holder, under its engine's nom.
+fn record_lock(
+    mut lock: NamespaceLock,
+    config: &Config,
+    nom: &datum::NomPair,
+) -> Result<NamespaceLock, String> {
+    let record = LockRecord::current(LOCK_HOLDER, &config.id, &config.namespace, nom.as_str())
+        .map_err(|e| format!("the namespace lock's record: {e}"))?;
+    lock.record(&record).map_err(|e| e.to_string())?;
+    Ok(lock)
 }
 
 /// The operator and the observer that feeds it, the serve path's supervision.
@@ -62,30 +77,36 @@ pub(crate) struct McpController {
 }
 
 impl McpController {
-    /// The systems started in order, the face's first, `lock` held for their life.
+    /// The one engine started first, its nom inherited by the face, the lock, the log.
     pub(crate) async fn start(
         config: Arc<Config>,
         supervise: bool,
         lock: Option<NamespaceLock>,
     ) -> Result<Arc<Self>, String> {
-        let face = Self::start_face(&config).await?;
-        let controller = Self::of(config, face, lock);
-        let remote = controller.start_engine(supervise).await?;
+        let stopping = Arc::new(AtomicBool::new(false));
+        let face = FaceLink::default();
+        let route = HostRoute {
+            face: face.clone(),
+            config: config.clone(),
+            stopping: stopping.clone(),
+        };
+        let engine = Arc::new(EngineHandle::start(route.clone()).await.map_err(|e| e.to_string())?);
+        let identity = engine.identity().clone();
+        let lock = lock.map(|lock| record_lock(lock, &config, identity.nom())).transpose()?;
+        let started = ChannelFace::start(config.clone(), identity.nonce_gen().clone(), identity.nom().clone()).await?;
+        face.bind(&started);
+        let controller = Self::of(config, started, lock, stopping);
+        let remote = controller.attach_engine(engine, route, supervise).await?;
         controller.start_remote(remote).await?;
         Ok(Arc::new(controller))
     }
 
-    /// The Channel's and the peer links' systems, on the process's identity.
-    async fn start_face(config: &Arc<Config>) -> Result<ChannelFace, String> {
-        let (nonce_gen, mcp_nom) = process_identity();
-        ChannelFace::start(config.clone(), nonce_gen, mcp_nom).await
-    }
-
-    /// A controller over `face`, no other system started yet.
+    /// A controller over `face`, its engine not yet attached.
     fn of(
         config: Arc<Config>,
         face: ChannelFace,
         lock: Option<NamespaceLock>,
+        stopping: Arc<AtomicBool>,
     ) -> Self {
         Self {
             config,
@@ -94,17 +115,17 @@ impl McpController {
             remote: std::sync::Mutex::new(None),
             supervision: std::sync::Mutex::new(None),
             lock: std::sync::Mutex::new(lock),
-            stopping: Arc::new(AtomicBool::new(false)),
+            stopping,
             stopped: tk::AsyncMutex::new(false),
             sweep: std::sync::Mutex::new(None),
         }
     }
 
-    /// The engine's system, its asks routed here, then the supervision if asked.
-    ///
-    /// Returns the remote engines' handler, the same route and policy the engine's take.
-    async fn start_engine(
+    /// The engine attached under its policy and supervision; the remote route returned.
+    async fn attach_engine(
         &self,
+        engine: Arc<EngineHandle>,
+        route: HostRoute,
         supervise: bool,
     ) -> Result<RemoteRoute, String> {
         let mcp_nom = self.face.mcp_nom.as_str();
@@ -112,24 +133,11 @@ impl McpController {
         let policy = EmergencyPolicy::new(self.face.channel.clone(), mcp_nom, log);
         if supervise {
             self.face.hub.install_policy(policy.clone());
-        }
-        let route = HostRoute {
-            channel: self.face.channel.clone(),
-            peer: self.face.peer.clone(),
-            config: self.config.clone(),
-            stopping: self.stopping.clone(),
-        };
-        let remote = RemoteRoute {
-            route: route.clone(),
-            policy: policy.clone(),
-        };
-        let engine = Arc::new(EngineHandle::start(route).await.map_err(|e| e.to_string())?);
-        if supervise {
-            let supervision = self.supervise(engine.clone(), policy).await?;
+            let supervision = self.supervise(engine.clone(), policy.clone()).await?;
             *held(&self.supervision) = Some(supervision);
         }
         *held(&self.engine) = Some(engine);
-        Ok(remote)
+        Ok(RemoteRoute { route, policy })
     }
 
     /// The remote engines' system, `route` answering asks; a request brings its entry.

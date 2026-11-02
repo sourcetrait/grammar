@@ -5,9 +5,6 @@ const WORKER_STACK_SIZE: usize = 64 * 1024 * 1024;
 
 const _: () = assert!(WORKER_STACK_SIZE >= EVAL_STACK_SIZE);
 
-/// What the host's record in its namespace lock names its holder.
-const LOCK_HOLDER: &str = "grammar-mcp";
-
 /// Set a home from its flag, under its UENV name too, so the flag wins.
 fn set_cli_env_path(k: &'static str, v: &Option<PathBuf>) -> Result<(), String> {
     let Some(v) = v else { return Ok(()) };
@@ -133,14 +130,9 @@ async fn run_cli(
     run_oneshot(config, tool, lock).await
 }
 
-/// The namespace's lock taken and this process recorded in it.
+/// The namespace's lock taken; its record waits for the engine's nom.
 pub(crate) fn lock_namespace(config: &Config) -> Result<NamespaceLock, String> {
-    let mut lock = NamespaceLock::acquire(&config.data_home().join(LOCK_FILE)).map_err(|e| e.to_string())?;
-    let (_, mcp_nom) = process_identity();
-    let record = LockRecord::current(LOCK_HOLDER, &config.id, &config.namespace, mcp_nom.as_str())
-        .map_err(|e| format!("the namespace lock's record: {e}"))?;
-    lock.record(&record).map_err(|e| e.to_string())?;
-    Ok(lock)
+    NamespaceLock::acquire(&config.data_home().join(LOCK_FILE)).map_err(|e| e.to_string())
 }
 
 /// `--test` supplies a default namespace, never an override.

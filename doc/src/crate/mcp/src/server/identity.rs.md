@@ -1,12 +1,7 @@
 # identity.rs
 
-## fn process_identity
-One nom a process, drawn at the first ask. The engine's start needs it before
-the test driver or the one-shot builds its system, so both take this one rather
-than minting their own, as does every `TestServer` in a test binary, whose
-engine is the process's too, and the client, whose Channel greets under it. The
-generator rides with it: the nonces a host mints come from the generator that
-drew its nom.
+A call's nonce, minted from the generator the controller inherits from its
+engine (the engine's `identity.rs`).
 
 ## fn mint_nonce
 EVERY TOOL MINTS ITS NONCE FIRST, before any check, from its name and its

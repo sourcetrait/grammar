@@ -99,7 +99,7 @@ pub(crate) use crate::{
         },
         controller::{McpController, log_closed, log_status},
         emergency::EmergencyPolicy,
-        identity::{mint_nonce, process_identity},
+        identity::mint_nonce,
         tool::{
             call::CallParams,
             common::{
@@ -121,7 +121,7 @@ pub(crate) use crate::{
 };
 
 pub(crate) use crate::server::{
-    host::{HostRoute, ensure_substrate, init_engine},
+    host::{FaceLink, HostRoute, ensure_substrate, init_engine},
     oneshot::run_oneshot,
     operator::{OperatorWatch, spawn_observer},
     purview::{Views, pattern_delta, unknown_purview},

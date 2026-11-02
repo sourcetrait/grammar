@@ -10,6 +10,10 @@ the engine's `HostRoute` the face's two systems (`server/host.rs`), the
 operator's `OperatorWatch` the emergency policy (`server/operator.rs`), and
 the remote engines' `RemoteRoute` their grammar-ssh's asks (`server/remote.rs`).
 
+## const LOCK_HOLDER
+What the namespace lock's record names a holder, beside grammar-ssh's own: a
+reader of the lock's file tells the two programs apart by it.
+
 ## fn log_status
 A system's status change is logged from its handler, on the system's control
 task, and a shutdown's own changes go unsaid.
@@ -17,6 +21,14 @@ task, and a shutdown's own changes go unsaid.
 ## fn log_closed
 subsys calls `on_closed` only for an end its control did not ask for, so this
 names an end nobody asked for; one while a shutdown runs is the shutdown's own.
+
+## fn record_lock
+The record names this process, its pid, its start, and its boot, and its
+engine's nom, which `interface info` reports, so a reader of the lock and a
+refusal it answers tell which host holds the namespace. It is written once the
+engine has started, the lock having been held since before anything touched the
+namespace (`run.rs`); an engine started again would write it again under its
+new nom.
 
 ## struct Supervision
 The serve path's: the operator and the observer, which feeds it the engine's
@@ -61,18 +73,22 @@ under it. The sweep takes itself out of the slot when its signal comes, so the
 ordinary end never aborts a sweep that has begun stopping.
 
 ### fn start
-The face's systems first, then the engine's, whose host asks reach the face's,
-then the remote engines'. `supervise` is the serve path's: the operator, its
+The one engine first, one a controller (User), since its nom is the host's: the
+face is started on it, the lock's record written under it, and the policy's log
+kept under it, then the engine's route is bound to the face, then the remote
+engines' system starts. `supervise` is the serve path's: the operator, its
 observer, and the policy's hold on the Channel's spam pair. The one-shot CLI
 and the in-process harness start unsupervised.
 
-### fn start_engine
-The policy is made before the engine, and a supervised start puts it in the
-face's hub slot before any system it answers runs. The engine's handler is the
-route: the face's Channel and links, the config, and the shutdown flag. The
-remote engines' handler takes the same route and the same policy, which this
-returns, so grammar-ssh's asks and emergencies take the paths a local eval's and
-the operator's do.
+### fn of
+The controller over its face, its engine attached after.
+
+### fn attach_engine
+A supervised start puts the policy in the face's hub slot before the operator
+starts. The engine's handler is the route: the face's link, the config, and the
+shutdown flag. The remote engines' handler takes the same route and the same
+policy, which this returns, so grammar-ssh's asks and emergencies take the paths
+a local eval's and the operator's do.
 
 ### fn start_remote
 The system starts holding no entry, so every controller holds one and stops it

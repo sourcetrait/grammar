@@ -4,14 +4,12 @@ use crate::*;
 /// Start the engine on the config's id, namespace, and homes.
 pub(crate) fn init_engine(config: &Config) -> Result<(), String> {
     let scratch = make_scratch_dirs()?;
-    let (_, mcp_nom) = process_identity();
     let params = EngineParams {
         id: config.id.clone(),
         namespace: config.namespace.clone(),
         work_dir: config.work_dir.clone(),
         tmp_dir: scratch.tmp,
         transient_dir: scratch.transient,
-        mcp_nom: mcp_nom.as_str().to_string(),
         data_home: config.data_home(),
         cache_home: config.cache_home(),
     };
@@ -31,11 +29,40 @@ pub(crate) async fn ensure_substrate() -> io::Result<()> {
     Ok(())
 }
 
+/// The Channel's and the peer links' handles, taken once the face is up.
+#[derive(Clone, Default)]
+pub(crate) struct FaceLink(Arc<OnceLock<(Arc<ChannelHandle>, Arc<PeerHandle>)>>);
+
+impl FaceLink {
+    /// The face's handles taken, once.
+    pub(crate) fn bind(
+        &self,
+        face: &ChannelFace,
+    ) {
+        let _ = self.0.set((face.channel.clone(), face.peer.clone()));
+    }
+
+    /// The Channel's handle, none before the face is up.
+    fn channel(&self) -> Option<&Arc<ChannelHandle>> {
+        self.0.get().map(|(channel, _)| channel)
+    }
+
+    /// The peer links' handle, none before the face is up.
+    fn peer(&self) -> Option<&Arc<PeerHandle>> {
+        self.0.get().map(|(_, peer)| peer)
+    }
+}
+
+/// An ask's refusal before the controller's face is up.
+fn face_down() -> HostAnswer {
+    HostAnswer::Refused("the host's Channel and peer links aren't up yet".to_string())
+}
+
 /// The controller's handler of the engine: its host asks routed to their systems.
 #[derive(Clone)]
 pub(crate) struct HostRoute {
-    pub(crate) channel: Arc<ChannelHandle>,
-    pub(crate) peer: Arc<PeerHandle>,
+    /// The face's handles, which the controller binds once its engine has started.
+    pub(crate) face: FaceLink,
     /// The runtime config, which `grimm get_config_all` reads.
     pub(crate) config: Arc<Config>,
     /// The controller's shutdown flag, under which the engine's end goes unsaid.
@@ -51,11 +78,13 @@ impl HostRoute {
         match ask {
             HostAsk::ChannelSend(data) => self.channel_send(data).await,
             HostAsk::Stopped(stopped) => {
-                let _ = self.channel.notify(StoppedNotice(stopped)).await;
+                if let Some(channel) = self.face.channel() {
+                    let _ = channel.notify(StoppedNotice(stopped)).await;
+                }
                 HostAnswer::Noted
             }
             HostAsk::RemoteSend(data) => self.remote_send(data).await,
-            HostAsk::Config => match config_record(&self.channel, &self.config).await {
+            HostAsk::Config => match config_record(self.face.channel(), &self.config).await {
                 Ok(record) => HostAnswer::Config(record),
                 Err(reason) => HostAnswer::Refused(reason),
             },
@@ -71,7 +100,10 @@ impl HostRoute {
         &self,
         data: ChannelSendData,
     ) -> HostAnswer {
-        match self.channel.request(SendRequest(data)).await {
+        let Some(channel) = self.face.channel() else {
+            return face_down();
+        };
+        match channel.request(SendRequest(data)).await {
             Ok(SendVerdict::Sent(id)) => HostAnswer::Sent(id),
             Ok(SendVerdict::Refused(reason)) | Err(reason) => HostAnswer::Refused(reason),
             Ok(SendVerdict::Stop(spam)) => HostAnswer::Stopped(HostStop {
@@ -113,7 +145,10 @@ impl HostRoute {
             event_nuon,
             payloads: files.into_iter().map(|file| Payload { dest: file.dest, bytes: file.bytes }).collect(),
         };
-        match self.peer.request(send).await {
+        let Some(peer) = self.face.peer() else {
+            return face_down();
+        };
+        match peer.request(send).await {
             Ok(Ok(id)) => HostAnswer::Sent(id),
             Ok(Err(reason)) | Err(reason) => HostAnswer::Refused(reason),
         }
@@ -132,11 +167,13 @@ impl HostRoute {
             }
             SessionAsk::Stopped(mut stopped) => {
                 stopped.origin = remote_origin(alias, &stopped.origin);
-                let _ = self.channel.notify(StoppedNotice(stopped)).await;
+                if let Some(channel) = self.face.channel() {
+                    let _ = channel.notify(StoppedNotice(stopped)).await;
+                }
                 HostAnswer::Noted
             }
             SessionAsk::RemoteSend(prepared) => self.send_prepared(prepared).await,
-            SessionAsk::Config => match config_record(&self.channel, &self.config).await {
+            SessionAsk::Config => match config_record(self.face.channel(), &self.config).await {
                 Ok(record) => HostAnswer::Config(record),
                 Err(reason) => HostAnswer::Refused(reason),
             },
@@ -180,7 +217,7 @@ impl subsys::Handler<EngineSystem> for HostRoute {
 
 /// The whole config as a record mirroring the TOML's tables, with what is in force.
 async fn config_record(
-    handle: &ChannelHandle,
+    handle: Option<&Arc<ChannelHandle>>,
     cfg: &Config,
 ) -> Result<NuVal, String> {
     let span = nu::Span::unknown();
@@ -247,9 +284,12 @@ async fn config_record(
 
 /// The spam thresholds in force: the running Channel's, else the config's start.
 async fn live_thresholds(
-    handle: &ChannelHandle,
+    handle: Option<&Arc<ChannelHandle>>,
     cfg: &Config,
 ) -> SpamThresholdsData {
+    let Some(handle) = handle else {
+        return cfg.channel.spam.data();
+    };
     match handle.request(ThresholdsRequest::default()).await {
         Ok(Ok(thresholds)) => thresholds,
         _ => cfg.channel.spam.data(),

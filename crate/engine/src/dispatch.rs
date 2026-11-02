@@ -224,7 +224,7 @@ pub(crate) async fn dispatch_stateful(
     let engine = {
         let mut guard = core.stateful.lock().await;
         if guard.is_none() {
-            *guard = Some(StatefulEngine::spawn(core.env_jobs.clone(), core.host.clone()));
+            *guard = Some(StatefulEngine::spawn(core.env_jobs.clone(), core.host.clone(), core.nom.clone()));
         }
         guard
             .as_ref()

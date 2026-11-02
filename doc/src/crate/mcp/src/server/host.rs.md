@@ -9,8 +9,9 @@ server and the one-shot CLI start it first, after the namespace's lock
 The scratch directories are made here, before the engine, because parameters
 carry them: every definition reads them as `$env.EQUIP_TMP` and
 `$env.EQUIP_TRANSIENT` (`scratch.rs`). A directory that cannot be made fails the
-start, as any other parameter would. The process's nom rides the parameters the
-same way, a definition's `$env.EQUIP_MCP_NOM`.
+start, as any other parameter would. The nom is no parameter: each engine
+instance draws its own (the engine's `identity.rs`), and the controller
+inherits it.
 
 ## fn ensure_substrate
 The engine's equip store first, then mcp's purview bookkeeping, the plugin
@@ -31,13 +32,22 @@ starts an engine: the server, the one-shot CLI, and the test server.
 The engine starts after it, its locks hydrated from the store this makes, so
 they hold the builtins installed a moment before (`run.rs`).
 
+## struct FaceLink
+The face's two handles, which the route takes once the face is up. The
+controller starts its engine first, the face being started on the engine's nom
+(`controller.rs`), so the route is handed to the engine with the link empty and
+the controller binds it before the host serves a tool. An ask before that,
+which no eval can make, is refused, a stop's report dropped, and the config
+answered with the file's spam thresholds.
+
 ## struct HostRoute
 What an eval asks of mcp is answered here: the Channel, the remote links, the
 config, and the pins are mcp's. An eval asks its engine's controller, mcp's
 (`controller.rs`), and this is the handler the controller hands the engine's
-system: it holds the face's two systems, the Channel's and the peer links', and
-routes each ask to the one it is for. A subsys system takes only data at its
-start, so the engine holds no handle of the face's itself.
+system: it reaches the face's two systems, the Channel's and the peer links',
+through the link, and routes each ask to the one it is for. A subsys system
+takes only data at its start, so the engine holds no handle of the face's
+itself.
 
 ### fn on_request
 Each ask is answered on a task of its own, as subsys answers every request a

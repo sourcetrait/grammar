@@ -6,10 +6,11 @@ pub struct EngineSystem {
     core: Arc<EngineCore>,
 }
 
-/// The system's parameters; the engine takes its own through `init`.
-#[cereal::derived(Data, Copy, Eq)]
-#[derive(Default)]
-pub struct EngineSysParams;
+/// The system's parameters: its instance's nom, which its evals carry.
+#[cereal::derived(Data, Eq)]
+pub struct EngineSysParams {
+    pub nom: String,
+}
 
 impl subsys::Params for EngineSysParams {}
 
@@ -85,9 +86,9 @@ impl subsys::System for EngineSystem {
     fn inner(&self) -> &subsys::InnerSystem<Self> { &self.inner }
     fn inner_mut(&mut self) -> &mut subsys::InnerSystem<Self> { &mut self.inner }
 
-    async fn init(inner: subsys::InnerSystem<Self>, _params: Self::Params) -> subsys::SubsysResult<Self> {
+    async fn init(inner: subsys::InnerSystem<Self>, params: Self::Params) -> subsys::SubsysResult<Self> {
         let host = HostLink(inner.requester());
-        let core = EngineCore::start(host).await?;
+        let core = EngineCore::start(host, params.nom).await?;
         Ok(Self {
             inner,
             core: Arc::new(core),
@@ -244,22 +245,32 @@ impl HostLink {
 /// The engine's running system, and the handle its controller requests through.
 pub struct EngineHandle {
     control: subsys::SystemControl<EngineSystem>,
+    identity: EngineIdentity,
 }
 
 impl EngineHandle {
-    /// Starts the engine's system on `init`'s namespace, `handler` its controller's.
+    /// Starts an engine instance, its identity drawn, `handler` its controller's.
     pub async fn start(handler: impl subsys::Handler<EngineSystem>) -> EngineResult<Self> {
+        let identity = EngineIdentity::draw();
+        let params = EngineSysParams {
+            nom: identity.nom().as_str().to_string(),
+        };
         let control = subsys::SystemControl::start(
             EngineSysPaths::of(started()),
             EngineSysConfig,
-            EngineSysParams,
+            params,
             handler,
         )
         .await
         .map_err(|e| EngineError::Init {
             reason: format!("grammar: the engine's system: {e}"),
         })?;
-        Ok(Self { control })
+        Ok(Self { control, identity })
+    }
+
+    /// The instance's identity, which its controller inherits.
+    pub fn identity(&self) -> &EngineIdentity {
+        &self.identity
     }
 
     /// Sends a request and awaits its answer.

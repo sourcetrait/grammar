@@ -25,8 +25,9 @@ new, scaffold, commit, install, uninstall, and check; `signature`, the signature
 block and `interface help`; `validate`, the validator.
 
 ## pub use
-What a host may name: the engine's start, its parameters, and its host; its system
-and its handle; the stateless pool's executor and the stateful engine; the
+What a host may name: the engine's start, its parameters, and its host; its system,
+its handle, and an instance's identity, which the host inherits; the stateless
+pool's executor and the stateful engine; the
 definition's contract, the lint, and the parse engines; the contract's type check
 and its text; the source templates; the plugin registry's read; the call cache's
 paths; the equips' store, lifecycle, signatures, and validation; and the namepaths.

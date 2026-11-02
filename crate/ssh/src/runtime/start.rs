@@ -43,8 +43,7 @@ impl Runtime {
             STARTED.store(false, Ordering::Release);
             e
         };
-        let nom = datum::Nom::generate(&datum::NonceGenerator::new()).into_pair();
-        let (lock, scratch) = claim(&config, nom.as_str()).map_err(given_back)?;
+        let (mut lock, scratch) = claim(&config).map_err(given_back)?;
         let tasks = match tasks() {
             Ok(tasks) => tasks,
             Err(e) => {
@@ -53,8 +52,9 @@ impl Runtime {
             }
         };
         let mut diagnostics = scratch.diagnostics().to_vec();
-        let started = start_engine(&config, &scratch, nom.as_str(), &mut diagnostics)
-            .and_then(|()| tasks.block_on(GrammarSshController::start(&config)));
+        let started = start_engine(&config, &scratch, &mut diagnostics)
+            .and_then(|()| tasks.block_on(GrammarSshController::start(&config)))
+            .and_then(|controller| record(&mut lock, &config, controller.identity().nom().as_str()).map(|()| controller));
         let controller = match started {
             Ok(controller) => controller,
             Err(e) => {
@@ -65,7 +65,7 @@ impl Runtime {
         };
         Ok(Self {
             config,
-            nom: nom.as_str().to_string(),
+            nom: controller.identity().nom().as_str().to_string(),
             scratch,
             diagnostics,
             tasks,
@@ -164,28 +164,32 @@ fn tasks() -> GrammarSshResult<tk::runtime::Runtime> {
         .map_err(|e| GrammarSshError::TasksUnavailable { reason: e.to_string() })
 }
 
-/// The lock taken and its record written, then the scratch made.
-fn claim(
+/// The lock taken, then the scratch made; the record waits for the engine's nom.
+fn claim(config: &InstanceConfig) -> GrammarSshResult<(NamespaceLock, WorkerScratch)> {
+    let lock = NamespaceLock::acquire(&config.paths.lock)?;
+    let scratch = WorkerScratch::create(&config.homes)?;
+    Ok((lock, scratch))
+}
+
+/// The lock's record written: this process its holder, under its engine's `nom`.
+fn record(
+    lock: &mut NamespaceLock,
     config: &InstanceConfig,
     nom: &str,
-) -> GrammarSshResult<(NamespaceLock, WorkerScratch)> {
+) -> GrammarSshResult<()> {
     let unavailable = |reason: String| GrammarSshError::LockUnavailable {
         path: config.paths.lock.clone(),
         reason,
     };
-    let mut lock = NamespaceLock::acquire(&config.paths.lock)?;
     let record = LockRecord::current(LOCK_HOLDER, &config.identity.id, &config.identity.namespace, nom)
         .map_err(|e| unavailable(e.to_string()))?;
-    lock.record(&record)?;
-    let scratch = WorkerScratch::create(&config.homes)?;
-    Ok((lock, scratch))
+    Ok(lock.record(&record)?)
 }
 
 /// The engine started once on the instance's homes and scratch, its substrate made.
 fn start_engine(
     config: &InstanceConfig,
     scratch: &WorkerScratch,
-    nom: &str,
     diagnostics: &mut Vec<String>,
 ) -> GrammarSshResult<()> {
     let failed = |reason: String| GrammarSshError::EngineInit { reason };
@@ -195,7 +199,6 @@ fn start_engine(
         work_dir: config.workdir.clone(),
         tmp_dir: scratch.tmp().to_path_buf(),
         transient_dir: scratch.transient().to_path_buf(),
-        mcp_nom: nom.to_string(),
         data_home: config.paths.data.clone(),
         cache_home: config.paths.cache.clone(),
     })
