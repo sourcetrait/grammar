@@ -1,9 +1,10 @@
 //! External teardown: a timed-out eval's external child is reaped (the timeout ->
 //! cancel -> tree-kill path), and so is that child's own child. In-process:
 //! `nu_timeout` drives the real dispatch, and the reap is asserted by scanning the
-//! processes' command lines: from /proc on Linux, from `ps` on the other Unixes, and
-//! from PowerShell's process query on Windows. The external must have been seen
-//! running first, so a reap is never asserted of one that hadn't yet started.
+//! processes' command lines, from /proc on Linux and from `ps` on the other Unixes,
+//! and on Windows the kernel's process records for a ping this process started. The
+//! external must have been seen running first, so a reap is never asserted of one
+//! that hadn't yet started.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -38,20 +39,17 @@ fn any_cmdline_contains(marker: &str) -> bool {
     String::from_utf8_lossy(&out.stdout).lines().any(|line| line.contains(marker))
 }
 
-/// Any command line Windows' process table holds containing `marker`, read by
-/// PowerShell's CIM query, Windows having no `ps`.
+/// On Windows, a `ping` among this process's descendants, the in-process host's
+/// externals being its children: a standard user's SSH logon is a network logon,
+/// which WMI refuses, so no other process's command line is read, and the kernel's
+/// process records give each one's name and parent. Each test's external is the one
+/// ping running, the tests running one at a time.
 #[cfg(windows)]
-fn any_cmdline_contains(marker: &str) -> bool {
-    let out = std::process::Command::new("powershell")
-        .args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            "Get-CimInstance Win32_Process | ForEach-Object { $_.CommandLine }",
-        ])
-        .output()
-        .expect("run powershell");
-    String::from_utf8_lossy(&out.stdout).lines().any(|line| line.contains(marker))
+fn any_cmdline_contains(_marker: &str) -> bool {
+    let table = sourcetrait_process::processes();
+    sourcetrait_process::descendants_in(&table, std::process::id()).iter().any(|pid| {
+        table.iter().any(|p| p.pid == *pid && p.name.eq_ignore_ascii_case("PING.EXE"))
+    })
 }
 
 /// A call's timeout, longer than an eval takes to start its external on a loaded
