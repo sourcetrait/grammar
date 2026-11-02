@@ -54,7 +54,8 @@ fn a_real_engine_holds_across_idle_and_its_close_leaves_no_cache() {
     let mut host = Host::spawn_in(&root.path().join("scratch"), &[], &agent);
 
     let opened = answered(&on_ladder(&mut host, "interface", json!({"subcommand": "remote engine connect 'ladder'"})));
-    assert_eq!(opened["state"], "open", "{opened}");
+    let columns: Vec<&str> = opened.as_record().unwrap_or_default().iter().map(|(key, _)| key.as_str()).collect();
+    assert_eq!(columns, ["nom"], "a connect answers its engine's nom alone: {opened}");
     let nom = opened["nom"].as_str().expect("its engine's nom").to_string();
     let (first, nonce) = pid_of(&on_ladder(&mut host, "execute", json!({"definition": PID, "data": "null"})));
 

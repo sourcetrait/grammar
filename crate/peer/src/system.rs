@@ -125,7 +125,7 @@ impl PeerSystem {
         let remote = match msg {
             ToPeerSys::List(RemoteListRequest) => self.rows().map(RemoteResult::Rows),
             ToPeerSys::Get(RemoteGetRequest { alias }) => self.row(&alias).map(RemoteResult::Row),
-            ToPeerSys::Set(req) => self.set(req).map(RemoteResult::Row),
+            ToPeerSys::Set(req) => self.set(req).map(|()| RemoteResult::Done),
             ToPeerSys::Unset(RemoteUnsetRequest { alias }) => {
                 self.unset(&alias).map(|()| RemoteResult::Done)
             }
@@ -216,11 +216,11 @@ impl PeerSystem {
             .ok_or_else(|| invalid(format!("no remote channel `{alias}`")))
     }
 
-    /// Check the fields given, write them to the entry, and read its row back.
+    /// Check the fields given, then write them to the entry.
     fn set(
         &self,
         req: RemoteSetRequest,
-    ) -> Result<RemoteChannelRow, RuntimeError> {
+    ) -> Result<(), RuntimeError> {
         let RemoteSetRequest {
             alias,
             address,
@@ -251,8 +251,7 @@ impl PeerSystem {
             listen,
         };
         edit_remotes(&self.remotes_file, |text| set_entry(text, &alias, &change))
-            .map_err(|reason| RuntimeError::RemotesFile { reason })?;
-        self.row(&alias)
+            .map_err(|reason| RuntimeError::RemotesFile { reason })
     }
 
     /// Remove `alias`'s entry; an alias the file lacks is refused.

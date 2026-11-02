@@ -125,7 +125,7 @@ fn a_signature_line_names_each_parameter_and_the_result() {
     let set = command_by_words("remote channel set").expect("set");
     assert_eq!(
         set.signature_text(),
-        "remote channel set [alias: string, --address: string, --listen: string, --cert: string]: nothing -> record",
+        "remote channel set [alias: string, --address: string, --listen: string, --cert: string]: nothing -> nothing",
     );
     let help = command_by_words("help").expect("help");
     assert_eq!(help.signature_text(), "help [namepath: string]: nothing -> record");
@@ -134,7 +134,7 @@ fn a_signature_line_names_each_parameter_and_the_result() {
         engine.signature_text(),
         "remote engine set [alias: string, --platform: string, --address: string, --jump: string, \
          --user: string, --key: string, --known-hosts: list<string>, --known-hosts-file: string, \
-         --command: string, --id: string, --namespace: string, --workdir: string]: nothing -> record",
+         --command: string, --id: string, --namespace: string, --workdir: string]: nothing -> nothing",
     );
 }
 

@@ -42,18 +42,18 @@ impl NuSh {
             namespace,
             workdir,
         };
-        match self.write_engine(&alias, &change).await {
-            Ok(row) => success(nonce, &row),
+        match self.write_engine(&alias, &change) {
+            Ok(()) => success_void(nonce),
             Err(error) => error_to_call_result(error, nonce),
         }
     }
 
-    /// `change` checked, written to `alias`'s entry, and the entry's row read back.
-    pub(crate) async fn write_engine(
+    /// `change` checked, then written to `alias`'s entry.
+    pub(crate) fn write_engine(
         &self,
         alias: &str,
         change: &EngineChange,
-    ) -> GrammarMcpResult<RemoteEngineRow> {
+    ) -> GrammarMcpResult<()> {
         EngineEntry::of(alias, change).check_given().map_err(engine_invalid)?;
         if change.jump.is_some() {
             let entries = self.engine_entries()?;
@@ -65,8 +65,7 @@ impl NuSh {
             check_jumps(&after).map_err(engine_invalid)?;
         }
         edit_remotes(&self.controller.config.remotes_file, |text| set_engine(text, alias, change))
-            .map_err(|reason| GrammarMcpError::RemotesFile { reason })?;
-        self.engine_row(alias).await
+            .map_err(|reason| GrammarMcpError::RemotesFile { reason })
     }
 
     /// `interface remote engine unset`: the entry removed, a live session left open.

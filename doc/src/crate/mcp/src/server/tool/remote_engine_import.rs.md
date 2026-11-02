@@ -9,4 +9,5 @@ run on a blocking thread, never on the runtime's workers. The keys found are
 written to the alias's known hosts file beside the remotes file, which the
 entry then names, and the address, user, and key are written as a set writes
 them, the entry's other fields left as they stand, its platform among them: an
-ssh configuration doesn't say what the host runs.
+ssh configuration doesn't say what the host runs. An import that worked answers
+nothing, as a set does (User).

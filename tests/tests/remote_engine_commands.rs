@@ -39,6 +39,25 @@ fn interface_within(host: &mut Host, command: &str) -> Value {
     host.read_id_within(id, CONNECT)
 }
 
+/// The nom a connect answered, its answer that nom alone.
+fn connected_nom(resp: &Value) -> String {
+    let opened = answered(resp);
+    let columns: Vec<&str> = opened.as_record().unwrap_or_default().iter().map(|(key, _)| key.as_str()).collect();
+    assert_eq!(columns, ["nom"], "a connect answers its engine's nom alone: {opened}");
+    opened["nom"].as_str().expect("the nom").to_string()
+}
+
+/// `alias`'s row, as `remote engine get` reads it.
+fn engine_row(host: &mut Host, alias: &str) -> NuVal {
+    answered(&host.interface(&format!("interface remote engine get '{alias}'")))
+}
+
+/// A set's or an import's answer, nothing once it worked.
+fn quiet(resp: &Value) {
+    let answer = answered(resp);
+    assert!(answer.is_nothing(), "a set answers nothing: {answer}");
+}
+
 /// grammar-ssh's pid, as a call on `alias` answers it.
 fn ssh_pid(host: &mut Host, alias: &str) -> u32 {
     let ran = answered(&host.call("execute", json!({"host": alias, "definition": PID, "data": "null"})));
@@ -75,13 +94,12 @@ fn workdir(endpoint: &Endpoint) -> &str {
 
 /// The session `alias` names opened, a call run on it, then closed, its grammar-ssh ending.
 fn open_run_close(host: &mut Host, alias: &str) {
-    let opened = answered(&interface_within(host, &format!("interface remote engine connect '{alias}'")));
-    assert_eq!(opened["state"], "open", "{opened}");
-    assert!(!opened["nom"].is_nothing(), "an open session names its engine's nom: {opened}");
+    let nom = connected_nom(&interface_within(host, &format!("interface remote engine connect '{alias}'")));
     let pid = ssh_pid(host, alias);
     assert!(alive(pid), "grammar-ssh runs once connected");
     let listed = answered(&host.interface("interface remote engine list"));
     assert_eq!(listed[0]["state"], "open", "{listed}");
+    assert_eq!(listed[0]["nom"].as_str(), Some(nom.as_str()), "the row names the nom the connect answered: {listed}");
     assert_eq!(ssh_pid(host, alias), pid, "a call rides the open session");
 
     let closed = answered(&host.interface(&format!("interface remote engine close '{alias}'")));
@@ -102,11 +120,12 @@ fn an_entry_set_whole_opens_closes_and_is_unset() {
     let endpoint = sshd.endpoint("lab", &account);
 
     assert_eq!(answered(&host.interface("interface remote engine list")), nuon("[]"));
-    let partial = answered(&host.interface(&format!(
+    quiet(&host.interface(&format!(
         "interface remote engine set 'lab' --address {} --user {}",
         nu_literal(&sshd.address()),
         nu_literal(&endpoint.user),
     )));
+    let partial = engine_row(&mut host, "lab");
     assert_eq!(partial["missing"], nuon("[platform, key, known_hosts]"), "{partial}");
     assert_eq!(partial["address"], sshd.address().as_str(), "{partial}");
     let refused = host.interface("interface remote engine connect 'lab'");
@@ -119,13 +138,14 @@ fn an_entry_set_whole_opens_closes_and_is_unset() {
         nu_literal(&endpoint.host_keys[0]),
     ));
     assert_eq!(envelope_error_kind(&both).as_deref(), Some("remote::engine::invalid_params"), "{both}");
-    let whole = answered(&host.interface(&format!(
+    quiet(&host.interface(&format!(
         "interface remote engine set 'lab' {} --key {} --known-hosts [{}] {}",
         platform_flag(&endpoint),
         nu_literal(&endpoint.key),
         nu_literal(&endpoint.host_keys[0]),
         ssh_flags(&endpoint),
     )));
+    let whole = engine_row(&mut host, "lab");
     assert_eq!(whole["platform"], endpoint.platform.name(), "{whole}");
     assert_eq!(whole["missing"], nuon("[]"), "{whole}");
     assert_eq!(whole["state"], "closed", "a set opens nothing: {whole}");
@@ -138,10 +158,11 @@ fn an_entry_set_whole_opens_closes_and_is_unset() {
     let first = ssh_pid(&mut host, "lab");
     let moved = account.root().join("moved");
     std::fs::create_dir_all(&moved).expect("a second workdir");
-    let changed = answered(&host.interface(&format!(
+    quiet(&host.interface(&format!(
         "interface remote engine set 'lab' --workdir {}",
         nu_literal(&moved.display().to_string()),
     )));
+    let changed = engine_row(&mut host, "lab");
     assert_eq!(changed["workdir"], moved.display().to_string().as_str(), "{changed}");
     assert_eq!(changed["state"], "open", "a set leaves the open session standing: {changed}");
     let before = answered(&host.call("execute", json!({"host": "lab", "definition": WHERE, "data": "null"})));
@@ -194,9 +215,10 @@ fn an_import_takes_its_entry_from_an_ssh_config() {
     std::fs::write(&config, format!("{}{}", block("labhost", &known), block("stranger", &unknown))).expect("the ssh config");
     let config = nu_literal(&config.display().to_string());
 
-    let imported = answered(&host.interface(&format!(
+    quiet(&host.interface(&format!(
         "interface remote engine import 'lab' --from 'labhost' --ssh-config {config}"
     )));
+    let imported = engine_row(&mut host, "lab");
     assert_eq!(imported["address"], sshd.address().as_str(), "{imported}");
     assert_eq!(imported["user"], endpoint.user.as_str(), "{imported}");
     assert_eq!(imported["key"], endpoint.key.as_str(), "{imported}");
@@ -211,9 +233,10 @@ fn an_import_takes_its_entry_from_an_ssh_config() {
     let line = format!("[{}]:{} {}", endpoint.host, endpoint.port, key_line(&endpoint.host_keys[0]));
     assert!(written.starts_with("# grammar: written by `interface remote engine import`"), "{written}");
     assert!(written.lines().any(|l| l == line), "{written}");
-    let again = answered(&host.interface(&format!(
+    quiet(&host.interface(&format!(
         "interface remote engine import 'lab' --from 'labhost' --ssh-config {config}"
     )));
+    let again = engine_row(&mut host, "lab");
     assert_eq!(again["known_hosts"], "remote/lab/known_hosts", "an import rewrites its own file: {again}");
 
     let strange = host.interface(&format!("interface remote engine import 'other' --from 'stranger' --ssh-config {config}"));
@@ -227,11 +250,12 @@ fn an_import_takes_its_entry_from_an_ssh_config() {
     assert!(error_message(&kept).contains("isn't an import's"), "{kept}");
     assert_eq!(std::fs::read_to_string(&foreign).expect("the foreign file"), "# kept by hand\n", "left as it was");
 
-    let whole = answered(&host.interface(&format!(
+    quiet(&host.interface(&format!(
         "interface remote engine set 'lab' {} {}",
         platform_flag(&endpoint),
         ssh_flags(&endpoint),
     )));
+    let whole = engine_row(&mut host, "lab");
     assert_eq!(whole["missing"], nuon("[]"), "{whole}");
     open_run_close(&mut host, "lab");
 }
@@ -253,13 +277,14 @@ fn an_older_entry_is_refused_until_a_set_moves_it_to_the_new_fields() {
     let refused = host.interface("interface remote engine list");
     assert!(error_message(&refused).contains("`host` is retired; `address` takes its place"), "{refused}");
 
-    let moved = answered(&host.interface(&format!(
+    quiet(&host.interface(&format!(
         "interface remote engine set 'lab' {} --address {} --known-hosts [{}] {}",
         platform_flag(&endpoint),
         nu_literal(&sshd.address()),
         nu_literal(&endpoint.host_keys[0]),
         ssh_flags(&endpoint),
     )));
+    let moved = engine_row(&mut host, "lab");
     assert_eq!(moved["missing"], nuon("[]"), "{moved}");
     let file = std::fs::read_to_string(grammar.join("remotes.toml")).expect("the remotes file");
     for retired in ["host =", "port =", "host_keys ="] {
@@ -326,8 +351,8 @@ fn a_lost_engine_tells_its_restart_once_on_its_next_call_or_connect() {
 
     kill_and_see_lost(&mut host, second);
     let nom = restart_told(&interface_within(&mut host, "interface remote engine connect 'lab'"));
-    let opened = answered(&host.interface("interface remote engine connect 'lab'"));
-    assert_eq!((opened["state"].as_str(), opened["nom"].as_str()), (Some("open"), Some(nom.as_str())), "{opened}");
+    let opened = connected_nom(&host.interface("interface remote engine connect 'lab'"));
+    assert_eq!(opened, nom, "the connect after the restart answers the new nom");
     let third = ssh_pid(&mut host, "lab");
     assert_ne!(third, second, "a connect told the restart, and the call after it runs");
     let closed = answered(&host.interface("interface remote engine close 'lab'"));

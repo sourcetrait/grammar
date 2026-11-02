@@ -21,10 +21,10 @@ impl NuSh {
                 known_hosts: Some(KnownHosts::File(file)),
                 ..imported.change
             };
-            self.write_engine(&p.alias, &change).await
+            self.write_engine(&p.alias, &change)
         };
         match import.await {
-            Ok(row) => success(nonce, &row),
+            Ok(()) => success_void(nonce),
             Err(error) => error_to_call_result(error, nonce),
         }
     }

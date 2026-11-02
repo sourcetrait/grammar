@@ -289,7 +289,9 @@ fn remote_entries_are_set_read_and_unset_live() {
         "interface remote channel set 'peer' --cert '{cert}' --address '127.0.0.1:9'"
     ));
     assert!(!has_error_path(&set), "the set holds; got {set}");
-    assert_eq!(envelope(&set)["result"]["cert"], cert, "it answers the row; got {set}");
+    assert!(envelope(&set)["result"].is_nothing(), "a set answers nothing; got {set}");
+    let row = remote_row_of(&mut host, "peer");
+    assert_eq!(row["cert"], cert, "the entry names its cert; got {row}");
     let text = std::fs::read_to_string(&remotes).expect("the file");
     assert!(text.starts_with("# kept\n"), "the file's comment stays; got {text}");
     assert!(text.contains("alias = \"kept\""), "and its other entry; got {text}");

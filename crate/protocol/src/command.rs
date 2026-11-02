@@ -492,7 +492,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         topic: "Remote",
         positionals: ALIAS_ARGS,
         flags: SET_FLAGS,
-        result: "record",
+        result: "nothing",
         summary: "Make or change a remote channel's entry in `remotes.toml`.",
     },
     CommandSpec {
@@ -555,7 +555,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         topic: "Remote",
         positionals: ENGINE_ALIAS_ARGS,
         flags: ENGINE_SET_FLAGS,
-        result: "record",
+        result: "nothing",
         summary: "Make or change a remote engine's entry in `remotes.toml`.",
     },
     CommandSpec {
@@ -574,7 +574,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         positionals: ENGINE_ALIAS_ARGS,
         flags: NO_ARGS,
         result: "record",
-        summary: "Open a remote engine's session, starting its grammar-ssh now.",
+        summary: "Open a remote engine's session, starting its grammar-ssh now; answers its nom.",
     },
     CommandSpec {
         kind: CommandKind::EngineClose,
@@ -591,7 +591,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         topic: "Remote",
         positionals: ENGINE_ALIAS_ARGS,
         flags: ENGINE_IMPORT_FLAGS,
-        result: "record",
+        result: "nothing",
         summary: "Make or change a remote engine's entry from an ssh configuration's host.",
     },
     CommandSpec {

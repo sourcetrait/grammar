@@ -66,12 +66,7 @@ async fn an_entry_is_set_read_and_unset_through_the_file() {
         .request(set("bob", Some("/k/bob.pem"), Some("127.0.0.1:9001")))
         .await
         .expect("set");
-    let Ok(RemoteResult::Row(row)) = made else {
-        panic!("a set answers its row: {made:?}");
-    };
-    assert_eq!(row.alias, "bob");
-    assert_eq!(row.state, RemoteLinkState::Closed);
-    assert_eq!(row.address.as_deref(), Some("127.0.0.1:9001"));
+    assert_eq!(made, Ok(RemoteResult::Done), "a set answers nothing");
     let text = fs::read_to_string(home.join(REMOTES_FILE)).expect("the file written");
     assert!(text.contains("alias = \"bob\""), "{text}");
     let got = peers
@@ -80,7 +75,13 @@ async fn an_entry_is_set_read_and_unset_through_the_file() {
         })
         .await
         .expect("get");
-    assert_eq!(got, Ok(RemoteResult::Row(row)));
+    let Ok(RemoteResult::Row(row)) = got else {
+        panic!("a get answers its row: {got:?}");
+    };
+    assert_eq!(row.alias, "bob");
+    assert_eq!(row.state, RemoteLinkState::Closed);
+    assert_eq!(row.address.as_deref(), Some("127.0.0.1:9001"));
+    assert_eq!(row.cert.as_deref(), Some("/k/bob.pem"));
     let unset = peers
         .request(RemoteUnsetRequest {
             alias: "bob".to_string(),

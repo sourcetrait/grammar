@@ -1,7 +1,6 @@
 # remote_engines.rs
 
-`interface remote engine list` and `get`, and the row every engine command
-that answers one answers with.
+`interface remote engine list` and `get`, and the row they answer.
 
 ## struct RemoteEngineRow
 An entry's fields as the file writes them beside its session's state, so one

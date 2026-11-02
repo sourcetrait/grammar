@@ -1,5 +1,11 @@
 use crate::*;
 
+/// `interface remote engine connect`'s answer: the opened engine's nom.
+#[derive(Debug, ser::Serialize)]
+struct EngineConnected {
+    nom: String,
+}
+
 impl NuSh {
     /// `interface remote engine connect`: the session and its grammar-ssh started now.
     pub(crate) async fn engine_connect(
@@ -16,11 +22,14 @@ impl NuSh {
             let endpoint = entry
                 .endpoint(&entries, &EngineDefaults::of(&self.controller.config))
                 .map_err(engine_invalid)?;
-            self.controller.remote_connect(endpoint).await?;
-            self.engine_row(&p.alias).await
+            let state = self.controller.remote_connect(endpoint).await?;
+            state.nom.ok_or_else(|| GrammarMcpError::Internal {
+                phase: "connect".to_string(),
+                reason: format!("remote engine `{}`'s open session names no nom", p.alias),
+            })
         };
         match connect.await {
-            Ok(row) => success(nonce, &row),
+            Ok(nom) => success(nonce, &EngineConnected { nom }),
             Err(error) => error_to_call_result(error, nonce),
         }
     }

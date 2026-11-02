@@ -1,7 +1,7 @@
 use crate::*;
 
 impl ChannelFace {
-    /// `interface remote channel set`: make or change an entry, answering its row.
+    /// `interface remote channel set`: make or change an entry, answering nothing.
     pub(crate) async fn remote_set(
         &self,
         nonce: datum::Nonce,

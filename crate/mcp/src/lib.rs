@@ -113,7 +113,7 @@ pub(crate) use crate::{
                 render_signatures,
             },
             execute::ExecuteParams,
-            remote_engines::{RemoteEngineRow, engine_invalid},
+            remote_engines::engine_invalid,
             rerun::RerunParams,
         },
     },

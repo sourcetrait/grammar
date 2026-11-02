@@ -76,11 +76,11 @@ pub struct RemoteListenResult {
 pub enum RemoteResult {
     /// `list`: every remote, configured and live.
     Rows(Vec<RemoteChannelRow>),
-    /// `get` and `set`: one remote's entry and state.
+    /// `get`: one remote's entry and state.
     Row(RemoteChannelRow),
     /// `listen`: the address it bound.
     Listening(RemoteListenResult),
-    /// `unset`, `connect`, and `close`, which answer nothing.
+    /// `set`, `unset`, `connect`, and `close`, which answer nothing.
     Done,
 }
 
@@ -90,9 +90,15 @@ impl RemoteResult {
         matches!(
             (kind, self),
             (CommandKind::RemoteList, Self::Rows(_))
-                | (CommandKind::RemoteGet | CommandKind::RemoteSet, Self::Row(_))
+                | (CommandKind::RemoteGet, Self::Row(_))
                 | (CommandKind::RemoteListen, Self::Listening(_))
-                | (CommandKind::RemoteUnset | CommandKind::RemoteConnect | CommandKind::RemoteClose, Self::Done)
+                | (
+                    CommandKind::RemoteSet
+                        | CommandKind::RemoteUnset
+                        | CommandKind::RemoteConnect
+                        | CommandKind::RemoteClose,
+                    Self::Done
+                )
         )
     }
 }

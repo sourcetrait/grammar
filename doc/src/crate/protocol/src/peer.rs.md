@@ -36,16 +36,16 @@ serializes as the word the row has always carried, `closed`, `listening`, or
 
 ## enum RemoteResult
 A remote Channel command's result as its tool renders it: `list`'s rows, `get`'s
-and `set`'s row, `listen`'s address, and nothing for the other three, each the
-kind its catalog entry declares. `answers` ties a result to its command, so a
+row, `listen`'s address, and nothing for the other four, each the kind its
+catalog entry declares. `answers` ties a result to its command, so a
 frontend takes no result for a command that doesn't answer it.
 
 ## enum RemoteChannelEvent
 Each packet's event as data. `Disconnected` carries `mcp_nom` when a link was
 established and `error` when it failed, neither for a listener closed before it
 paired, so a consumer keys a link's lifecycle on `remote` and reads the rest by
-presence. `Sent` reports the write to the link, never that an agent processed the
-message.
+presence. `Sent` reports the write to the link, never that an agent processed
+the message.
 ### fn event
 The record the packet has always carried, a key left out where it has no
 value, never null, as the mcp crate's link builds each one by hand.
