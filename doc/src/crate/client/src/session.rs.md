@@ -1,7 +1,7 @@
 # session.rs
 
-The MCP's end of one session: its hello and the worker's reply, then its
-requests answered by id, the worker's asks and emergencies handed to the
+The MCP's end of one session: its hello and grammar-ssh's reply, then its
+requests answered by id, grammar-ssh's asks and emergencies handed to the
 session's owner, a ping each interval, and an end every waiter learns of.
 
 ## enum SessionEvent
@@ -42,9 +42,9 @@ seeing one loss, changes nothing.
 
 ## struct Session
 ### fn open
-The hello is sent and the reply read within `REPLY_DEADLINE`, a worker's start
-among it, then both directions take the negotiated ceiling. The writer, the
-reader, and the pinger run as tasks of their own.
+The hello is sent and the reply read within `REPLY_DEADLINE`, grammar-ssh's
+start among it, then both directions take the negotiated ceiling. The writer,
+the reader, and the pinger run as tasks of their own.
 
 ### fn request
 A request's id is the next in the session's order, registered before its frame
@@ -71,9 +71,9 @@ with nothing more, and a failed write ends the session.
 Each frame finds its waiter or its owner; a response for an id nothing waits
 on, a request the MCP stopped waiting for, is dropped. No frame within
 `SESSION_IDLE`, the stream's end, a frame that doesn't decode within the
-session's budget, or the worker's close ends the session and stops the
+session's budget, or grammar-ssh's close ends the session and stops the
 writer.
 
 ## fn ping_loop
-A ping each `PING_INTERVAL`, so the worker's idle window never lapses on a
+A ping each `PING_INTERVAL`, so grammar-ssh's idle window never lapses on a
 session that is merely quiet.

@@ -93,7 +93,7 @@ here: an unmarked scratch directory and an inbox whose nom's name is taken.
 drop and these live until the process's end or the Channel's close.
 
 ## fn sweep_stale
-The shared guard's sweep (`sourcetrait_grammar_scratch`), the worker's own: a
+The shared guard's sweep (`sourcetrait_grammar_scratch`), grammar-ssh's own: a
 directory goes only when its marker's owner is proven gone and, on Unix, the
 UID owns it, and a process that can't be read is unknown, never dead. A
 directory without a readable marker is kept: it may be a host's still between

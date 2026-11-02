@@ -31,8 +31,8 @@ pub(crate) use sourcetrait_common::{agnostic, cereal, subsys};
 pub(crate) use sourcetrait_grammar_protocol::{
     AUTH_DEADLINE, ClientHello, DecodeBudget, Emergency, EngineRequest, EngineResponse, FrameCodec,
     HELLO_BUDGET, HelloReply, HostAnswer, Instance, LOCAL_HOST, Limits, McpFrame, PING_INTERVAL,
-    Ping, REPLY_DEADLINE, SESSION_IDLE, SessionAsk, SessionClose, TransportError, WorkerFrame,
-    WorkerHello, check_reply, decode_payload, payload, valid_name,
+    Ping, REPLY_DEADLINE, SESSION_IDLE, SessionAsk, SessionClose, SshFrame, SshHello,
+    TransportError, check_reply, decode_payload, payload, valid_name,
 };
 
 pub(crate) use russh::keys;
@@ -68,7 +68,7 @@ pub(crate) mod tku {
 
 pub use crate::{
     endpoint::{
-        Endpoint, Jump, Platform, SSH_PORT, WORKER_COMMAND, check_alias, check_command,
+        Endpoint, GRAMMAR_SSH_COMMAND, Jump, Platform, SSH_PORT, check_alias, check_command,
         check_host_keys, check_instance, check_key, check_path, check_port, check_word,
         known_hosts_name, parse_address,
     },

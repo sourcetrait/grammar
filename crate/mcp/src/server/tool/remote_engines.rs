@@ -23,8 +23,8 @@ pub(crate) struct RemoteEngineRow {
     /// The fields a session needs that the entry lacks.
     pub missing: Vec<String>,
     pub state: SessionPhase,
-    pub worker_nom: Option<String>,
-    pub worker_pid: Option<u32>,
+    pub nom: Option<String>,
+    pub pid: Option<u32>,
     /// The last open's failure, its kind first.
     pub failure: Option<String>,
 }
@@ -64,8 +64,8 @@ impl RemoteEngineRow {
             workdir,
             missing: entry.map(EngineEntry::missing).unwrap_or_default(),
             state: state.map_or(SessionPhase::Closed, |state| state.phase),
-            worker_nom: state.and_then(|state| state.worker_nom.clone()),
-            worker_pid: state.and_then(|state| state.worker_pid),
+            nom: state.and_then(|state| state.nom.clone()),
+            pid: state.and_then(|state| state.pid),
             failure: state.and_then(|state| state.failure.clone()),
         }
     }

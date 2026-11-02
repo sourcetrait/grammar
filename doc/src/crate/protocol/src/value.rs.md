@@ -17,7 +17,7 @@ and records, the collections that nest; a top-level list is depth 1. Elements
 are counted over the whole value, items, fields, and members together, and
 bytes the same way.
 
-The check serves two places. A worker holds a result to the negotiated bounds
+The check serves two places. grammar-ssh holds a result to the negotiated bounds
 before sending it, so an oversized result is refused as too large rather than
 cut. A decoder applies the same bounds while it decodes, before allocating,
 since a check after a full decode would already have spent the memory.

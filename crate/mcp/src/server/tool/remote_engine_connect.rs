@@ -1,7 +1,7 @@
 use crate::*;
 
 impl NuSh {
-    /// `interface remote engine connect`: the session and its worker started now.
+    /// `interface remote engine connect`: the session and its grammar-ssh started now.
     pub(crate) async fn engine_connect(
         &self,
         nonce: datum::Nonce,
@@ -25,7 +25,7 @@ impl NuSh {
         }
     }
 
-    /// `interface remote engine close`: the session closed, its worker ending with it.
+    /// `interface remote engine close`: the session closed, grammar-ssh ending with it.
     pub(crate) async fn engine_close(
         &self,
         nonce: datum::Nonce,

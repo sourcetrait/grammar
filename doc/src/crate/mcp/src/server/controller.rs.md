@@ -8,7 +8,7 @@ engines', and the operator's when it supervises. A system never calls
 another: each handler it hands a system holds what that system's routes need,
 the engine's `HostRoute` the face's two systems (`server/host.rs`), the
 operator's `OperatorWatch` the emergency policy (`server/operator.rs`), and
-the remote engines' `RemoteRoute` their workers' asks (`server/remote.rs`).
+the remote engines' `RemoteRoute` their grammar-ssh's asks (`server/remote.rs`).
 
 ## fn log_status
 A system's status change is logged from its handler, on the system's control
@@ -71,7 +71,7 @@ The policy is made before the engine, and a supervised start puts it in the
 face's hub slot before any system it answers runs. The engine's handler is the
 route: the face's Channel and links, the config, and the shutdown flag. The
 remote engines' handler takes the same route and the same policy, which this
-returns, so a worker's asks and emergencies take the paths a local eval's and
+returns, so grammar-ssh's asks and emergencies take the paths a local eval's and
 the operator's do.
 
 ### fn start_remote
@@ -102,13 +102,12 @@ the scratch directories and exits (`server/channel/face.rs`).
 
 ### fn stop
 The order is the shutdown's point. The remote sessions close first, so every
-worker's work ends with its session as the MCP goes; then the Channel's peer
-is told that the host is going away (`ChannelCloser::close_for_shutdown`);
+grammar-ssh's work ends with its session as the MCP goes; then the Channel's
+peer is told that the host is going away (`ChannelCloser::close_for_shutdown`);
 then the observer stops, so nothing observes a stopping engine; the engine's
-`Teardown` cancels the calls in flight and reaps their trees; the operator
-stops next; the engine's system stops once no request holds it; and the
-namespace's lock goes last, as late as anything that still works on the
-namespace.
+`Teardown` cancels the calls in flight and reaps their trees; the operator stops
+next; the engine's system stops once no request holds it; and the namespace's
+lock goes last, as late as anything that still works on the namespace.
 
 ### fn stop_remote
 Every session is closed before the system stops, so a request in flight lets

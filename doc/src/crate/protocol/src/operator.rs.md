@@ -1,7 +1,7 @@
 # operator.rs
 
 The operator's portable data: what its manager observes of the engine and the
-Channel, and the emergencies it classifies. Here so a frontend, a worker, and
+Channel, and the emergencies it classifies. Here so a frontend, grammar-ssh, and
 the operator share one definition without the operator's Linux monitoring, which
 stays in the operator crate. The engine's reading is the engine's own
 `EngineHealth`, which the operator names `EngineReading`.
@@ -20,7 +20,7 @@ Cereal data, so an emergency crosses from the operator to its manager as a packe
 The Channel's spam pair is modelled here beside the supervisor's conditions because
 the one responder takes both: the host's Channel classifies its own spam into these
 structs. Every count is a fixed-width u64, so an emergency reads the same from any
-platform's worker.
+platform's grammar-ssh.
 
 ## struct Observation
 ### field engine

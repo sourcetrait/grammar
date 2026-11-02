@@ -48,7 +48,7 @@ pub(crate) use sourcetrait_grammar_protocol::{
     FrameCodec, FromEngineSys, HELLO_BUDGET, HELLO_DEADLINE, HelloReply, Host, HostAnswer,
     Instance, LIMITS_DEFAULT, Limits, McpFrame, NuVal, Observation, PurviewAnswer,
     PurviewRequest, RuntimeError, SESSION_IDLE, SessionAsk, SessionClose, ToEngineSys,
-    TransportError, ValueAnswer, WorkerFrame, WorkerInfo, WorkerProfile, decode_payload, payload,
+    TransportError, ValueAnswer, SshFrame, SshInfo, SshProfile, decode_payload, payload,
     valid_name,
 };
 pub(crate) use sourcetrait_grammar_scratch::{

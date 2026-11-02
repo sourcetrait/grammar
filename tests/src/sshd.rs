@@ -1,4 +1,4 @@
-//! OpenSSH's sshd on loopback as the test's own user, and the worker its sessions run.
+//! OpenSSH's sshd on loopback as the test's own user, and the grammar-ssh its sessions run.
 
 use std::fs;
 use std::io::Read;
@@ -16,10 +16,10 @@ use crate::grammar_mcp_bin;
 /// Where OpenSSH installs its server, on Linux and on macOS.
 pub const SSHD: &str = "/usr/sbin/sshd";
 
-/// The id a test worker runs as.
-pub const WORKER_ID: &str = "fixture";
+/// The id grammar-ssh serves in a test.
+pub const SSH_ID: &str = "fixture";
 
-/// The variable the sshd's login shell sets, which its sessions' workers inherit.
+/// The variable the sshd's login shell sets, which grammar-ssh inherits.
 pub const LOGIN_MARK: &str = "GRAMMAR_TEST_LOGIN";
 
 /// The login shell the sshd's sessions name in `SHELL`: `-l -c` alone, its run marked.
@@ -89,21 +89,21 @@ impl TestKey {
     }
 }
 
-/// A worker for an sshd's sessions: a wrapper giving it the test's homes, then `grammar-ssh`.
-pub struct TestWorker {
+/// An account for an sshd's sessions: its homes, its workdir, and a wrapper running `grammar-ssh`.
+pub struct TestAccount {
     dir: tempfile::TempDir,
 }
 
-impl TestWorker {
-    /// The worker's homes, its workdir, and its wrapper, made.
+impl TestAccount {
+    /// The account's homes, its workdir, and its wrapper, made.
     pub fn new() -> Self {
         let dir = private_dir();
         let root = dir.path();
         for home in ["data", "cache", "tmp", "run", "work", "bin"] {
-            fs::create_dir_all(root.join(home)).expect("a worker's home");
+            fs::create_dir_all(root.join(home)).expect("an account's home");
         }
-        let worker_bin = grammar_ssh_bin();
-        assert!(worker_bin.is_file(), "grammar-ssh is built beside grammar-mcp: {}", worker_bin.display());
+        let ssh_bin = grammar_ssh_bin();
+        assert!(ssh_bin.is_file(), "grammar-ssh is built beside grammar-mcp: {}", ssh_bin.display());
         let exports: String = [
             ("UENV_USR_DATA", "data"),
             ("UENV_USR_CACHE", "cache"),
@@ -113,34 +113,34 @@ impl TestWorker {
         .iter()
         .map(|(var, home)| format!("export {var}='{}'\n", root.join(home).display()))
         .collect();
-        let wrapper = root.join("bin").join("grammar-ssh-worker");
-        fs::write(&wrapper, format!("#!/bin/sh\n{exports}exec '{}' \"$@\"\n", worker_bin.display()))
+        let wrapper = root.join("bin").join("grammar-ssh-test");
+        fs::write(&wrapper, format!("#!/bin/sh\n{exports}exec '{}' \"$@\"\n", ssh_bin.display()))
             .expect("the wrapper");
         fs::set_permissions(&wrapper, fs::Permissions::from_mode(0o700)).expect("the wrapper's mode");
         Self { dir }
     }
 
-    /// The worker's scratch tree.
+    /// The account's scratch tree.
     pub fn root(&self) -> &Path {
         self.dir.path()
     }
 
     /// The wrapper an endpoint runs as its command.
     pub fn command(&self) -> PathBuf {
-        self.root().join("bin").join("grammar-ssh-worker")
+        self.root().join("bin").join("grammar-ssh-test")
     }
 
-    /// The worker's working directory.
+    /// The account's working directory, grammar-ssh's.
     pub fn workdir(&self) -> PathBuf {
         self.root().join("work")
     }
 
-    /// A home of the worker's, by its directory's name.
+    /// A home of the account's, by its directory's name.
     pub fn home(&self, name: &str) -> PathBuf {
         self.root().join(name)
     }
 
-    /// The worker scratch directories in its temporary home.
+    /// grammar-ssh's scratch directories in its temporary home.
     pub fn scratch_dirs(&self) -> Vec<PathBuf> {
         fs::read_dir(self.home("tmp"))
             .expect("the temporary home")
@@ -152,11 +152,11 @@ impl TestWorker {
 
     /// The namespace lock's path for `namespace`.
     pub fn lock(&self, namespace: &str) -> PathBuf {
-        self.home("data").join("grammar").join("mcp").join(WORKER_ID).join(namespace).join("host.lock")
+        self.home("data").join("grammar").join("mcp").join(SSH_ID).join(namespace).join("host.lock")
     }
 }
 
-impl Default for TestWorker {
+impl Default for TestAccount {
     fn default() -> Self {
         Self::new()
     }
@@ -235,8 +235,8 @@ impl Sshd {
         read_log(&self.dir.path().join("sshd.log"))
     }
 
-    /// An endpoint of this sshd as `alias`, its command `worker`'s wrapper.
-    pub fn endpoint(&self, alias: &str, worker: &TestWorker) -> Endpoint {
+    /// An endpoint of this sshd as `alias`, its command `account`'s wrapper.
+    pub fn endpoint(&self, alias: &str, account: &TestAccount) -> Endpoint {
         Endpoint {
             alias: alias.to_string(),
             platform: if cfg!(target_os = "macos") { Platform::Macos } else { Platform::Linux },
@@ -246,10 +246,10 @@ impl Sshd {
             key: self.user_key.path(),
             host_keys: vec![self.host_key.public.clone()],
             jump: None,
-            command: worker.command().display().to_string(),
-            id: WORKER_ID.to_string(),
+            command: account.command().display().to_string(),
+            id: SSH_ID.to_string(),
             namespace: "default".to_string(),
-            workdir: Some(worker.workdir().display().to_string()),
+            workdir: Some(account.workdir().display().to_string()),
         }
     }
 

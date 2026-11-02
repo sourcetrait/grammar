@@ -11,7 +11,7 @@ use sourcetrait_grammar_client::{Session, SessionEvent};
 use sourcetrait_grammar_protocol::{
     ControlAnswer, ControlRequest, EngineCommand, EngineRequest, EngineResponse, ExecuteRequest, FromEngineSys,
     HelloReply, Host, HostAnswer, Instance, LIMITS_DEFAULT, Limits, McpFrame, NuVal, SessionAsk, SessionClose,
-    ToEngineSys, TransportError, ValueAnswer, WorkerFrame,
+    ToEngineSys, TransportError, ValueAnswer, SshFrame,
 };
 use sourcetrait_grammar_scratch::NamespaceLock;
 use support::{RawSession, TestInstance, exit_within, hello, open, runtime, spawn_worker, stderr_of};
@@ -74,13 +74,13 @@ fn a_session_serves_info_and_a_call() {
     runtime().block_on(async {
         let (mut child, opened) = open(&instance, "default", LIMITS_DEFAULT).await;
         let (session, _events) = opened.expect("the session opens");
-        assert_eq!(session.worker().instance, Instance::new("fixture", "default").unwrap());
-        assert_eq!(session.worker().effective, LIMITS_DEFAULT);
+        assert_eq!(session.ssh().instance, Instance::new("fixture", "default").unwrap());
+        assert_eq!(session.ssh().effective, LIMITS_DEFAULT);
         match session.request(EngineRequest::Info).await.expect("info") {
             EngineResponse::Info(info) => {
                 assert_eq!((info.id.as_str(), info.namespace.as_str()), ("fixture", "default"));
                 assert_eq!(info.work_dir, instance.workdir().display().to_string());
-                assert_eq!(info.nom, session.worker().nom);
+                assert_eq!(info.nom, session.ssh().nom);
                 assert!(Path::new(&info.tmp).is_dir() && Path::new(&info.transient).is_dir());
             }
             other => panic!("info, not {other:?}"),
@@ -125,7 +125,7 @@ fn calls_past_the_sessions_bound_are_refused_busy() {
         let requested = Limits { calls: 1, ..LIMITS_DEFAULT };
         let (_child, opened) = open(&instance, "default", requested).await;
         let session = Arc::new(opened.expect("the session opens").0);
-        assert_eq!(session.worker().effective.calls, 1);
+        assert_eq!(session.ssh().effective.calls, 1);
         let nonces = datum::NonceGenerator::new();
         let first = nonces.generate();
         let held = tokio::spawn({
@@ -245,7 +245,7 @@ fn a_session_with_no_frame_in_its_window_ends() {
         assert!(matches!(reply, HelloReply::Accepted(_)), "{reply:?}");
         let frame = tokio::time::timeout(Duration::from_secs(45), raw.next()).await.expect("a frame in the window's time");
         assert!(
-            matches!(frame, Some(WorkerFrame::Close(SessionClose { error: Some(TransportError::SessionLost { .. }) }))),
+            matches!(frame, Some(SshFrame::Close(SessionClose { error: Some(TransportError::SessionLost { .. }) }))),
             "{frame:?}",
         );
         let status = exit_within(&mut child, EXIT_DEADLINE).await;
@@ -261,7 +261,7 @@ fn a_hello_for_another_namespace_is_refused() {
     runtime().block_on(async {
         let mut child = spawn_worker(&instance, "default");
         let (_raw, reply) = RawSession::open(&mut child, hello(&instance, "other", LIMITS_DEFAULT)).await;
-        assert!(matches!(reply, HelloReply::Refused(TransportError::WrongWorker { .. })), "{reply:?}");
+        assert!(matches!(reply, HelloReply::Refused(TransportError::WrongNamespace { .. })), "{reply:?}");
         let status = exit_within(&mut child, EXIT_DEADLINE).await;
         assert_eq!(status.code(), Some(76), "{status:?}");
         assert!(TestInstance::worker_dirs(&instance.home("tmp")).is_empty(), "its scratch removed");

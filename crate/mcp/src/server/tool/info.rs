@@ -60,18 +60,18 @@ impl NuSh {
                 purview: view.views,
             },
             Route::Remote(alias) => {
-                let worker = self.worker_info(alias).await?;
+                let ssh = self.ssh_info(alias).await?;
                 InfoResult {
                     name: consts::GRAMMAR.to_string(),
-                    version: worker.version,
-                    nu_version: worker.nu_version,
-                    id: worker.id,
-                    namespace: worker.namespace,
-                    nom: worker.nom,
-                    work_dir: worker.work_dir,
-                    tmp: worker.tmp,
-                    transient: worker.transient,
-                    plugins: worker.plugins,
+                    version: ssh.version,
+                    nu_version: ssh.nu_version,
+                    id: ssh.id,
+                    namespace: ssh.namespace,
+                    nom: ssh.nom,
+                    work_dir: ssh.work_dir,
+                    tmp: ssh.tmp,
+                    transient: ssh.transient,
+                    plugins: ssh.plugins,
                     signatures,
                     purview: view.views,
                 }

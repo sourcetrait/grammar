@@ -1,9 +1,9 @@
 # fixture.rs
 
-The v1 fixture driver, the one interface a native client's or worker's tests
-decode the golden vectors through. Each vector's row names its type, so a
-consumer needs no knowledge of the test that wrote it, and the driver shares
-the DTOs alone, never a runtime.
+The v1 fixture driver, the one interface a native client's or grammar-ssh's
+tests decode the golden vectors through. Each vector's row names its type, so a
+consumer needs no knowledge of the test that wrote it, and the driver shares the
+DTOs alone, never a runtime.
 
 ## const FIXTURE_TYPES / fn canonical
 Every type a v1 vector names, each with its decoder: `canonical` decodes

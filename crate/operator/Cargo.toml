@@ -13,6 +13,7 @@ keywords.workspace   = true
 [dependencies]
 bitcode.workspace = true
 nix.workspace = true
+nuval.workspace = true
 rkyv.workspace = true
 serde.workspace = true
 tokio.workspace = true

@@ -61,11 +61,11 @@ impl NuSh {
         }
     }
 
-    /// A remote engine's worker: its identity, its homes, and its plugins.
-    pub(crate) async fn worker_info(
+    /// A remote engine's grammar-ssh: its identity, its homes, and its plugins.
+    pub(crate) async fn ssh_info(
         &self,
         alias: &str,
-    ) -> GrammarMcpResult<WorkerInfo> {
+    ) -> GrammarMcpResult<SshInfo> {
         match self.controller.remote(alias, EngineRequest::Info).await? {
             EngineResponse::Info(info) => Ok(info),
             EngineResponse::Refused(refusal) => Err(GrammarMcpError::Transport(refusal)),

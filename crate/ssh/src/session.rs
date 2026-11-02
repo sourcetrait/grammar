@@ -58,9 +58,9 @@ pub(crate) struct Outbox {
 
 impl Outbox {
     /// `frame` encoded and queued for the MCP, refused past its ceiling or its budget.
-    pub(crate) fn send(&self, frame: &WorkerFrame) -> Result<(), Unsent> {
+    pub(crate) fn send(&self, frame: &SshFrame) -> Result<(), Unsent> {
         let bytes = payload(frame);
-        if bytes.len() > self.ceiling as usize || decode_payload::<WorkerFrame>(&bytes, self.budget).is_err() {
+        if bytes.len() > self.ceiling as usize || decode_payload::<SshFrame>(&bytes, self.budget).is_err() {
             return Err(Unsent::TooLarge {
                 len: bytes.len(),
                 ceiling: self.ceiling,
@@ -122,8 +122,8 @@ pub(crate) async fn refuse<R, W>(
 pub(crate) async fn serve<R, W>(
     reader: R,
     writer: W,
-    profile: WorkerProfile,
-    info: WorkerInfo,
+    profile: SshProfile,
+    info: SshInfo,
     controller: &GrammarSshController,
 ) -> GrammarSshResult<SessionEnd>
 where
@@ -152,7 +152,7 @@ where
     let end = serve_frames(frames, limits, &out, Arc::new(info), controller).await;
     if matches!(end, SessionEnd::Idle | SessionEnd::Signal(_)) {
         let error = TransportError::SessionLost { reason: end.to_string() };
-        let _ = out.send(&WorkerFrame::Close(SessionClose { error: Some(error) }));
+        let _ = out.send(&SshFrame::Close(SessionClose { error: Some(error) }));
     }
     drop(out);
     let _ = tk::timeout(DRAIN_DEADLINE, writer).await;
@@ -265,7 +265,7 @@ async fn serve_frames<R>(
     mut frames: tku::FramedRead<R, FrameCodec>,
     limits: Limits,
     out: &Outbox,
-    info: Arc<WorkerInfo>,
+    info: Arc<SshInfo>,
     controller: &GrammarSshController,
 ) -> SessionEnd
 where
@@ -292,7 +292,7 @@ where
                 let frame = match decode_payload::<McpFrame>(&bytes, budget) {
                     Ok(frame) => frame,
                     Err(e) => {
-                        let _ = out.send(&WorkerFrame::Close(SessionClose { error: Some(e.transport()) }));
+                        let _ = out.send(&SshFrame::Close(SessionClose { error: Some(e.transport()) }));
                         break SessionEnd::Broken(e.to_string());
                     }
                 };
@@ -300,7 +300,7 @@ where
                     McpFrame::Request { id, request } => {
                         if !served.ids.lock().unwrap_or_else(|e| e.into_inner()).insert(id) {
                             let error = TransportError::InvalidFrame { reason: format!("request {id} is already in flight") };
-                            let _ = out.send(&WorkerFrame::Close(SessionClose { error: Some(error) }));
+                            let _ = out.send(&SshFrame::Close(SessionClose { error: Some(error) }));
                             break SessionEnd::Broken(format!("request {id} sent again while in flight"));
                         }
                         let slots = if request.is_call() { &calls } else { &control };
@@ -323,7 +323,7 @@ where
                     }
                     McpFrame::Answer { id, answer } => controller.asker().answer(id, answer),
                     McpFrame::Ping(ping) => {
-                        let _ = out.send(&WorkerFrame::Pong(ping));
+                        let _ = out.send(&SshFrame::Pong(ping));
                     }
                     McpFrame::Close(_) => break SessionEnd::Closed,
                 }
@@ -364,11 +364,11 @@ fn send_response(
     id: u64,
     response: EngineResponse,
 ) {
-    if let Err(Unsent::TooLarge { ceiling, .. }) = out.send(&WorkerFrame::Response { id, response }) {
+    if let Err(Unsent::TooLarge { ceiling, .. }) = out.send(&SshFrame::Response { id, response }) {
         let refused = EngineResponse::Refused(TransportError::ResultTooLarge {
             limit: u64::from(ceiling),
         });
-        let _ = out.send(&WorkerFrame::Response { id, response: refused });
+        let _ = out.send(&SshFrame::Response { id, response: refused });
     }
 }
 
@@ -376,7 +376,7 @@ fn send_response(
 async fn respond(
     request: EngineRequest,
     engine: EngineResult<Arc<EngineHandle>>,
-    info: &WorkerInfo,
+    info: &SshInfo,
 ) -> EngineResponse {
     let engine = match engine {
         Ok(engine) => engine,

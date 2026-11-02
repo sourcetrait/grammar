@@ -1,7 +1,7 @@
 # owner.rs
 
 ## const MARKER_FILE
-NUON, held to `include/scratch/Owner.nutype`, as every file the worker keeps
+NUON, held to `include/scratch/Owner.nutype`, as every file grammar-ssh keeps
 is.
 
 ## const LEGACY_MARKER_FILE

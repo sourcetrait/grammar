@@ -4,7 +4,7 @@ The engine's protocol: what a host asks of it and what it answers, with the
 diagnostics, the error, and the documents an answer carries. Every type is plain
 data (`cereal`'s `Data`), serializable whole, which is what lets a request name a
 linked host's engine at all, and none of it needs the evaluator: the frontend and
-the worker share this one definition, and the engine re-exports it.
+grammar-ssh share this one definition, and the engine re-exports it.
 
 A request's `nonce` is the operation's public identity, the one its envelope and
 its agent carry. subsys correlates a request with its reply by a message ID of
@@ -91,7 +91,7 @@ directly, rather than a nested source-carrier the reader would have to unwrap.
 
 `position` is a pair of u64s, the wire's fixed width, built from the parser's
 usize line and column through nuval's `wide`, which never alters one: the same
-diagnostic reads the same from any platform's worker.
+diagnostic reads the same from any platform's grammar-ssh.
 
 ## fn span_to_line_col
 A row's position as the agent reads its own text, 1-based. It lives beside the
@@ -108,10 +108,10 @@ the wire and the check summary both carry.
 
 WHERE A ROW RIDES CONVEYS ITS SEVERITY, which is why `severity` is
 `#[serde(skip)]` and absent from the envelope serde writes: an error row in a
-failure's `error` table, a warning row in the `warnings` of the result that raised
-it, an `interface equip` commit's, install's, or check's. It is an internal
-partition key there. bitcode's derive carries it, so a row crossing the worker's
-wire keeps its severity.
+failure's `error` table, a warning row in the `warnings` of the result that
+raised it, an `interface equip` commit's, install's, or check's. It is an
+internal partition key there. bitcode's derive carries it, so a row crossing
+grammar-ssh's wire keeps its severity.
 
 Per-condition data (`timeout_ms`, names, reason) lives IN `message`, not a typed
 per-variant field: it is text either way, and a per-variant field would vary its

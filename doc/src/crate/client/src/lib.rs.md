@@ -1,9 +1,9 @@
 # lib.rs
 
-The MCP's side of its remote engines: a session with a worker over SSH, and
+The MCP's side of its remote engines: a session with grammar-ssh over SSH, and
 the system that holds one a host. It takes the protocol, russh, and
-sourcetrait_common alone, never the engine, the operator, or the worker, so a
-product that drives a worker links it without an engine of its own.
+sourcetrait_common alone, never the engine, the operator, or grammar-ssh, so a
+product that drives grammar-ssh links it without an engine of its own.
 
 ## mod endpoint
 A remote engine's entry and its fields' checks, held before the remotes file
@@ -18,8 +18,8 @@ the parser is the one russh links.
 
 ## mod session
 The MCP's end of a session over any reader and writer, an SSH channel's or a
-child's pipes, so the worker's own tests drive a real worker through the same
-code the MCP does.
+child's pipes, so grammar-ssh's own tests drive a real grammar-ssh through the
+same code the MCP does.
 
 ## mod ssh
 The SSH connection a session rides, its exec channel, and the channel's

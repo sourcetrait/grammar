@@ -98,7 +98,7 @@ pub(crate) use crate::{
             hub::{FROM_MCP, open_packet, start as start_channel_hub},
         },
         controller::{McpController, log_closed, log_status},
-        emergency::{EmergencyPolicy, emergency_log_path},
+        emergency::EmergencyPolicy,
         identity::{mint_nonce, process_identity},
         tool::{
             call::CallParams,
@@ -131,10 +131,10 @@ pub(crate) use crate::server::{
 };
 
 pub(crate) use sourcetrait_grammar_client::{
-    Endpoint, FromRemote, Jump, Platform, RemoteAsk, RemoteEmergency, RemoteHandle, RemoteSysParams,
-    RemoteSysPaths, RemoteSystem, SSH_PORT, SessionPhase, SessionState, ToRemote, WORKER_COMMAND,
-    check_alias, check_command, check_host_keys, check_instance, check_key, check_path,
-    check_word, known_host_keys, known_hosts_name, parse_address,
+    Endpoint, FromRemote, GRAMMAR_SSH_COMMAND, Jump, Platform, RemoteAsk, RemoteEmergency,
+    RemoteHandle, RemoteSysParams, RemoteSysPaths, RemoteSystem, SSH_PORT, SessionPhase,
+    SessionState, ToRemote, check_alias, check_command, check_host_keys, check_instance, check_key,
+    check_path, check_word, known_host_keys, known_hosts_name, parse_address,
 };
 
 pub(crate) use sourcetrait_grammar_engine::{
@@ -154,7 +154,7 @@ pub(crate) use sourcetrait_grammar_channel::{
     ChannelSysPaths, ChannelSystem, ChannelVerifyError, CloseHub, CloseRequest, EmitError,
     EmitRequest, ExpireRequest, FromChannelSys, HostRequest, HubNotice, Line, OpenRequest,
     ReadyRequest, SendRequest, SendVerdict, SpamThresholds, StatusRequest, StoppedNotice,
-    SyncRequest, ThresholdsRequest, escape_line, mint_msg_id, render_nuon, render_packet,
+    SyncRequest, ThresholdsRequest, mint_msg_id, render_nuon, render_packet,
 };
 
 pub(crate) use sourcetrait_grammar_interface::{
@@ -176,7 +176,7 @@ pub(crate) use sourcetrait_grammar_protocol::{
     ChannelEpoch, ChannelPhase, ChannelSendData, ControlRequest, EngineRequest, EngineResponse,
     FromEngineSys, LIMITS_DEFAULT, LOCAL_HOST, MAX_FRAME_BYTES, PreparedSend, PurviewAnswer,
     PurviewRequest, PurviewRow, PurviewView, RemoteResult, RemoteSendData, RuntimeError,
-    SessionAsk, SpamThresholdsData, ToEngineSys, TransportError, WorkerInfo,
+    SessionAsk, SpamThresholdsData, ToEngineSys, TransportError, SshInfo,
 };
 
 pub(crate) use sourcetrait_grammar_protocol::{
@@ -189,8 +189,8 @@ pub(crate) use sourcetrait_grammar_protocol::{Emergency, EmergencyKind, Observat
 
 pub(crate) use sourcetrait_grammar_operator::{
     FromOperatorSys, OperatorHandle, OperatorSysParams, OperatorSysPaths, OperatorSystem,
-    SAMPLE_INTERVAL, SupervisorConfig, check_fraction, clear_pins, effective_supervisor,
-    install_child_subreaper, pin,
+    SAMPLE_INTERVAL, SupervisorConfig, announced_record, append_line, check_fraction, clear_pins,
+    effective_supervisor, emergency_line, emergency_log_path, install_child_subreaper, pin,
 };
 
 pub(crate) use sourcetrait_grammar_scratch::{LOCK_FILE, LockRecord, NamespaceLock};
@@ -200,7 +200,7 @@ pub(crate) use nuval::{NuVal, NuonStyle, TryFromNu, TryIntoNu};
 pub(crate) use std::{
     collections::HashMap,
     fs,
-    io::{self, Write},
+    io,
     path::{PathBuf,Path},
     process,
     sync::{
@@ -224,7 +224,7 @@ pub(crate) mod nu {
         Record, Span, Value,
         engine::{EngineState, StateWorkingSet},
     };
-    pub(crate) use nuon::{ToNuonConfig, from_nuon, to_nuon};
+    pub(crate) use nuon::from_nuon;
 }
 
 pub(crate) use sourcetrait_common::{datum, subsys};

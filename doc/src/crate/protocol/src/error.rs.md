@@ -2,7 +2,7 @@
 
 The runtime's and the transport's errors, apart from the engine's own. Each
 renders to the frontend's envelope as rows of `Diagnostic`s, the same table every
-failure has always carried, so a refusal reads alike whether this host or a worker
+failure has always carried, so a refusal reads alike whether this host or grammar-ssh
 raised it.
 
 ## const LOCAL_HOST
@@ -48,17 +48,16 @@ naming `local`. The engine's own `host::unserved` stays apart: that is a request
 naming a host its engine doesn't serve, which no tool sends.
 
 ## enum TransportError
-The path to a worker failing, never its engine's answer, each under a stable
+The path to grammar-ssh failing, never its engine's answer, each under a stable
 `remote::engine::` kind, beside the remote channels' `remote::channel::` (User).
-The kinds split on whether anything ran. `ConnectFailed`,
-`HostKeyRejected`, and `AuthenticationFailed` fail before any request is sent,
-`Busy` refuses one before the engine takes it, and a hello's mismatches before
-the session serves anything, so each is safe to retry. `SessionLost` is the
-one that may have run: the session ended with the request in flight, and a
-result is never kept past its session, so its outcome is unknown and nothing
-resubmits it; an agent tells a retry that is safe from one that may repeat an
-effect. `Unavailable` is a worker that couldn't start, its own failure's kind
-and text in the reason, a held namespace among them. `ResultTooLarge` is an
-answer past the session's frame or its decode budget, refused alone while the
-session goes on. Each new variant goes last, so the ones before it keep their
-wire indices.
+The kinds split on whether anything ran. `ConnectFailed`, `HostKeyRejected`, and
+`AuthenticationFailed` fail before any request is sent, `Busy` refuses one
+before the engine takes it, and a hello's mismatches before the session serves
+anything, so each is safe to retry. `SessionLost` is the one that may have run:
+the session ended with the request in flight, and a result is never kept past
+its session, so its outcome is unknown and nothing resubmits it; an agent tells
+a retry that is safe from one that may repeat an effect. `Unavailable` is a
+grammar-ssh that couldn't start, its own failure's kind and text in the reason,
+a held namespace among them. `ResultTooLarge` is an answer past the session's
+frame or its decode budget, refused alone while the session goes on. Each new
+variant goes last, so the ones before it keep their wire indices.

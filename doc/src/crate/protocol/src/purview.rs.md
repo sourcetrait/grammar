@@ -3,7 +3,7 @@
 The namespace's purviews as data: a row as the store keeps it, a view as the
 tools show it, and the engine's requests of the purview table with their
 answers. The engine's system serves them beside the equip store they filter;
-they sit here so a session carries them to a worker's engine as a local
+they sit here so a session carries them to grammar-ssh's engine as a local
 controller sends them to its own.
 
 ## struct PurviewRow
@@ -14,7 +14,7 @@ the tools have always shown.
 ## enum PurviewRequest
 ## enum PurviewAnswer
 Each request's answer carries the runtime's own refusal, an id's or the
-store's, so a refusal reads the same from a worker's engine as from the
+store's, so a refusal reads the same from grammar-ssh's engine as from the
 MCP's.
 
 ## struct PurviewRigRequest

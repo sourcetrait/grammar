@@ -23,7 +23,7 @@ the delivery id is a peer's own text.
 ## fn safe_dest
 A send's dest is a relative path of plain components, never an absolute path,
 a `.`, or a `..`, since the receiving link joins it beneath its inbox. A send
-is held to it where its files are read, the MCP's or a worker's, and the link
+is held to it where its files are read, the MCP's or grammar-ssh's, and the link
 holds every received dest to it again.
 
 ## struct RemoteChannelRow

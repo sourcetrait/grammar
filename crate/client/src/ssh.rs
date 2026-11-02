@@ -1,19 +1,19 @@
-//! A worker over SSH: the connection, its exec channel, and the channel's streams.
+//! grammar-ssh over SSH: the connection, its exec channel, and its streams.
 use crate::*;
 
-/// The worker's output the pump holds before the session reads it.
+/// grammar-ssh's output the pump holds before the session reads it.
 const PIPE_BYTES: usize = 256 * 1024;
 
 /// The longest stderr line logged whole; a longer one is logged in pieces.
 const LINE_MAX: usize = 8 * 1024;
 
-/// The stderr lines kept to explain a worker that ends before its reply.
+/// The stderr lines kept to explain a grammar-ssh that ends before its reply.
 const TAIL_LINES: usize = 8;
 
 /// How long a close waits for its frame to leave, and the channel to end after it.
 const CLOSE_FLUSH: Duration = Duration::from_secs(2);
 
-/// A session with a worker over SSH, and the connection it rides.
+/// A session with grammar-ssh over SSH, and the connection it rides.
 pub struct RemoteSession {
     session: Session,
     /// The connection, held so the session lasts and ended at its close.
@@ -25,9 +25,9 @@ pub struct RemoteSession {
 }
 
 impl RemoteSession {
-    /// The worker this session reached.
-    pub fn worker(&self) -> &WorkerHello {
-        self.session.worker()
+    /// The grammar-ssh this session reached.
+    pub fn ssh(&self) -> &SshHello {
+        self.session.ssh()
     }
 
     /// A request's response, or the session's loss where it ends first.
@@ -48,9 +48,9 @@ impl RemoteSession {
             Some(through) => {
                 let jump = through.connection.lock().await;
                 let hop = Some((&*jump, &*through.tunnel_closed));
-                end(&*connection, hop, "the MCP closed the session").await;
+                end(&connection, hop, "the MCP closed the session").await;
             }
-            None => end(&*connection, None, "the MCP closed the session").await,
+            None => end(&connection, None, "the MCP closed the session").await,
         }
         drop(connection);
         let pump = self.pump.lock().unwrap_or_else(|e| e.into_inner()).take();
@@ -60,7 +60,7 @@ impl RemoteSession {
     }
 }
 
-/// A session on `endpoint`'s worker: the connection, the exec, and the hello.
+/// A session on `endpoint`'s grammar-ssh: the connection, the exec, and the hello.
 pub async fn open(
     endpoint: &Endpoint,
     requested: Limits,
@@ -193,7 +193,7 @@ impl Login {
     }
 }
 
-/// The connection authenticated and the worker's command running on its channel.
+/// The connection authenticated and grammar-ssh's command running on its channel.
 async fn connect(
     target: Login,
     jump: Option<Login>,
@@ -289,7 +289,7 @@ async fn authenticate(
     Ok(())
 }
 
-/// The connection ended, then its jump's once the jump's host has closed the tunnel.
+/// The connection ended, then the jump's once its host has closed the tunnel.
 async fn end(
     connection: &russh::client::Handle<Pinned>,
     jump: Option<(&russh::client::Handle<Pinned>, &tk::Notify)>,
@@ -374,7 +374,7 @@ pub(crate) struct Witness {
 }
 
 impl Witness {
-    /// A line of the worker's stderr kept, the oldest past the tail dropped.
+    /// A line of grammar-ssh's stderr kept, the oldest past the tail dropped.
     pub(crate) fn keep(&mut self, line: String) {
         if self.tail.len() == TAIL_LINES {
             self.tail.pop_front();
@@ -382,7 +382,7 @@ impl Witness {
         self.tail.push_back(line);
     }
 
-    /// The session's refusal, told as what the worker did where the pump saw it.
+    /// The session's refusal, told as what grammar-ssh did where the pump saw it.
     pub(crate) fn explain(
         &self,
         refusal: TransportError,
@@ -397,8 +397,8 @@ impl Witness {
             };
         }
         let what = match (&self.exit, self.refused) {
-            (_, true) => "the host refused to run the worker's command".to_string(),
-            (Some(exit), false) => format!("the worker {exit} before its reply"),
+            (_, true) => "the host refused to run grammar-ssh's command".to_string(),
+            (Some(exit), false) => format!("grammar-ssh {exit} before its reply"),
             (None, false) => return refusal,
         };
         let tail = Vec::from_iter(self.tail.iter().cloned()).join(" | ");
@@ -463,14 +463,14 @@ async fn pump(
             }
             russh::ChannelMsg::ExitStatus { exit_status } => {
                 let exit = format!("exited {exit_status}");
-                eprintln!("grammar: {alias}: the worker {exit}");
+                eprintln!("grammar: {alias}: grammar-ssh {exit}");
                 let mut witness = witness.lock().unwrap_or_else(|e| e.into_inner());
                 witness.exit = Some(exit);
                 witness.status = Some(exit_status);
             }
             russh::ChannelMsg::ExitSignal { signal_name, .. } => {
                 let exit = format!("was killed by {signal_name:?}");
-                eprintln!("grammar: {alias}: the worker {exit}");
+                eprintln!("grammar: {alias}: grammar-ssh {exit}");
                 witness.lock().unwrap_or_else(|e| e.into_inner()).exit = Some(exit);
             }
             russh::ChannelMsg::Close => break,

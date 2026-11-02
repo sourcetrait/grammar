@@ -51,9 +51,9 @@ The view is the session's, the block the engine's: the routed engine resolves
 the session's view on it into patterns and its `Signatures` renders the rigs
 within them.
 
-A remote engine's info is its worker's: the version and the nushell its build
-carries, its id, namespace, and nom, its workdir and scratch directories, and
-its plugins, from the session's info request, so every path it names is that
+A remote engine's info is its grammar-ssh's: the version and the nushell its
+build carries, its id, namespace, and nom, its workdir and scratch directories,
+and its plugins, from the session's info request, so every path it names is that
 host's. The name stays the MCP's, the one server the agent talks to.
 
 Filtering expands `@` references while the reported `purview` field carries the

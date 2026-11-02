@@ -1,10 +1,10 @@
 # channel.rs
 
-The Channel's portable data: the reservations and caps every side enforces alike,
-its modes, phases, and state, and a send as data. The Channel is the MCP's, and
-a remote worker's send reaches it as an ask (session.rs). Closures and borrowed
-nushell values never cross: a send crosses as data and its eval's stop stays on
-the eval's side.
+The Channel's portable data: the reservations and caps every side enforces
+alike, its modes, phases, and state, and a send as data. The Channel is the
+MCP's, and a remote grammar-ssh's send reaches it as an ask (session.rs).
+Closures and borrowed nushell values never cross: a send crosses as data and its
+eval's stop stays on the eval's side.
 
 ## const MCP_RESERVED_PREFIX / const REMOTE_RESERVED_PREFIX / fn reserved_prefix
 Every model the host stamps lives beneath one of the two: `mcp/` for the local

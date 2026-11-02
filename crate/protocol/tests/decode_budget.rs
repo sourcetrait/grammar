@@ -10,12 +10,12 @@ use sha2::{Digest, Sha256};
 use sourcetrait_common::datum::Nonce;
 use sourcetrait_grammar_protocol::{
     ControlAnswer, DECODE_BUDGET_DEFAULT, DecodeBudget, EngineResponse, FrameError, FromEngineSys, NuVal,
-    ProcessRow, ValueAnswer, ValueLimitError, ValueLimits, WorkerFrame, check_value, decode_payload,
+    ProcessRow, ValueAnswer, ValueLimitError, ValueLimits, SshFrame, check_value, decode_payload,
 };
 
-/// A worker's response carrying `result` as a call's value.
-fn response(result: NuVal) -> WorkerFrame {
-    WorkerFrame::Response {
+/// grammar-ssh's response carrying `result` as a call's value.
+fn response(result: NuVal) -> SshFrame {
+    SshFrame::Response {
         id: 1,
         response: EngineResponse::Wire(FromEngineSys::Value(ValueAnswer {
             nonce: Nonce::new_unchecked(7),
@@ -24,9 +24,9 @@ fn response(result: NuVal) -> WorkerFrame {
     }
 }
 
-/// A worker's response carrying a control command's answer.
-fn control(answer: ControlAnswer) -> WorkerFrame {
-    WorkerFrame::Response {
+/// grammar-ssh's response carrying a control command's answer.
+fn control(answer: ControlAnswer) -> SshFrame {
+    SshFrame::Response {
         id: 1,
         response: EngineResponse::Wire(FromEngineSys::Control(Ok(answer))),
     }
@@ -132,7 +132,7 @@ fn retained() -> Vec<(String, i64, String)> {
 
 /// A budget's bound past which `payload` was refused, panicking on anything else.
 fn refused(payload: &[u8], budget: DecodeBudget) -> (bitcode::Exceeded, u64) {
-    match decode_payload::<WorkerFrame>(payload, budget) {
+    match decode_payload::<SshFrame>(payload, budget) {
         Err(FrameError::Budget { bound, limit }) => (bound, limit),
         other => panic!("not refused by a bound: {other:?}"),
     }
@@ -199,23 +199,23 @@ fn each_bound_holds_at_its_edge_on_a_frame() {
     let reply = |result| bitcode::encode(&response(result));
     let items = reply(NuVal::List((0..1000).map(NuVal::Int).collect()));
     let elements = DecodeBudget { elements: 1000, ..DECODE_BUDGET_DEFAULT };
-    decode_payload::<WorkerFrame>(&items, elements).expect("its 1000 items");
+    decode_payload::<SshFrame>(&items, elements).expect("its 1000 items");
     assert_eq!(refused(&items, DecodeBudget { elements: 999, ..elements }), (bitcode::Exceeded::Elements, 999));
 
     let deep = reply(nested(10));
     let depth = DecodeBudget { depth: 10, ..DECODE_BUDGET_DEFAULT };
-    decode_payload::<WorkerFrame>(&deep, depth).expect("its 10 levels");
+    decode_payload::<SshFrame>(&deep, depth).expect("its 10 levels");
     assert_eq!(refused(&deep, DecodeBudget { depth: 9, ..depth }), (bitcode::Exceeded::Depth, 9));
 
     let text = bitcode::encode(&control(ControlAnswer::Signatures("s".repeat(4096))));
     let heap = DecodeBudget { heap: 4096, ..DECODE_BUDGET_DEFAULT };
-    decode_payload::<WorkerFrame>(&text, heap).expect("its 4096 bytes");
+    decode_payload::<SshFrame>(&text, heap).expect("its 4096 bytes");
     assert_eq!(refused(&text, DecodeBudget { heap: 4095, ..heap }), (bitcode::Exceeded::Heap, 4095));
 }
 
 /// The least heap a decode of `payload` passes with: what it is charged.
 fn charged(payload: &[u8]) -> u64 {
-    let fits = |heap| decode_payload::<WorkerFrame>(payload, DecodeBudget { heap, ..DECODE_BUDGET_DEFAULT }).is_ok();
+    let fits = |heap| decode_payload::<SshFrame>(payload, DecodeBudget { heap, ..DECODE_BUDGET_DEFAULT }).is_ok();
     let (mut low, mut high) = (0u64, DECODE_BUDGET_DEFAULT.heap);
     assert!(fits(high), "decodes within the default budget");
     while low < high {
@@ -232,7 +232,7 @@ fn charged(payload: &[u8]) -> u64 {
 /// The heap the decoded frame keeps, as the allocator counted it.
 fn kept(payload: &[u8]) -> u64 {
     let before = LIVE.with(Cell::get);
-    let frame = decode_payload::<WorkerFrame>(payload, DECODE_BUDGET_DEFAULT).expect("decoded");
+    let frame = decode_payload::<SshFrame>(payload, DECODE_BUDGET_DEFAULT).expect("decoded");
     let after = LIVE.with(Cell::get);
     drop(frame);
     (after - before) as u64
@@ -282,7 +282,7 @@ fn decodes_on_threads_keep_their_own_budgets() {
                 let fits = DecodeBudget { elements: n as u64, ..DECODE_BUDGET_DEFAULT };
                 for round in 0..100 {
                     if (round + t).is_multiple_of(2) {
-                        decode_payload::<WorkerFrame>(&payload, fits).expect("within its budget");
+                        decode_payload::<SshFrame>(&payload, fits).expect("within its budget");
                     } else {
                         let short = DecodeBudget { elements: n as u64 - 1, ..fits };
                         assert_eq!(refused(&payload, short).0, bitcode::Exceeded::Elements);
@@ -303,6 +303,6 @@ fn a_refused_frame_leaves_the_next_its_whole_budget() {
     let budget = DecodeBudget { elements: 10, ..DECODE_BUDGET_DEFAULT };
     for _ in 0..3 {
         assert_eq!(refused(&large, budget).0, bitcode::Exceeded::Elements);
-        decode_payload::<WorkerFrame>(&small, budget).expect("its ten");
+        decode_payload::<SshFrame>(&small, budget).expect("its ten");
     }
 }

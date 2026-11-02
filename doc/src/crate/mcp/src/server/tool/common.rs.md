@@ -33,13 +33,13 @@ operator and the emergency log are keyed by it too.
 The request carries the nonce to the engine, which runs the call under it.
 
 ## fn NuSh::control_on
-A control command on the routed engine: the MCP's own through its controller, or a
-worker's as the engine's own wire request, the request's host local there. The interface's
+A control command on the routed engine: the MCP's own through its controller, or
+grammar-ssh's as the engine's own wire request, the request's host local there. The interface's
 engine commands all reach their engine through it, so a command answers alike on every
 host.
 
-## fn NuSh::worker_info
-A remote engine's worker as its session's info request answers it, for `interface info`.
+## fn NuSh::ssh_info
+A remote engine's grammar-ssh as its session's info request answers it, for `interface info`.
 
 ## fn NuSh::signatures
 The routed engine's signature block within the patterns.
@@ -61,12 +61,12 @@ or a space makes another alias.
 
 ## fn NuSh::value
 `execute`, `rerun`, and `call` share it. The request carries `Host::Local` either way:
-a worker's engine is local to itself, and the MCP routes before any engine sees the
+grammar-ssh's engine is local to itself, and the MCP routes before any engine sees the
 request. A remote request goes to the remote engines' system as the engine's own wire
 request (`server/controller.rs`).
 
 ## fn remote_value
-A worker's answer is the engine's own value answer, or a refusal the worker made before
+grammar-ssh's answer is the engine's own value answer, or a refusal grammar-ssh made before
 its engine took the request; the transport's errors answer under their `remote::engine::`
 kinds.
 
@@ -88,6 +88,6 @@ it is, so a duration stays a duration. A tool answering nothing carries `{nonce,
 
 ## fn answer_value
 An eval's value crosses back as a `NuVal` and is rebuilt here into the nushell value the
-envelope renders, a local engine's and a worker's alike. A request the engine's system
+envelope renders, a local engine's and grammar-ssh's alike. A request the engine's system
 could not answer and a refusal the engine made fold into one error, which the tool's
 envelope carries either way.

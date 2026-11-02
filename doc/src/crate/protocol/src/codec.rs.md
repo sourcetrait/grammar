@@ -53,7 +53,7 @@ errors they map to differ. A payload past its decode budget names the bound and
 its limit; like a payload that doesn't decode, it is the peer's invalid frame.
 A bad preface keeps the stream's first bytes, the preface's matched part and
 what followed, and shows them as text, so a login profile writing to stdout
-ahead of the worker is told by what it wrote.
+ahead of grammar-ssh is told by what it wrote.
 
 ### fn transport
 The stable `remote::engine::` kind a frontend reports, so a framing failure

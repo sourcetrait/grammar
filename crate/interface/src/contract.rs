@@ -43,7 +43,7 @@ pub enum PeerCommand {
 pub enum RemoteEngineCommand {
     List,
     Get(RemoteAliasParams),
-    Set(RemoteEngineSetParams),
+    Set(Box<RemoteEngineSetParams>),
     Unset(RemoteAliasParams),
     Connect(RemoteAliasParams),
     Close(RemoteAliasParams),
@@ -415,7 +415,7 @@ fn command(
         })),
         CommandKind::EngineList => remote_engine(RemoteEngineCommand::List),
         CommandKind::EngineGet => remote_engine(RemoteEngineCommand::Get(alias(literals))),
-        CommandKind::EngineSet => remote_engine(RemoteEngineCommand::Set(RemoteEngineSetParams {
+        CommandKind::EngineSet => remote_engine(RemoteEngineCommand::Set(Box::new(RemoteEngineSetParams {
             alias: text(literals, "alias"),
             platform: optional_text(literals, "platform"),
             address: optional_text(literals, "address"),
@@ -428,7 +428,7 @@ fn command(
             id: optional_text(literals, "id"),
             namespace: optional_text(literals, "namespace"),
             workdir: optional_text(literals, "workdir"),
-        })),
+        }))),
         CommandKind::EngineUnset => remote_engine(RemoteEngineCommand::Unset(alias(literals))),
         CommandKind::EngineConnect => remote_engine(RemoteEngineCommand::Connect(alias(literals))),
         CommandKind::EngineClose => remote_engine(RemoteEngineCommand::Close(alias(literals))),

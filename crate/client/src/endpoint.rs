@@ -4,8 +4,8 @@ use crate::*;
 /// The SSH port an address takes when it names none.
 pub const SSH_PORT: u16 = 22;
 
-/// The worker's command when an entry names none, found on the login's `PATH`.
-pub const WORKER_COMMAND: &str = "grammar-ssh";
+/// grammar-ssh's command when an entry names none, found on the login's `PATH`.
+pub const GRAMMAR_SSH_COMMAND: &str = "grammar-ssh";
 
 /// The host's operating system, as its entry names it.
 #[cereal::derived(Data, Copy, Eq)]
@@ -108,13 +108,13 @@ pub struct Endpoint {
     pub host_keys: Vec<String>,
     /// The host the session reaches this one through, where the entry names a jump.
     pub jump: Option<Jump>,
-    /// The worker's command: a name the login's `PATH` finds, or an absolute path.
+    /// grammar-ssh's command: a name the login's `PATH` finds, or an absolute path.
     pub command: String,
-    /// The worker's id.
+    /// grammar-ssh's id.
     pub id: String,
-    /// The worker's namespace.
+    /// grammar-ssh's namespace.
     pub namespace: String,
-    /// The worker's working directory on the host; the session's own when none.
+    /// grammar-ssh's working directory on the host; the session's own when none.
     pub workdir: Option<String>,
 }
 
@@ -148,18 +148,18 @@ impl Endpoint {
         }
     }
 
-    /// The exec command: the worker's line, through the login shell on Unix.
+    /// The exec command: grammar-ssh's line, through the login shell on Unix.
     pub fn command_line(&self) -> String {
         match self.platform {
-            Platform::Windows => self.worker_line(),
+            Platform::Windows => self.grammar_ssh_line(),
             Platform::Linux | Platform::Macos => {
-                format!("exec /bin/sh -c 'exec \"$SHELL\" -l -c \"exec {}\"'", self.worker_line())
+                format!("exec /bin/sh -c 'exec \"$SHELL\" -l -c \"exec {}\"'", self.grammar_ssh_line())
             }
         }
     }
 
-    /// The worker's own command line, as the login shell runs it.
-    pub fn worker_line(&self) -> String {
+    /// grammar-ssh's own command line, as the login shell runs it.
+    pub fn grammar_ssh_line(&self) -> String {
         let mut line = format!("{} serve --id {} --namespace {}", self.command, self.id, self.namespace);
         if let Some(workdir) = &self.workdir {
             line.push_str(" --workdir ");
@@ -287,7 +287,7 @@ pub fn check_host_keys(lines: &[String]) -> Result<(), String> {
     lines.iter().try_for_each(|line| pinned_key(line).map(|_| ()))
 }
 
-/// The worker's command: a name the login's `PATH` finds, or an absolute path.
+/// grammar-ssh's command: a name the login's `PATH` finds, or an absolute path.
 pub fn check_command(
     command: &str,
     platform: Platform,
@@ -304,7 +304,7 @@ pub fn check_command(
     }
 }
 
-/// The worker's workdir: absolute, of characters login shells keep.
+/// grammar-ssh's workdir: absolute, of characters login shells keep.
 pub fn check_path(
     path: &str,
     platform: Platform,
@@ -326,7 +326,7 @@ fn is_absolute(
     }
 }
 
-/// The worker's id and namespace, each held to the instance names' rule.
+/// grammar-ssh's id and namespace, each held to the instance names' rule.
 pub fn check_instance(
     id: &str,
     namespace: &str,

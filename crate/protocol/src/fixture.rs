@@ -51,7 +51,7 @@ decoders!(
     SpamThresholdsData,
     ToEngineSys,
     TransportError,
-    WorkerFrame,
+    SshFrame,
 );
 
 /// A vectors file's rows, read from its NUON text.

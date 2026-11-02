@@ -6,7 +6,7 @@ reopened at the first request after one ends. The system holds no entry: the
 controller reads the remotes file at each use and sends the entry with the
 request, so a changed entry takes effect at the next session it opens. Each
 request is answered on a task of its own, so one waiting on a connect holds no
-other up. A worker's asks go up to the controller as requests it answers, and
+other up. grammar-ssh's asks go up to the controller as requests it answers, and
 its emergencies as packets.
 
 ## const RELEASE_GRACE
@@ -25,8 +25,8 @@ it when the controller read it.
 ## enum SessionPhase
 ## struct SessionState
 An alias's session as `interface remote engine list` reports it: closed,
-opening, or open with its worker's nom and pid, and the last open's failure,
-its kind first, which stands until an open succeeds.
+opening, or open with its grammar-ssh's nom and pid, and the last open's
+failure, its kind first, which stands until an open succeeds.
 
 ## struct StatesRequest
 ## struct SessionStates
@@ -42,11 +42,11 @@ state or the open's failure.
 One alias's session closed, answered with whether one was open.
 
 ## struct RemoteResponse
-The worker's response, or the transport's error.
+grammar-ssh's response, or the transport's error.
 
 ## struct RemoteAsk
 ## struct RemoteEmergency
-A worker's ask and emergency under the alias of its engine.
+grammar-ssh's ask and emergency under the alias of its engine.
 
 ## struct CloseRequest
 ## struct Closed
@@ -75,11 +75,11 @@ An answer sent up as its request's response.
 
 ## struct Uplink
 ### fn ask
-A worker's ask awaited from the controller, an unanswered one refused with
+grammar-ssh's ask awaited from the controller, an unanswered one refused with
 why, so the eval that asked is never left waiting past its deadline.
 
 ### fn emergency
-A worker's emergency sent up as a packet.
+grammar-ssh's emergency sent up as a packet.
 
 ## type Opening
 ## enum Slot
@@ -115,14 +115,14 @@ The close stops any session from opening, then closes each one, its requests
 in flight answering `remote::engine::session_lost`.
 
 ## fn open_state
-An open session's state, its worker's nom and pid from the hello's reply.
+An open session's state, its grammar-ssh's nom and pid from the hello's reply.
 
 ## fn closing
 The refusal a request meets once the close has begun.
 
 ## fn open_relayed
-A session opened and logged with its worker's pid and nom, its events relayed
-for its life.
+A session opened and logged with its grammar-ssh's pid and nom, its events
+relayed for its life.
 
 ## fn relay
 Each ask answered on a task of its own, each emergency sent up, and the

@@ -8,16 +8,16 @@ use serde_json::{Value, json};
 use sourcetrait_grammar_client::Endpoint;
 use sourcetrait_grammar_tests::*;
 
-/// How long a connect may take, its session's open and its worker's start among it.
+/// How long a connect may take, its session's open and grammar-ssh's start among it.
 const CONNECT: Duration = Duration::from_secs(90);
 
-/// How long a worker may take to end once its session closes.
+/// How long grammar-ssh may take to end once its session closes.
 const END_WAIT: Duration = Duration::from_secs(30);
 
 /// A definition answering the process it ran in.
 const PID: &str = "def execute [data: nothing]: nothing -> record<pid: int> { {pid: $nu.pid} }";
 
-/// A definition answering its worker's workdir and process.
+/// A definition answering its grammar-ssh's workdir and process.
 const WHERE: &str = "def execute [data: nothing]: nothing -> record<work_dir: string, pid: int> { {work_dir: $env.EQUIP_WORK_DIR, pid: $nu.pid} }";
 
 /// A host started in `root`'s agent directory, its remotes file not yet written.
@@ -39,11 +39,11 @@ fn interface_within(host: &mut Host, command: &str) -> Value {
     host.read_id_within(id, CONNECT)
 }
 
-/// A row's worker pid.
-fn worker_pid(row: &NuVal) -> u32 {
-    match row.get("worker_pid") {
+/// A row's grammar-ssh pid.
+fn ssh_pid(row: &NuVal) -> u32 {
+    match row.get("pid") {
         Some(NuVal::Int(pid)) => *pid as u32,
-        other => panic!("a worker pid, not {other:?}"),
+        other => panic!("grammar-ssh's pid, not {other:?}"),
     }
 }
 
@@ -57,8 +57,8 @@ fn platform_flag(endpoint: &Endpoint) -> String {
     format!("--platform {}", nu_literal(endpoint.platform.name()))
 }
 
-/// `set`'s flags for the worker's fields of `endpoint`: its command, id, and workdir.
-fn worker_flags(endpoint: &Endpoint) -> String {
+/// `set`'s flags for grammar-ssh's fields of `endpoint`: its command, id, and workdir.
+fn ssh_flags(endpoint: &Endpoint) -> String {
     format!(
         "--command {} --id {} --workdir {}",
         nu_literal(&endpoint.command),
@@ -72,12 +72,12 @@ fn workdir(endpoint: &Endpoint) -> &str {
     endpoint.workdir.as_deref().expect("a test endpoint names its workdir")
 }
 
-/// The session `alias` names opened, a call run on it, then closed, its worker ending.
+/// The session `alias` names opened, a call run on it, then closed, its grammar-ssh ending.
 fn open_run_close(host: &mut Host, alias: &str) {
     let opened = answered(&interface_within(host, &format!("interface remote engine connect '{alias}'")));
     assert_eq!(opened["state"], "open", "{opened}");
-    let pid = worker_pid(&opened);
-    assert!(alive(pid), "the worker runs once connected");
+    let pid = ssh_pid(&opened);
+    assert!(alive(pid), "grammar-ssh runs once connected");
     let listed = answered(&host.interface("interface remote engine list"));
     assert_eq!(listed[0]["state"], "open", "{listed}");
     let ran = host.call("execute", json!({"host": alias, "definition": PID, "data": "null"}));
@@ -85,7 +85,7 @@ fn open_run_close(host: &mut Host, alias: &str) {
 
     let closed = answered(&host.interface(&format!("interface remote engine close '{alias}'")));
     assert!(closed.is_nothing(), "{closed}");
-    assert!(eventually(END_WAIT, || !alive(pid)), "the close ends the worker");
+    assert!(eventually(END_WAIT, || !alive(pid)), "the close ends grammar-ssh");
     let after = answered(&host.interface(&format!("interface remote engine get '{alias}'")));
     assert_eq!(after["state"], "closed", "{after}");
     let again = host.interface(&format!("interface remote engine close '{alias}'"));
@@ -95,10 +95,10 @@ fn open_run_close(host: &mut Host, alias: &str) {
 #[test]
 fn an_entry_set_whole_opens_closes_and_is_unset() {
     let sshd = Sshd::start();
-    let worker = TestWorker::new();
+    let account = TestAccount::new();
     let root = tempfile::tempdir().expect("a scratch root");
     let mut host = bare_host(root.path());
-    let endpoint = sshd.endpoint("lab", &worker);
+    let endpoint = sshd.endpoint("lab", &account);
 
     assert_eq!(answered(&host.interface("interface remote engine list")), nuon("[]"));
     let partial = answered(&host.interface(&format!(
@@ -123,7 +123,7 @@ fn an_entry_set_whole_opens_closes_and_is_unset() {
         platform_flag(&endpoint),
         nu_literal(&endpoint.key),
         nu_literal(&endpoint.host_keys[0]),
-        worker_flags(&endpoint),
+        ssh_flags(&endpoint),
     )));
     assert_eq!(whole["platform"], endpoint.platform.name(), "{whole}");
     assert_eq!(whole["missing"], nuon("[]"), "{whole}");
@@ -134,8 +134,8 @@ fn an_entry_set_whole_opens_closes_and_is_unset() {
     open_run_close(&mut host, "lab");
 
     let opened = answered(&interface_within(&mut host, "interface remote engine connect 'lab'"));
-    let first = worker_pid(&opened);
-    let moved = worker.root().join("moved");
+    let first = ssh_pid(&opened);
+    let moved = account.root().join("moved");
     std::fs::create_dir_all(&moved).expect("a second workdir");
     let changed = answered(&host.interface(&format!(
         "interface remote engine set 'lab' --workdir {}",
@@ -150,32 +150,32 @@ fn an_entry_set_whole_opens_closes_and_is_unset() {
     let id = host.request("execute", json!({"host": "lab", "definition": WHERE, "data": "null"}));
     let after = answered(&host.read_id_within(id, CONNECT));
     assert_eq!(after["work_dir"], moved.display().to_string().as_str(), "the next session takes the change: {after}");
-    assert_ne!(after["pid"], i64::from(first), "a new worker: {after}");
+    assert_ne!(after["pid"], i64::from(first), "a new grammar-ssh: {after}");
 
     let live = answered(&host.interface("interface remote engine get 'lab'"));
-    let second = worker_pid(&live);
+    let second = ssh_pid(&live);
     let unset = answered(&host.interface("interface remote engine unset 'lab'"));
     assert!(unset.is_nothing(), "{unset}");
     let orphan = answered(&host.interface("interface remote engine list"));
     assert_eq!(orphan[0]["alias"], "lab", "an unset leaves the live session listed: {orphan}");
     assert_eq!(orphan[0]["configured"], false, "{orphan}");
     assert_eq!(orphan[0]["state"], "open", "{orphan}");
-    assert!(alive(second), "the worker lives on past the unset");
+    assert!(alive(second), "grammar-ssh lives on past the unset");
     let unknown = host.call("execute", json!({"host": "lab", "definition": PID, "data": "null"}));
     assert_eq!(envelope_error_kind(&unknown).as_deref(), Some("host::unknown"), "no call routes to it: {unknown}");
     let closed = answered(&host.interface("interface remote engine close 'lab'"));
     assert!(closed.is_nothing(), "{closed}");
-    assert!(eventually(END_WAIT, || !alive(second)), "its close ends the worker");
+    assert!(eventually(END_WAIT, || !alive(second)), "its close ends grammar-ssh");
     assert_eq!(answered(&host.interface("interface remote engine list")), nuon("[]"));
 }
 
 #[test]
 fn an_import_takes_its_entry_from_an_ssh_config() {
     let sshd = Sshd::start();
-    let worker = TestWorker::new();
+    let account = TestAccount::new();
     let root = tempfile::tempdir().expect("a scratch root");
     let mut host = bare_host(root.path());
-    let endpoint = sshd.endpoint("lab", &worker);
+    let endpoint = sshd.endpoint("lab", &account);
     let known = root.path().join("known_hosts");
     let unknown = root.path().join("known_hosts_empty");
     std::fs::write(&known, format!("[{}]:{} {}\n", endpoint.host, endpoint.port, endpoint.host_keys[0])).expect("the known hosts");
@@ -204,7 +204,7 @@ fn an_import_takes_its_entry_from_an_ssh_config() {
     assert_eq!(
         imported["missing"],
         nuon("[platform]"),
-        "the platform left to its operator, the worker's fields taking their defaults: {imported}"
+        "the platform left to its operator, grammar-ssh's fields taking their defaults: {imported}"
     );
     let grammar = root.path().join("agent/.grammar");
     let written = std::fs::read_to_string(grammar.join("remote/lab/known_hosts")).expect("the import's known hosts");
@@ -230,7 +230,7 @@ fn an_import_takes_its_entry_from_an_ssh_config() {
     let whole = answered(&host.interface(&format!(
         "interface remote engine set 'lab' {} {}",
         platform_flag(&endpoint),
-        worker_flags(&endpoint),
+        ssh_flags(&endpoint),
     )));
     assert_eq!(whole["missing"], nuon("[]"), "{whole}");
     open_run_close(&mut host, "lab");
@@ -239,10 +239,10 @@ fn an_import_takes_its_entry_from_an_ssh_config() {
 #[test]
 fn an_older_entry_is_refused_until_a_set_moves_it_to_the_new_fields() {
     let sshd = Sshd::start();
-    let worker = TestWorker::new();
+    let account = TestAccount::new();
     let root = tempfile::tempdir().expect("a scratch root");
     let mut host = bare_host(root.path());
-    let endpoint = sshd.endpoint("lab", &worker);
+    let endpoint = sshd.endpoint("lab", &account);
     let grammar = root.path().join("agent/.grammar");
     std::fs::create_dir_all(&grammar).expect("the config directory");
     let older = format!(
@@ -258,7 +258,7 @@ fn an_older_entry_is_refused_until_a_set_moves_it_to_the_new_fields() {
         platform_flag(&endpoint),
         nu_literal(&sshd.address()),
         nu_literal(&endpoint.host_keys[0]),
-        worker_flags(&endpoint),
+        ssh_flags(&endpoint),
     )));
     assert_eq!(moved["missing"], nuon("[]"), "{moved}");
     let file = std::fs::read_to_string(grammar.join("remotes.toml")).expect("the remotes file");

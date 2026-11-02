@@ -19,15 +19,16 @@ carried them. `From<TransportError>` wraps a transport failure whole under its
 `remote::engine::` kind.
 
 `RemoteEngineInvalidParams` and `RemoteEngineNotOpen` are the MCP's alone: the
-remote engine commands run on the MCP whatever the tool's host, so no worker
-sends one back, and the wire's `RuntimeError` stays as schema v1 fixed it.
+remote engine commands run on the MCP whatever the tool's host, so no
+grammar-ssh sends one back, and the wire's `RuntimeError` stays as schema v1
+fixed it.
 
 ### fn as_runtime
 Every variant but the engine's, the transport's, and the remote engine
 commands' is the runtime's portable
 `RuntimeError`, whose kinds, messages, and rows are its own (the protocol crate's
 `error.rs`): this host's variants stay the values its impls build and bubble, and
-their wording lives once. `From<RuntimeError>` turns a worker's refusal back into
+their wording lives once. `From<RuntimeError>` turns grammar-ssh's refusal back into
 the same variant, so it reaches the envelope as this host's own did.
 
 ## fn error_to_call_result

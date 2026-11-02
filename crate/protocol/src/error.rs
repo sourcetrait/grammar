@@ -143,20 +143,20 @@ impl RuntimeError {
     }
 }
 
-/// Why a session to a worker failed, apart from what the worker's engine answered.
+/// Why a session with grammar-ssh failed, apart from what its engine answered.
 #[cereal::derived(Data)]
 pub enum TransportError {
     VersionMismatch { expected: String, found: String },
     SchemaMismatch { expected: String, found: String },
     CodecMismatch { expected: String, found: String },
-    WrongWorker { expected: String, found: String },
+    WrongNamespace { expected: String, found: String },
     /// The host refused the connection, or never answered it.
     ConnectFailed { reason: String },
     /// The host presented a key none of its pinned keys match.
     HostKeyRejected { reason: String },
     /// The SSH session never authenticated, so nothing was sent.
     AuthenticationFailed { reason: String },
-    /// The worker couldn't start or serve, its own reason given.
+    /// grammar-ssh couldn't start or serve, its own reason given.
     Unavailable { reason: String },
     /// The session's requests of a kind are at their bound; the request didn't run.
     Busy,
@@ -173,7 +173,7 @@ impl TransportError {
             Self::VersionMismatch { .. } => "remote::engine::version_mismatch",
             Self::SchemaMismatch { .. } => "remote::engine::schema_mismatch",
             Self::CodecMismatch { .. } => "remote::engine::codec_mismatch",
-            Self::WrongWorker { .. } => "remote::engine::wrong_worker",
+            Self::WrongNamespace { .. } => "remote::engine::wrong_namespace",
             Self::ConnectFailed { .. } => "remote::engine::connect_failed",
             Self::HostKeyRejected { .. } => "remote::engine::host_key_rejected",
             Self::AuthenticationFailed { .. } => "remote::engine::authentication_failed",
@@ -197,8 +197,8 @@ impl TransportError {
             Self::CodecMismatch { expected, found } => {
                 format!("codec {found} where {expected} is required")
             }
-            Self::WrongWorker { expected, found } => {
-                format!("the worker is {found}, not the expected {expected}")
+            Self::WrongNamespace { expected, found } => {
+                format!("grammar-ssh serves {found}, not the expected {expected}")
             }
             Self::ConnectFailed { reason } => format!("the host couldn't be reached: {reason}"),
             Self::HostKeyRejected { reason } => {
@@ -207,7 +207,7 @@ impl TransportError {
             Self::AuthenticationFailed { reason } => {
                 format!("authentication failed before any request was sent: {reason}")
             }
-            Self::Unavailable { reason } => format!("the worker is unavailable: {reason}"),
+            Self::Unavailable { reason } => format!("grammar-ssh is unavailable: {reason}"),
             Self::Busy => "the session's requests are at their bound; nothing ran".to_string(),
             Self::InvalidFrame { reason } => format!("an invalid frame: {reason}"),
             Self::ResultTooLarge { limit } => {

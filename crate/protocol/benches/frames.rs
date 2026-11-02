@@ -11,7 +11,7 @@ use serde::Serialize;
 use sourcetrait_common::datum::Nonce;
 use sourcetrait_grammar_protocol::{
     DECODE_BUDGET_DEFAULT, DateData, EngineRequest, EngineResponse, ExecuteRequest, FromEngineSys,
-    Host, McpFrame, NuVal, ToEngineSys, ValueAnswer, WorkerFrame, decode_payload, payload,
+    Host, McpFrame, NuVal, ToEngineSys, ValueAnswer, SshFrame, decode_payload, payload,
 };
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::hint::black_box;
@@ -113,9 +113,9 @@ fn lines(n: usize) -> NuVal {
     )
 }
 
-/// A worker's response frame carrying an eval's `value`.
-fn response(value: NuVal) -> WorkerFrame {
-    WorkerFrame::Response {
+/// grammar-ssh's response frame carrying an eval's `value`.
+fn response(value: NuVal) -> SshFrame {
+    SshFrame::Response {
         id: 7,
         response: EngineResponse::Wire(FromEngineSys::Value(ValueAnswer {
             nonce: Nonce::new_unchecked(0x5eed),

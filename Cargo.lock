@@ -6726,6 +6726,7 @@ name = "sourcetrait_grammar_operator"
 version = "0.0.0-10"
 dependencies = [
  "nix",
+ "nuval",
  "rkyv",
  "serde",
  "sourcetrait_cereal_bitcode",

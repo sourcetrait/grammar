@@ -1,7 +1,7 @@
 //! One engine a namespace: a held lock refuses the server and the one-shot CLI
 //! before either starts an engine, and the one-shot CLI holds the lock for the
 //! length of its call. The holder is this test, through the lock any holder
-//! takes, so a worker holding it is refused alike.
+//! takes, so grammar-ssh holding it is refused alike.
 #![cfg(unix)]
 
 use std::io::Write;

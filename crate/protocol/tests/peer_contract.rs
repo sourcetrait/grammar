@@ -66,7 +66,7 @@ fn events() -> Vec<(&'static str, RemoteChannelEvent)> {
     ]
 }
 
-/// A remote send as a worker prepares it, its event's NUON and one file.
+/// A remote send as grammar-ssh prepares it, its event's NUON and one file.
 fn prepared() -> PreparedSend {
     PreparedSend {
         mcp_nom: NOM.to_string(),

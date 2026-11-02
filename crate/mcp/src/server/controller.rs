@@ -227,7 +227,7 @@ impl McpController {
         self.remote_system()?.connect(endpoint).await
     }
 
-    /// Engine `alias`'s session closed, its worker with it; whether one was open.
+    /// Engine `alias`'s session closed, its grammar-ssh with it; whether one was open.
     pub(crate) async fn remote_close(
         &self,
         alias: &str,

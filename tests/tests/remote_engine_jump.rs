@@ -8,10 +8,10 @@ use serde_json::{Value, json};
 use sourcetrait_grammar_client::{Endpoint, Jump};
 use sourcetrait_grammar_tests::*;
 
-/// How long a first remote call may take, both hops' logins and the worker's start among it.
+/// How long a first remote call may take, both hops' logins and grammar-ssh's start among it.
 const FIRST_CALL: Duration = Duration::from_secs(90);
 
-/// How long a worker or a session may take to end once its session closes.
+/// How long grammar-ssh or a session may take to end once its session closes.
 const END_WAIT: Duration = Duration::from_secs(30);
 
 /// A definition answering the process it ran in.
@@ -45,11 +45,11 @@ fn pid_of(resp: &Value) -> i64 {
 fn an_engine_opens_through_its_jump_and_closes_with_it() {
     let gate_sshd = Sshd::start_jump();
     let lab_sshd = Sshd::start();
-    let worker = TestWorker::new();
+    let account = TestAccount::new();
     let root = tempfile::tempdir().expect("a scratch root");
-    let gate = gate_sshd.endpoint("gate", &worker);
-    let lab = through(lab_sshd.endpoint("lab", &worker), &gate);
-    let direct = lab_sshd.endpoint("direct", &worker);
+    let gate = gate_sshd.endpoint("gate", &account);
+    let lab = through(lab_sshd.endpoint("lab", &account), &gate);
+    let direct = lab_sshd.endpoint("direct", &account);
     let mut host = host_with(root.path(), &[gate, lab, direct]);
     let closes = |sshd: &Sshd| sshd.log().matches("the MCP closed the session").count();
 
@@ -57,12 +57,12 @@ fn an_engine_opens_through_its_jump_and_closes_with_it() {
     let direct_pid = pid_of(&host.read_id_within(id, FIRST_CALL));
     let closed = host.interface("interface remote engine close 'direct'");
     assert!(!has_error_path(&closed), "{closed}");
-    assert!(eventually(END_WAIT, || !alive(direct_pid as u32)), "the direct close ends its worker");
+    assert!(eventually(END_WAIT, || !alive(direct_pid as u32)), "the direct close ends its grammar-ssh");
     assert!(eventually(END_WAIT, || closes(&lab_sshd) == 1), "a direct close reaches its host: {}", lab_sshd.log());
 
     let id = host.request("execute", json!({"host": "lab", "definition": PID, "data": "null"}));
     let pid = pid_of(&host.read_id_within(id, FIRST_CALL));
-    assert_ne!(pid as u32, host.pid(), "the worker's process, not the MCP's");
+    assert_ne!(pid as u32, host.pid(), "grammar-ssh's process, not the MCP's");
     assert!(gate_sshd.log().contains("Accepted publickey"), "the jump's login: {}", gate_sshd.log());
     assert!(lab_sshd.log().contains("Accepted publickey"), "the engine's own login: {}", lab_sshd.log());
     let again = host.call("execute", json!({"host": "lab", "definition": PID, "data": "null"}));
@@ -70,7 +70,7 @@ fn an_engine_opens_through_its_jump_and_closes_with_it() {
 
     let closed = host.interface("interface remote engine close 'lab'");
     assert!(!has_error_path(&closed), "{closed}");
-    assert!(eventually(END_WAIT, || !alive(pid as u32)), "the close ends the worker");
+    assert!(eventually(END_WAIT, || !alive(pid as u32)), "the close ends grammar-ssh");
     assert!(eventually(END_WAIT, || closes(&lab_sshd) == 2), "the engine's close reaches it: {}", lab_sshd.log());
     assert!(eventually(END_WAIT, || closes(&gate_sshd) == 1), "the jump's ends with it: {}", gate_sshd.log());
 }
@@ -78,9 +78,9 @@ fn an_engine_opens_through_its_jump_and_closes_with_it() {
 #[test]
 fn a_set_or_an_unset_breaking_a_jump_is_refused() {
     let gate_sshd = Sshd::start_jump();
-    let worker = TestWorker::new();
+    let account = TestAccount::new();
     let root = tempfile::tempdir().expect("a scratch root");
-    let mut host = host_with(root.path(), &[gate_sshd.endpoint("gate", &worker)]);
+    let mut host = host_with(root.path(), &[gate_sshd.endpoint("gate", &account)]);
     let refused = |resp: &Value, words: &str| {
         assert_eq!(envelope_error_kind(resp).as_deref(), Some("remote::engine::invalid_params"), "{resp}");
         assert!(error_message(resp).contains(words), "`{words}`: {resp}");
@@ -102,16 +102,16 @@ fn a_set_or_an_unset_breaking_a_jump_is_refused() {
 fn a_host_key_refused_names_its_hop() {
     let gate_sshd = Sshd::start_jump();
     let lab_sshd = Sshd::start();
-    let worker = TestWorker::new();
+    let account = TestAccount::new();
     let root = tempfile::tempdir().expect("a scratch root");
     let stray = TestKey::new(&root.path().join("stray_ed25519"));
-    let gate = gate_sshd.endpoint("gate", &worker);
-    let mut stray_gate = gate_sshd.endpoint("stray_gate", &worker);
+    let gate = gate_sshd.endpoint("gate", &account);
+    let mut stray_gate = gate_sshd.endpoint("stray_gate", &account);
     stray_gate.host_keys = vec![stray.public.clone()];
-    let mut stray_lab = lab_sshd.endpoint("stray_lab", &worker);
+    let mut stray_lab = lab_sshd.endpoint("stray_lab", &account);
     stray_lab.host_keys = vec![stray.public.clone()];
     let engines = [
-        through(lab_sshd.endpoint("lab", &worker), &stray_gate),
+        through(lab_sshd.endpoint("lab", &account), &stray_gate),
         through(stray_lab, &gate),
         gate,
         stray_gate,

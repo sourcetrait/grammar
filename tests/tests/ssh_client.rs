@@ -13,12 +13,12 @@ use sourcetrait_grammar_protocol::{
     ControlAnswer, ControlRequest, EngineCommand, EngineRequest, EngineResponse, ExecuteRequest,
     FromEngineSys, Host, LIMITS_DEFAULT, NuVal, ToEngineSys, TransportError, ValueAnswer,
 };
-use sourcetrait_grammar_tests::{Cuttable, LOGIN_MARK, Sshd, TestKey, TestWorker, alive, holds_within};
+use sourcetrait_grammar_tests::{Cuttable, LOGIN_MARK, Sshd, TestAccount, TestKey, alive, holds_within};
 
 /// A definition that sleeps past any test's wait, until it is cancelled.
 const SLEEP: &str = "def execute [data: nothing]: nothing -> nothing { sleep 30sec }";
 
-/// How long a worker may take to end once its session does.
+/// How long grammar-ssh may take to end once its session does.
 const END_WAIT: Duration = Duration::from_secs(30);
 
 /// A runtime for a test's async half.
@@ -50,7 +50,7 @@ fn refusal(opened: Result<(RemoteSession, impl Sized), TransportError>) -> Trans
     }
 }
 
-/// The first call the worker lists in flight, waited for.
+/// The first call grammar-ssh lists in flight, waited for.
 async fn first_in_flight(session: &RemoteSession) -> String {
     for _ in 0..100 {
         if let Ok(EngineResponse::Wire(FromEngineSys::Control(Ok(ControlAnswer::Processes(rows))))) =
@@ -67,9 +67,9 @@ async fn first_in_flight(session: &RemoteSession) -> String {
 #[test]
 fn a_host_key_not_pinned_is_refused_before_authentication() {
     let sshd = Sshd::start();
-    let worker = TestWorker::new();
-    let stray = TestKey::new(&worker.root().join("stray_ed25519"));
-    let mut endpoint = sshd.endpoint("lab", &worker);
+    let account = TestAccount::new();
+    let stray = TestKey::new(&account.root().join("stray_ed25519"));
+    let mut endpoint = sshd.endpoint("lab", &account);
     endpoint.host_keys = vec![stray.public.clone()];
     let refused = runtime().block_on(async { refusal(open(&endpoint, LIMITS_DEFAULT).await) });
     assert_eq!(refused.kind(), "remote::engine::host_key_rejected", "{}", refused.message());
@@ -79,27 +79,27 @@ fn a_host_key_not_pinned_is_refused_before_authentication() {
 #[test]
 fn a_key_the_host_does_not_authorize_is_refused() {
     let sshd = Sshd::start();
-    let worker = TestWorker::new();
-    let mut endpoint = sshd.endpoint("lab", &worker);
+    let account = TestAccount::new();
+    let mut endpoint = sshd.endpoint("lab", &account);
     endpoint.key = sshd.stranger_key.path();
     let refused = runtime().block_on(async { refusal(open(&endpoint, LIMITS_DEFAULT).await) });
     assert_eq!(refused.kind(), "remote::engine::authentication_failed", "{}", refused.message());
-    assert!(worker.scratch_dirs().is_empty(), "no worker started");
+    assert!(account.scratch_dirs().is_empty(), "no grammar-ssh started");
 }
 
 #[test]
-fn a_session_serves_its_workers_info_a_call_and_a_kill() {
+fn a_session_serves_grammar_ssh_s_info_a_call_and_a_kill() {
     let sshd = Sshd::start();
-    let worker = TestWorker::new();
-    let endpoint = sshd.endpoint("lab", &worker);
+    let account = TestAccount::new();
+    let endpoint = sshd.endpoint("lab", &account);
     runtime().block_on(async {
         let (session, _events) = open(&endpoint, LIMITS_DEFAULT).await.expect("a session");
         let session = Arc::new(session);
         match session.request(EngineRequest::Info).await.expect("info") {
             EngineResponse::Info(info) => {
                 assert_eq!((info.id.as_str(), info.namespace.as_str()), ("fixture", "default"));
-                assert_eq!(info.work_dir, worker.workdir().display().to_string());
-                assert_eq!(info.nom, session.worker().nom);
+                assert_eq!(info.work_dir, account.workdir().display().to_string());
+                assert_eq!(info.nom, session.ssh().nom);
             }
             other => panic!("info, not {other:?}"),
         }
@@ -117,24 +117,24 @@ fn a_session_serves_its_workers_info_a_call_and_a_kill() {
             async move { session.request(execute(nonce, SLEEP)).await }
         });
         let listed = first_in_flight(&session).await;
-        assert_eq!(listed, nonce.to_string(), "the worker lists the call by its nonce");
+        assert_eq!(listed, nonce.to_string(), "grammar-ssh lists the call by its nonce");
         session.request(control(EngineCommand::Kill { nonce: listed })).await.expect("the kill");
         let answer = tokio::time::timeout(Duration::from_secs(10), call).await.expect("the call ends").unwrap();
         assert!(
             matches!(answer, Ok(EngineResponse::Wire(FromEngineSys::Value(ValueAnswer { result: Err(_), .. })))),
             "the killed call answers its failure: {answer:?}",
         );
-        let pid = session.worker().pid;
+        let pid = session.ssh().pid;
         session.close().await;
-        assert!(holds_within(END_WAIT, || !alive(pid)).await, "the worker ends with its session");
+        assert!(holds_within(END_WAIT, || !alive(pid)).await, "grammar-ssh ends with its session");
     });
 }
 
 #[test]
-fn a_worker_runs_in_its_accounts_login_and_starts_where_the_session_does() {
+fn grammar_ssh_runs_in_its_accounts_login_and_starts_where_the_session_does() {
     let sshd = Sshd::start();
-    let worker = TestWorker::new();
-    let mut endpoint = sshd.endpoint("lab", &worker);
+    let account = TestAccount::new();
+    let mut endpoint = sshd.endpoint("lab", &account);
     endpoint.workdir = None;
     runtime().block_on(async {
         let (session, _events) = open(&endpoint, LIMITS_DEFAULT).await.expect("a session");
@@ -163,11 +163,11 @@ fn a_worker_runs_in_its_accounts_login_and_starts_where_the_session_does() {
 }
 
 #[test]
-fn a_worker_missing_from_its_host_is_command_not_found() {
+fn grammar_ssh_missing_from_its_host_is_command_not_found() {
     let sshd = Sshd::start();
-    let worker = TestWorker::new();
-    let mut endpoint = sshd.endpoint("lab", &worker);
-    endpoint.command = worker.home("bin").join("absent").display().to_string();
+    let account = TestAccount::new();
+    let mut endpoint = sshd.endpoint("lab", &account);
+    endpoint.command = account.home("bin").join("absent").display().to_string();
     let refused = runtime().block_on(async { refusal(open(&endpoint, LIMITS_DEFAULT).await) });
     assert_eq!(refused.kind(), "remote::engine::unavailable", "{}", refused.message());
     assert!(
@@ -178,24 +178,24 @@ fn a_worker_missing_from_its_host_is_command_not_found() {
 }
 
 #[test]
-fn a_dropped_connection_ends_its_worker_and_frees_its_namespace() {
+fn a_dropped_connection_ends_its_grammar_ssh_and_frees_its_namespace() {
     let sshd = Sshd::start();
-    let worker = TestWorker::new();
+    let account = TestAccount::new();
     runtime().block_on(async {
         let proxy = Cuttable::start(sshd.port).await;
-        let mut endpoint = sshd.endpoint("lab", &worker);
+        let mut endpoint = sshd.endpoint("lab", &account);
         endpoint.port = proxy.port;
         let (session, _events) = open(&endpoint, LIMITS_DEFAULT).await.expect("a session");
-        let pid = session.worker().pid;
+        let pid = session.ssh().pid;
         assert!(alive(pid));
-        assert_eq!(worker.scratch_dirs().len(), 1, "the worker's scratch");
+        assert_eq!(account.scratch_dirs().len(), 1, "grammar-ssh's scratch");
         proxy.cut();
-        assert!(holds_within(END_WAIT, || !alive(pid)).await, "the worker ends with its connection");
-        assert!(worker.scratch_dirs().is_empty(), "its scratch removed");
+        assert!(holds_within(END_WAIT, || !alive(pid)).await, "grammar-ssh ends with its connection");
+        assert!(account.scratch_dirs().is_empty(), "its scratch removed");
         assert!(session.has_ended(), "the session ended with its connection");
-        let endpoint = sshd.endpoint("lab", &worker);
+        let endpoint = sshd.endpoint("lab", &account);
         let (again, _events) = open(&endpoint, LIMITS_DEFAULT).await.expect("the namespace freed");
-        assert_ne!(again.worker().pid, pid, "a new worker");
+        assert_ne!(again.ssh().pid, pid, "a new grammar-ssh");
         again.close().await;
     });
 }
@@ -212,7 +212,7 @@ impl subsys::Handler<RemoteSystem> for Bare {
     }
 }
 
-/// Whether the worker lists a call in flight within 10 s, through the system.
+/// Whether grammar-ssh lists a call in flight within 10 s, through the system.
 async fn in_flight(remote: &RemoteHandle, endpoint: &Endpoint) -> bool {
     for _ in 0..100 {
         if let Ok(EngineResponse::Wire(FromEngineSys::Control(Ok(ControlAnswer::Processes(rows))))) =
@@ -226,8 +226,8 @@ async fn in_flight(remote: &RemoteHandle, endpoint: &Endpoint) -> bool {
     false
 }
 
-/// The worker's pid as an eval on it reads it, through the system.
-async fn worker_pid(remote: &RemoteHandle, endpoint: &Endpoint) -> u32 {
+/// grammar-ssh's pid as an eval on it reads it, through the system.
+async fn ssh_pid(remote: &RemoteHandle, endpoint: &Endpoint) -> u32 {
     let definition = "def execute [data: nothing]: nothing -> record<pid: int> { {pid: $nu.pid} }";
     let request = execute(datum::NonceGenerator::new().generate(), definition);
     match remote.request(endpoint.clone(), request).await.expect("a response") {
@@ -242,33 +242,33 @@ async fn worker_pid(remote: &RemoteHandle, endpoint: &Endpoint) -> u32 {
 }
 
 #[test]
-fn a_lost_worker_answers_its_calls_lost_and_the_next_request_opens_a_session() {
+fn a_lost_grammar_ssh_answers_its_calls_lost_and_the_next_request_opens_a_session() {
     let sshd = Sshd::start();
-    let worker = TestWorker::new();
-    let endpoint = sshd.endpoint("lab", &worker);
+    let account = TestAccount::new();
+    let endpoint = sshd.endpoint("lab", &account);
     runtime().block_on(async {
-        let paths = RemoteSysPaths::new(worker.home("data"), worker.home("cache"));
+        let paths = RemoteSysPaths::new(account.home("data"), account.home("cache"));
         let params = RemoteSysParams { limits: LIMITS_DEFAULT };
         let remote = Arc::new(RemoteHandle::start(paths, params, Bare).await.expect("the system"));
-        let pid = worker_pid(&remote, &endpoint).await;
-        assert_eq!(worker_pid(&remote, &endpoint).await, pid, "one session serves both");
+        let pid = ssh_pid(&remote, &endpoint).await;
+        assert_eq!(ssh_pid(&remote, &endpoint).await, pid, "one session serves both");
         let call = tokio::spawn({
             let remote = remote.clone();
             let endpoint = endpoint.clone();
             async move { remote.request(endpoint, execute(datum::NonceGenerator::new().generate(), SLEEP)).await }
         });
-        assert!(in_flight(&remote, &endpoint).await, "the call runs on the worker");
+        assert!(in_flight(&remote, &endpoint).await, "the call runs on grammar-ssh");
         nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid as i32), nix::sys::signal::Signal::SIGKILL)
-            .expect("the worker killed");
+            .expect("grammar-ssh killed");
         let answer = tokio::time::timeout(END_WAIT, call).await.expect("the call ends").unwrap();
         match answer {
             Err(lost) => assert_eq!(lost.kind(), "remote::engine::session_lost", "{}", lost.message()),
             Ok(other) => panic!("the call's loss, not {other:?}"),
         }
-        let next = worker_pid(&remote, &endpoint).await;
-        assert_ne!(next, pid, "a new session, a new worker");
+        let next = ssh_pid(&remote, &endpoint).await;
+        assert_ne!(next, pid, "a new session, a new grammar-ssh");
         remote.close().await;
-        assert!(holds_within(END_WAIT, || !alive(next)).await, "the close ends the worker");
+        assert!(holds_within(END_WAIT, || !alive(next)).await, "the close ends grammar-ssh");
         RemoteHandle::stop(remote).await.expect("the system stops");
     });
 }
@@ -276,20 +276,20 @@ fn a_lost_worker_answers_its_calls_lost_and_the_next_request_opens_a_session() {
 #[test]
 fn a_session_opens_on_its_entry_now_reports_its_state_and_closes_alone() {
     let sshd = Sshd::start();
-    let worker = TestWorker::new();
-    let endpoint = sshd.endpoint("lab", &worker);
-    let mut stranger = sshd.endpoint("gate", &worker);
+    let account = TestAccount::new();
+    let endpoint = sshd.endpoint("lab", &account);
+    let mut stranger = sshd.endpoint("gate", &account);
     stranger.key = sshd.stranger_key.path();
     runtime().block_on(async {
-        let paths = RemoteSysPaths::new(worker.home("data"), worker.home("cache"));
+        let paths = RemoteSysPaths::new(account.home("data"), account.home("cache"));
         let remote = Arc::new(
             RemoteHandle::start(paths, RemoteSysParams { limits: LIMITS_DEFAULT }, Bare).await.expect("the system"),
         );
         assert!(remote.states().await.is_empty(), "no session before a request or a connect");
         let state = remote.connect(endpoint.clone()).await.expect("the session opens now");
         assert_eq!(state.phase, SessionPhase::Open, "{state:?}");
-        let pid = state.worker_pid.expect("its worker's pid");
-        assert_eq!(worker_pid(&remote, &endpoint).await, pid, "a request takes the open session");
+        let pid = state.pid.expect("its grammar-ssh's pid");
+        assert_eq!(ssh_pid(&remote, &endpoint).await, pid, "a request takes the open session");
         let refused = remote.connect(stranger).await.expect_err("an unauthorized key");
         assert_eq!(refused.kind(), "remote::engine::authentication_failed", "{}", refused.message());
         let states = remote.states().await;
@@ -297,7 +297,7 @@ fn a_session_opens_on_its_entry_now_reports_its_state_and_closes_alone() {
         assert_eq!(failed.phase, SessionPhase::Closed, "{failed:?}");
         assert!(failed.failure.as_deref().is_some_and(|f| f.starts_with("remote::engine::authentication_failed")), "{failed:?}");
         assert!(remote.close_session("lab").await, "an open session closes");
-        assert!(holds_within(END_WAIT, || !alive(pid)).await, "its worker ends with it");
+        assert!(holds_within(END_WAIT, || !alive(pid)).await, "its grammar-ssh ends with it");
         assert!(!remote.close_session("lab").await, "no session is left to close");
         assert!(remote.states().await.iter().all(|state| state.phase == SessionPhase::Closed), "nothing open");
         RemoteHandle::stop(remote).await.expect("the system stops");

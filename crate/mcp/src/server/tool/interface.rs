@@ -119,7 +119,7 @@ impl NuSh {
         match command {
             RemoteEngineCommand::List => self.engine_list(nonce).await,
             RemoteEngineCommand::Get(p) => self.engine_get(nonce, p).await,
-            RemoteEngineCommand::Set(p) => self.engine_set(nonce, p).await,
+            RemoteEngineCommand::Set(p) => self.engine_set(nonce, *p).await,
             RemoteEngineCommand::Unset(p) => self.engine_unset(nonce, p).await,
             RemoteEngineCommand::Connect(p) => self.engine_connect(nonce, p).await,
             RemoteEngineCommand::Close(p) => self.engine_close(nonce, p).await,

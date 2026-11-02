@@ -21,7 +21,7 @@ fn two_namespaces_start_apart() {
         let (_other, other) = open(&instance, "other", LIMITS_DEFAULT).await;
         let (default, other) = (default.expect("default's worker").0, other.expect("other's worker, its lock its own").0);
         assert_ne!(instance.load("default").paths.lock, instance.load("other").paths.lock);
-        assert_ne!(default.worker().nom, other.worker().nom, "a nom each");
+        assert_ne!(default.ssh().nom, other.ssh().nom, "a nom each");
     });
 }
 
@@ -37,7 +37,7 @@ fn a_killed_workers_lock_passes_to_its_restart() {
         let (session, _events) = opened.expect("the first worker");
         #[cfg(unix)]
         let inode = std::fs::metadata(&lock).unwrap().ino();
-        let killed_nom = session.worker().nom.clone();
+        let killed_nom = session.ssh().nom.clone();
         killed.kill().await.expect("killed");
         #[cfg_attr(not(unix), allow(unused_variables))]
         let (restarted, opened) = open(&instance, "default", LIMITS_DEFAULT).await;
@@ -49,7 +49,7 @@ fn a_killed_workers_lock_passes_to_its_restart() {
             assert!(record.contains(&format!("pid: {}", restarted.id().unwrap())), "{record}");
             assert!(record.contains("holder: grammar-ssh"), "{record}");
         }
-        assert_ne!(session.worker().nom, killed_nom, "a fresh nom");
+        assert_ne!(session.ssh().nom, killed_nom, "a fresh nom");
         assert_eq!(TestInstance::worker_dirs(&instance.home("tmp")).len(), 1, "the killed worker's scratch swept");
     });
 }

@@ -52,7 +52,7 @@ pub use crate::{
     hello::{
         AUTH_DEADLINE, ClientHello, HELLO_BUDGET, HELLO_DEADLINE, HelloReply, Instance,
         LIMITS_DEFAULT, LIMITS_HARD, Limits, PROTOCOL_VERSION, ProtocolVersion, REPLY_DEADLINE,
-        WorkerHello, WorkerProfile, check_reply, valid_name,
+        SshHello, SshProfile, check_reply, valid_name,
     },
     limits::{DECODE_BUDGET_DEFAULT, DECODE_HEAP_HARD, DecodeBudget, FRAME_DEFAULT, FRAME_HARD, HELLO_FRAME_MAX},
     operator::{
@@ -72,7 +72,7 @@ pub use crate::{
     session::{
         ASK_DEADLINE, DRAIN_DEADLINE, EngineRequest, EngineResponse, HostAnswer, HostStop, McpFrame,
         PING_INTERVAL, Ping, PluginInfo, PreparedSend, SESSION_IDLE, SendFile, SessionAsk,
-        SessionClose, WorkerFrame, WorkerInfo,
+        SessionClose, SshFrame, SshInfo,
     },
     value::{ValueLimitError, ValueLimitErrorKind, ValueLimits, check_error, check_value},
 };

@@ -9,8 +9,8 @@ and `check` holds the whole entry before a session opens on it.
 ## const SSH_PORT
 The port an address takes when it names none.
 
-## const WORKER_COMMAND
-The worker's command when an entry names none: a bare name, found on the
+## const GRAMMAR_SSH_COMMAND
+grammar-ssh's command when an entry names none: a bare name, found on the
 `PATH` of the account's login, where a complete install links each of
 grammar's binaries from the user's local bin.
 
@@ -22,10 +22,10 @@ rules and nothing else. An entry gives it with no default, so no host takes
 another's exec command by an omission.
 
 ## struct Jump
-The host a session reaches its engine's host through, as another entry names
-it: that entry's host, port, user, key, and pinned keys, taken from its own
-resolved endpoint, so the jump is trusted and logged in by its own fields.
-A jump runs no worker, so its command, its id, and its workdir play no part.
+The host a session reaches its engine's host through, as another entry names it:
+that entry's host, port, user, key, and pinned keys, taken from its own resolved
+endpoint, so the jump is trusted and logged in by its own fields. A jump runs no
+grammar-ssh, so its command, its id, and its workdir play no part.
 
 ### fn place
 `the jump `<alias>` at <host>:<port>`, which every refusal on the jump's hop
@@ -49,28 +49,28 @@ direct session's refusals read as they did before jumps.
 
 ### fn command_line
 The exec command sshd hands the account's shell: `exec /bin/sh -c 'exec
-"$SHELL" -l -c "exec <worker line>"'`. Grammar runs as the user, logged in,
-so the worker starts in its account's login, as the MCP runs in its user's:
+"$SHELL" -l -c "exec <grammar-ssh line>"'`. Grammar runs as the user, logged in,
+so grammar-ssh starts in its account's login, as the MCP runs in its user's:
 sshd runs a command through the account's shell neither interactive nor a
 login, so a profile's `PATH` and variables reach it only where that shell
 reads them unasked, bash's `~/.bashrc` on Fedora, zsh's `~/.zshenv`, nu
 nothing at all. The outer line reads alike in sh, bash, zsh, fish, and nu;
 `/bin/sh` expands `SHELL`, which sshd sets from the account's entry, and its
-`-l` runs the profile before the last `exec` replaces the shell with the
-worker, so the worker holds the channel's stdin and stdout itself, a bare
+`-l` runs the profile before the last `exec` replaces the shell with
+grammar-ssh, so it holds the channel's stdin and stdout itself, a bare
 command resolves on the login's `PATH`, and every call's externals see the
-login's environment. A shell taking no `-l -c`, csh's or tcsh's, can't run a
-worker.
+login's environment. A shell taking no `-l -c`, csh's or tcsh's, can't run
+grammar-ssh.
 
 A `windows` host's line goes bare. Windows has no `/bin/sh`, and its sshd
 hands the line to the shell `DefaultShell` names, PowerShell, cmd, or nu, each
 of which runs `<command> <args>` as it stands, a bare command found by the
 shell's own lookup on the login's `Path`. Windows' sshd builds a session's
-environment from the account's registry, so the worker sees the account's
+environment from the account's registry, so grammar-ssh sees the account's
 variables with no login shell between.
 
-### fn worker_line
-The worker's own line, its workdir given where the entry names one, every
+### fn grammar_ssh_line
+grammar-ssh's own line, its workdir given where the entry names one, every
 word of the shell-neutral characters the checks allow, so none of the three
 shells it passes through reads anything into it.
 

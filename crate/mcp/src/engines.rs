@@ -317,7 +317,7 @@ impl EngineEntry {
             key: expanded_key(&text(&self.key))?,
             host_keys,
             jump,
-            command: self.command.clone().unwrap_or_else(|| WORKER_COMMAND.to_string()),
+            command: self.command.clone().unwrap_or_else(|| GRAMMAR_SSH_COMMAND.to_string()),
             id: self.id.clone().unwrap_or_else(|| defaults.id.clone()),
             namespace: self.namespace.clone().unwrap_or_else(|| defaults.namespace.clone()),
             workdir: self.workdir.clone(),

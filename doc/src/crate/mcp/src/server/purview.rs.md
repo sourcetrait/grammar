@@ -2,7 +2,7 @@
 
 The session's side of the purviews, a view on each engine. The stored rows and
 their resolution are each engine's (`crate/engine/src/equip/purview.rs`), the
-MCP's own or a worker's, reached through its requests; what stays here is the
+MCP's own or grammar-ssh's, reached through its requests; what stays here is the
 view the session holds on each.
 
 ## fn pattern_delta
@@ -34,8 +34,8 @@ The refusal a view naming an id no purview answers to has always given.
 
 ## fn NuSh::purview_on
 A purview request whole, answered by the routed engine: the MCP's own through
-its controller, a worker's as the session's purview request, a worker's refusal
-and the transport's errors under their `remote::engine::` kinds.
+its controller, grammar-ssh's as the session's purview request, grammar-ssh's
+refusal and the transport's errors under their `remote::engine::` kinds.
 
 ## fn NuSh::resolve_purviews
 Every view's resolution is the routed engine's, one request for a set of ids, its failure

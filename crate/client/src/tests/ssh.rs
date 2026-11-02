@@ -14,10 +14,10 @@ fn witness(status: u32, lines: &[&str]) -> Witness {
     witness
 }
 
-/// A session lost before the worker's reply.
+/// A session lost before grammar-ssh's reply.
 fn lost() -> TransportError {
     TransportError::SessionLost {
-        reason: "the worker's stream ended before its reply".to_string(),
+        reason: "grammar-ssh's stream ended before its reply".to_string(),
     }
 }
 
@@ -85,7 +85,7 @@ fn another_failure_keeps_its_exit_and_its_stderr() {
         let TransportError::Unavailable { reason } = &refusal else {
             panic!("{refusal:?}");
         };
-        assert!(reason.starts_with(&format!("the worker exited {status} before its reply")), "{reason}");
+        assert!(reason.starts_with(&format!("grammar-ssh exited {status} before its reply")), "{reason}");
         assert!(reason.contains(lines[0]), "{reason}");
     }
 }
@@ -128,11 +128,11 @@ fn a_bare_commands_path_message_is_no_missing_command() {
     let TransportError::Unavailable { reason } = &refusal else {
         panic!("{refusal:?}");
     };
-    assert!(reason.starts_with("the worker exited 1 before its reply"), "{reason}");
+    assert!(reason.starts_with("grammar-ssh exited 1 before its reply"), "{reason}");
 }
 
 #[test]
-fn a_windows_hosts_worker_line_goes_bare() {
+fn a_windows_hosts_grammar_ssh_line_goes_bare() {
     let endpoint = Endpoint {
         alias: "windows".to_string(),
         platform: Platform::Windows,
@@ -148,11 +148,11 @@ fn a_windows_hosts_worker_line_goes_bare() {
         workdir: Some(r"C:\Users\worker\work".to_string()),
     };
     let line = r"C:\Users\worker\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe serve --id fixture --namespace default --workdir C:\Users\worker\work";
-    assert_eq!(endpoint.worker_line(), line);
+    assert_eq!(endpoint.grammar_ssh_line(), line);
     assert_eq!(endpoint.command_line(), line, "a Windows shell takes the line as it stands");
     let macos = Endpoint {
         platform: Platform::Macos,
-        command: WORKER_COMMAND.to_string(),
+        command: GRAMMAR_SSH_COMMAND.to_string(),
         workdir: None,
         ..endpoint
     };
@@ -195,7 +195,7 @@ fn whole(alias: &str) -> Endpoint {
         key: "/keys/worker".to_string(),
         host_keys: vec![HOST_KEY.to_string()],
         jump: None,
-        command: WORKER_COMMAND.to_string(),
+        command: GRAMMAR_SSH_COMMAND.to_string(),
         id: "fixture".to_string(),
         namespace: "default".to_string(),
         workdir: None,
@@ -244,7 +244,7 @@ fn a_platform_is_named_windows_linux_or_macos() {
 }
 
 #[test]
-fn the_worker_runs_through_the_accounts_login_shell() {
+fn grammar_ssh_runs_through_the_accounts_login_shell() {
     let endpoint = Endpoint {
         alias: "build".to_string(),
         platform: Platform::Linux,
@@ -254,12 +254,12 @@ fn the_worker_runs_through_the_accounts_login_shell() {
         key: "/keys/worker".to_string(),
         host_keys: Vec::new(),
         jump: None,
-        command: WORKER_COMMAND.to_string(),
+        command: GRAMMAR_SSH_COMMAND.to_string(),
         id: "fixture".to_string(),
         namespace: "default".to_string(),
         workdir: None,
     };
-    assert_eq!(endpoint.worker_line(), "grammar-ssh serve --id fixture --namespace default");
+    assert_eq!(endpoint.grammar_ssh_line(), "grammar-ssh serve --id fixture --namespace default");
     assert_eq!(
         endpoint.command_line(),
         "exec /bin/sh -c 'exec \"$SHELL\" -l -c \"exec grammar-ssh serve --id fixture --namespace default\"'"
@@ -268,5 +268,5 @@ fn the_worker_runs_through_the_accounts_login_shell() {
         workdir: Some("/srv/work".to_string()),
         ..endpoint
     };
-    assert_eq!(placed.worker_line(), "grammar-ssh serve --id fixture --namespace default --workdir /srv/work");
+    assert_eq!(placed.grammar_ssh_line(), "grammar-ssh serve --id fixture --namespace default --workdir /srv/work");
 }

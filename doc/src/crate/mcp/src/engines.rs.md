@@ -3,7 +3,7 @@
 The remote engines' entries, `[[engine]]` in the remotes file beside the peer
 links' `[[channel]]` ones, which the MCP reads at each use and writes by its
 `interface remote engine` commands (User). An entry is aligned with a channel's
-(User): an `address`, `known_hosts` a list of keys or a file, and the worker's
+(User): an `address`, `known_hosts` a list of keys or a file, and grammar-ssh's
 `command`, `id`, `namespace`, and `workdir` optional. Its `platform` names the
 host's operating system, `windows`, `linux`, or `macos`, with no default
 (User), and its optional `jump`, another entry's alias, the host its session is
@@ -157,7 +157,7 @@ user's when one is given. The first identity file that exists is the key, ssh
 trying each in turn; the host keys are every one the known hosts files hold for
 the host, under its `HostKeyAlias` where it names one. A host never connected
 to has none, so the import refuses it rather than pin nothing. The command,
-the id, the namespace, and the workdir are the worker's, which no ssh
+the id, the namespace, and the workdir are grammar-ssh's, which no ssh
 configuration knows, so an import leaves them to their defaults or a `set`;
 the platform, which no ssh configuration names either, it leaves to its
 operator's `set`.

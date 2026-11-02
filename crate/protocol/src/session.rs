@@ -7,7 +7,7 @@ pub const PING_INTERVAL: std::time::Duration = std::time::Duration::from_secs(10
 /// How long either side waits for a frame before it ends the session.
 pub const SESSION_IDLE: std::time::Duration = std::time::Duration::from_secs(30);
 
-/// How long a worker's ask waits for the MCP's answer.
+/// How long grammar-ssh's ask waits for the MCP's answer.
 pub const ASK_DEADLINE: std::time::Duration = std::time::Duration::from_secs(30);
 
 /// How long a session's end waits for its calls to stop.
@@ -28,35 +28,35 @@ pub struct SessionClose {
 /// What the MCP sends on a session after its hello.
 #[cereal::derived(Data)]
 pub enum McpFrame {
-    /// A request of the worker's engine, answered once under its id.
+    /// A request of grammar-ssh's engine, answered once under its id.
     Request { id: u64, request: EngineRequest },
-    /// The answer to the worker's ask under its id.
+    /// The answer to grammar-ssh's ask under its id.
     Answer { id: u64, answer: HostAnswer },
     Ping(Ping),
     Close(SessionClose),
 }
 
-/// What the worker sends on a session after its reply.
+/// What grammar-ssh sends on a session after its reply.
 #[cereal::derived(Data)]
-pub enum WorkerFrame {
+pub enum SshFrame {
     /// The answer to the MCP's request under its id.
     Response { id: u64, response: EngineResponse },
     /// An eval's ask of the MCP, answered once under its id.
     Ask { id: u64, ask: SessionAsk },
-    /// An emergency the worker's operator raised.
+    /// An emergency grammar-ssh's operator raised.
     Emergency(Emergency),
     Pong(Ping),
     Close(SessionClose),
 }
 
-/// A request of the worker's engine.
+/// A request of grammar-ssh's engine.
 #[cereal::derived(Data)]
 pub enum EngineRequest {
     /// An eval, a rerun, a call, or a control command.
     Wire(ToEngineSys),
     /// One of the namespace's purview requests.
     Purview(PurviewRequest),
-    /// The worker's identity, homes, and plugins.
+    /// grammar-ssh's identity, homes, and plugins.
     Info,
 }
 
@@ -67,30 +67,30 @@ impl EngineRequest {
     }
 }
 
-/// The worker's answer to a request.
+/// grammar-ssh's answer to a request.
 #[cereal::derived(Data)]
 pub enum EngineResponse {
     Wire(FromEngineSys),
     Purview(PurviewAnswer),
-    Info(WorkerInfo),
+    Info(SshInfo),
     /// The request refused before the engine took it, or its answer past the frame.
     Refused(TransportError),
 }
 
-/// A worker's identity, homes, and plugins, as `interface info` reports its host's.
+/// grammar-ssh's identity, homes, and plugins, as `interface info` reports them.
 #[cereal::derived(Data)]
-pub struct WorkerInfo {
+pub struct SshInfo {
     pub version: String,
     pub nu_version: String,
     pub id: String,
     pub namespace: String,
-    /// The worker's nom, its `$env.EQUIP_MCP_NOM`.
+    /// grammar-ssh's nom, its `$env.EQUIP_MCP_NOM`.
     pub nom: String,
-    /// The worker's working directory, its `$env.EQUIP_WORK_DIR`.
+    /// grammar-ssh's working directory, its `$env.EQUIP_WORK_DIR`.
     pub work_dir: String,
-    /// The worker's bulk scratch directory, its `$env.EQUIP_TMP`.
+    /// grammar-ssh's bulk scratch directory, its `$env.EQUIP_TMP`.
     pub tmp: String,
-    /// The worker's transient scratch directory, its `$env.EQUIP_TRANSIENT`.
+    /// grammar-ssh's transient scratch directory, its `$env.EQUIP_TRANSIENT`.
     pub transient: String,
     pub plugins: Vec<PluginInfo>,
 }
@@ -99,14 +99,14 @@ pub struct WorkerInfo {
 #[cereal::derived(Data)]
 pub struct PluginInfo(pub String, pub Option<String>);
 
-/// An eval's ask of the MCP, the host of every worker it opens.
+/// An eval's ask of the MCP whose session grammar-ssh serves.
 #[cereal::derived(Data)]
 pub enum SessionAsk {
     /// A body's packet for the MCP's Channel.
     ChannelSend(ChannelSendData),
     /// The stop a spam verdict made, for the error's emergency.
     Stopped(ChannelSpamErrorEmergency),
-    /// A body's message for a peer the MCP links, its files read on the worker.
+    /// A body's message for a peer the MCP links, its files read by grammar-ssh.
     RemoteSend(PreparedSend),
     /// The MCP's configuration in force.
     Config,

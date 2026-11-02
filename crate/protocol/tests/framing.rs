@@ -100,7 +100,7 @@ fn a_bad_preface_is_refused_at_its_first_wrong_byte() {
 
 #[test]
 fn a_bad_preface_shows_what_the_stream_began_with() {
-    // A login profile writing to stdout ahead of the worker, as one read.
+    // A login profile writing to stdout ahead of grammar-ssh, as one read.
     let banner = format!("Welcome to the host\n{}", "x".repeat(100));
     let err = decode_to_end(&mut FrameCodec::new(), banner.as_bytes()).expect_err("refused");
     let FrameError::BadPreface { at: 0, got: b'W', head } = &err else { panic!("{err}") };

@@ -21,7 +21,7 @@ Both kinds are searched because the nonce alone does not say which surface made
 the call, and a nonce names one call across all of them.
 
 ## fn remove_call_cache
-A worker's session keeps no call past its end, so its end removes each call's
+grammar-ssh's session keeps no call past its end, so its end removes each call's
 entries by nonce, in both kinds since the nonce alone doesn't say which made
 it. The nonce is held to base62 first, the path-traversal defense, so a nonce
 naming anything but one entry removes nothing.

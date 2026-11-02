@@ -92,8 +92,8 @@ mod worker {
     use futures_util::{SinkExt, StreamExt};
     use sourcetrait_grammar_client::{Session, SessionEvent};
     use sourcetrait_grammar_protocol::{
-        ClientHello, FrameCodec, HELLO_BUDGET, HelloReply, Instance, Limits, McpFrame, TransportError, WorkerFrame,
-        WorkerHello, decode_payload, payload,
+        ClientHello, FrameCodec, HELLO_BUDGET, HelloReply, Instance, Limits, McpFrame, TransportError, SshFrame,
+        SshHello, decode_payload, payload,
     };
     use tokio::process::{Child, ChildStdin, ChildStdout};
     use tokio::sync::mpsc::UnboundedReceiver;
@@ -186,9 +186,9 @@ mod worker {
         }
 
         /// The worker's next frame, none at the stream's end.
-        pub async fn next(&mut self) -> Option<WorkerFrame> {
+        pub async fn next(&mut self) -> Option<SshFrame> {
             let bytes = self.frames.next().await?.ok()?;
-            Some(decode_payload::<WorkerFrame>(&bytes, sourcetrait_grammar_protocol::LIMITS_DEFAULT.decode_budget()).expect("a frame decoded"))
+            Some(decode_payload::<SshFrame>(&bytes, sourcetrait_grammar_protocol::LIMITS_DEFAULT.decode_budget()).expect("a frame decoded"))
         }
     }
 }

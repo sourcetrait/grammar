@@ -196,7 +196,7 @@ fn transport_errors() -> Vec<(&'static str, TransportError)> {
         ("version_mismatch", T::VersionMismatch { expected: "1.0".into(), found: "2.0".into() }),
         ("schema_mismatch", T::SchemaMismatch { expected: "a".into(), found: "b".into() }),
         ("codec_mismatch", T::CodecMismatch { expected: "cereal-bitcode-0.0.0-1".into(), found: "bitcode-0.6.9".into() }),
-        ("wrong_worker", T::WrongWorker { expected: "fixture/default".into(), found: "fixture/test".into() }),
+        ("wrong_namespace", T::WrongNamespace { expected: "fixture/default".into(), found: "fixture/test".into() }),
         ("connect_failed", T::ConnectFailed { reason: "refused".into() }),
         ("host_key_rejected", T::HostKeyRejected { reason: "ssh-ed25519 SHA256:x".into() }),
         ("authentication_failed", T::AuthenticationFailed { reason: "publickey".into() }),
@@ -204,7 +204,7 @@ fn transport_errors() -> Vec<(&'static str, TransportError)> {
         ("busy", T::Busy),
         ("invalid_frame", T::InvalidFrame { reason: "a trailing byte".into() }),
         ("result_too_large", T::ResultTooLarge { limit: 8 << 20 }),
-        ("session_lost", T::SessionLost { reason: "the worker's stream ended".into() }),
+        ("session_lost", T::SessionLost { reason: "grammar-ssh's stream ended".into() }),
     ]
 }
 
@@ -222,13 +222,13 @@ fn call() -> CallRequest {
     }
 }
 
-fn info() -> WorkerInfo {
-    WorkerInfo {
+fn info() -> SshInfo {
+    SshInfo {
         version: "0.0.0-9".into(),
         nu_version: "0.116.1".into(),
         id: "fixture".into(),
         namespace: "default".into(),
-        nom: "workernom01".into(),
+        nom: "sshnom01".into(),
         work_dir: "/srv/work".into(),
         tmp: "/srv/tmp/grammar-ssh.x".into(),
         transient: "/run/user/2001/grammar-ssh.y".into(),
@@ -302,11 +302,11 @@ fn frames() -> Vec<(&'static str, golden::Vector)> {
         ("mcp/answer", golden::vector(&McpFrame::Answer { id: 2, answer: HostAnswer::Noted })),
         ("mcp/ping", golden::vector(&McpFrame::Ping(ping))),
         ("mcp/close", golden::vector(&McpFrame::Close(SessionClose { error: None }))),
-        ("worker/response", golden::vector(&WorkerFrame::Response { id: 1, response: EngineResponse::Info(info()) })),
-        ("worker/ask", golden::vector(&WorkerFrame::Ask { id: 2, ask: SessionAsk::Config })),
-        ("worker/emergency", golden::vector(&WorkerFrame::Emergency(Emergency::RamWarning(RamWarningEmergency { rss_kb: 1 })))),
-        ("worker/pong", golden::vector(&WorkerFrame::Pong(ping))),
-        ("worker/close", golden::vector(&WorkerFrame::Close(closed))),
+        ("ssh/response", golden::vector(&SshFrame::Response { id: 1, response: EngineResponse::Info(info()) })),
+        ("ssh/ask", golden::vector(&SshFrame::Ask { id: 2, ask: SessionAsk::Config })),
+        ("ssh/emergency", golden::vector(&SshFrame::Emergency(Emergency::RamWarning(RamWarningEmergency { rss_kb: 1 })))),
+        ("ssh/pong", golden::vector(&SshFrame::Pong(ping))),
+        ("ssh/close", golden::vector(&SshFrame::Close(closed))),
     ]
 }
 

@@ -291,25 +291,25 @@ const ENGINE_SET_FLAGS: &[ArgSpec] = &[
         name: "command",
         shape: ArgShape::String,
         optional: true,
-        summary: "The worker on the host; `grammar-ssh` on the login's PATH when absent.",
+        summary: "grammar-ssh's command on the host; `grammar-ssh` on the login's PATH when absent.",
     },
     ArgSpec {
         name: "id",
         shape: ArgShape::String,
         optional: true,
-        summary: "The worker's id; the MCP's own when absent.",
+        summary: "grammar-ssh's id; the MCP's own when absent.",
     },
     ArgSpec {
         name: "namespace",
         shape: ArgShape::String,
         optional: true,
-        summary: "The worker's namespace; the MCP's own when absent.",
+        summary: "grammar-ssh's namespace; the MCP's own when absent.",
     },
     ArgSpec {
         name: "workdir",
         shape: ArgShape::String,
         optional: true,
-        summary: "The worker's absolute working directory; the login's own when absent.",
+        summary: "grammar-ssh's absolute working directory; the login's own when absent.",
     },
 ];
 
@@ -574,7 +574,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         positionals: ENGINE_ALIAS_ARGS,
         flags: NO_ARGS,
         result: "record",
-        summary: "Open a remote engine's session and start its worker now.",
+        summary: "Open a remote engine's session, starting its grammar-ssh now.",
     },
     CommandSpec {
         kind: CommandKind::EngineClose,
@@ -583,7 +583,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         positionals: ENGINE_ALIAS_ARGS,
         flags: NO_ARGS,
         result: "nothing",
-        summary: "Close a remote engine's session; its worker ends with it.",
+        summary: "Close a remote engine's session; its grammar-ssh ends with it.",
     },
     CommandSpec {
         kind: CommandKind::EngineImport,

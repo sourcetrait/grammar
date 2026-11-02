@@ -13,7 +13,7 @@ the face, and the engine stopped in order, the engine's teardown ending anything
 left running, and the lock released. Leaving the systems to end with the process is
 rejected: each would end as its handle drops, racing the runtime's end, and the remote
 engines' system logs such an end as unasked. The controller holds the namespace's lock its
-caller took (`run.rs`), so a host or a worker on the namespace refuses it.
+caller took (`run.rs`), so a host or a grammar-ssh on the namespace refuses it.
 
 The invocation is its own host, its engine in its own process, so every tool it drives
 names `local`: it takes no host of the operator's, since it reaches no other.

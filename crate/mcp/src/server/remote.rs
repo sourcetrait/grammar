@@ -1,12 +1,12 @@
-//! The remote engines' handler: their workers' asks and emergencies, and their end.
+//! The remote engines' handler: their asks and emergencies, and their end.
 use crate::*;
 
 /// The controller's handler of the remote engines' system.
 #[derive(Clone)]
 pub(crate) struct RemoteRoute {
-    /// The engine's route, which answers a worker's asks as it answers a local eval's.
+    /// The engine's route, answering grammar-ssh's asks as it answers a local eval's.
     pub(crate) route: HostRoute,
-    /// The controller's emergency policy, logging and announcing workers' emergencies.
+    /// The controller's emergency policy, logging and announcing their emergencies.
     pub(crate) policy: EmergencyPolicy,
 }
 

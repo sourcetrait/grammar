@@ -26,7 +26,7 @@ instead.
 value's own limit is 64: the decode counts every collection that nests with
 values in it, a frame's own among them, so a value's 64 levels fit inside a
 frame's containers. Those 64 are `check_value`'s. 128 levels of decoding take
-well under a two-MiB worker stack. A worker holds each frame it sends to the
+well under a two-MiB worker stack. grammar-ssh holds each frame it sends to the
 session's budget before it queues it, so a result past it is refused alone
 rather than breaking the MCP's decode.
 

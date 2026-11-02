@@ -1,4 +1,4 @@
-//! The MCP's end of a session: its hello, its requests, the worker's asks, its end.
+//! The MCP's end of a session: its hello, requests, grammar-ssh's asks, and end.
 use crate::*;
 
 /// What a session tells its owner beside the responses to its requests.
@@ -6,7 +6,7 @@ use crate::*;
 pub enum SessionEvent {
     /// An eval's ask of the MCP, answered through its responder.
     Ask { ask: SessionAsk, responder: Responder },
-    /// An emergency the worker's operator raised.
+    /// An emergency grammar-ssh's operator raised.
     Emergency(Emergency),
     /// The session ended, and why.
     Ended(TransportError),
@@ -111,10 +111,10 @@ impl Shared {
     }
 }
 
-/// The MCP's end of one session with a worker.
+/// The MCP's end of one session with grammar-ssh.
 #[derive(Debug)]
 pub struct Session {
-    worker: WorkerHello,
+    ssh: SshHello,
     next: AtomicU64,
     out: Outbox,
     shared: Arc<Shared>,
@@ -139,13 +139,13 @@ impl Session {
         let mut sink = tku::FramedWrite::new(writer, FrameCodec::new());
         sink.send(payload(&hello)).await.map_err(|e| lost(e.transport()))?;
         let reply = match tk::timeout(REPLY_DEADLINE, frames.next()).await {
-            Err(_) => return Err(lost_text(format!("no reply from the worker in {} s", REPLY_DEADLINE.as_secs()))),
-            Ok(None) => return Err(lost_text("the worker's stream ended before its reply".to_string())),
+            Err(_) => return Err(lost_text(format!("no reply from grammar-ssh in {} s", REPLY_DEADLINE.as_secs()))),
+            Ok(None) => return Err(lost_text("grammar-ssh's stream ended before its reply".to_string())),
             Ok(Some(Err(e))) => return Err(lost(e.transport())),
             Ok(Some(Ok(bytes))) => decode_payload::<HelloReply>(&bytes, HELLO_BUDGET).map_err(|e| e.transport())?,
         };
-        let worker = check_reply(reply, &hello)?;
-        let limits = worker.effective;
+        let ssh = check_reply(reply, &hello)?;
+        let limits = ssh.effective;
         frames.decoder_mut().set_ceiling(limits.frame);
         sink.encoder_mut().set_ceiling(limits.frame);
         let (tx, rx) = tk::unbounded_channel();
@@ -159,7 +159,7 @@ impl Session {
         ];
         Ok((
             Self {
-                worker,
+                ssh,
                 next: AtomicU64::new(1),
                 out,
                 shared,
@@ -170,9 +170,9 @@ impl Session {
         ))
     }
 
-    /// The worker this session reached, as its reply named it.
-    pub fn worker(&self) -> &WorkerHello {
-        &self.worker
+    /// The grammar-ssh this session reached, as its reply named it.
+    pub fn ssh(&self) -> &SshHello {
+        &self.ssh
     }
 
     /// A request's response, or the session's loss where it ends first.
@@ -268,7 +268,7 @@ async fn write_loop<W>(
     let _ = sink.close().await;
 }
 
-/// The worker's frames, each sent to the request or the owner it is for.
+/// grammar-ssh's frames, each sent to the request or the owner it is for.
 async fn read_loop<R>(
     mut frames: tku::FramedRead<R, FrameCodec>,
     budget: DecodeBudget,
@@ -280,32 +280,32 @@ async fn read_loop<R>(
 {
     let reason = loop {
         let bytes = match tk::timeout(SESSION_IDLE, frames.next()).await {
-            Err(_) => break lost_text(format!("no frame from the worker in {} s", SESSION_IDLE.as_secs())),
-            Ok(None) => break lost_text("the worker's stream ended".to_string()),
+            Err(_) => break lost_text(format!("no frame from grammar-ssh in {} s", SESSION_IDLE.as_secs())),
+            Ok(None) => break lost_text("grammar-ssh's stream ended".to_string()),
             Ok(Some(Err(e))) => break lost(e.transport()),
             Ok(Some(Ok(bytes))) => bytes,
         };
-        let frame = match decode_payload::<WorkerFrame>(&bytes, budget) {
+        let frame = match decode_payload::<SshFrame>(&bytes, budget) {
             Ok(frame) => frame,
             Err(e) => break e.transport(),
         };
         match frame {
-            WorkerFrame::Response { id, response } => {
+            SshFrame::Response { id, response } => {
                 let waiter = shared.pending.lock().unwrap_or_else(|e| e.into_inner()).remove(&id);
                 if let Some(waiter) = waiter {
                     let _ = waiter.send(response);
                 }
             }
-            WorkerFrame::Ask { id, ask } => {
+            SshFrame::Ask { id, ask } => {
                 let responder = Responder { id, out: out.clone() };
                 let _ = events.send(SessionEvent::Ask { ask, responder });
             }
-            WorkerFrame::Emergency(emergency) => {
+            SshFrame::Emergency(emergency) => {
                 let _ = events.send(SessionEvent::Emergency(emergency));
             }
-            WorkerFrame::Pong(_) => {}
-            WorkerFrame::Close(close) => {
-                break close.error.unwrap_or_else(|| lost_text("the worker closed the session".to_string()));
+            SshFrame::Pong(_) => {}
+            SshFrame::Close(close) => {
+                break close.error.unwrap_or_else(|| lost_text("grammar-ssh closed the session".to_string()));
             }
         }
     };

@@ -193,7 +193,7 @@ impl Asker {
                 return HostAnswer::Refused("no session carries the ask".to_string());
             };
             held(&self.pending).insert(id, tx);
-            if let Err(unsent) = out.send(&WorkerFrame::Ask { id, ask }) {
+            if let Err(unsent) = out.send(&SshFrame::Ask { id, ask }) {
                 held(&self.pending).remove(&id);
                 return HostAnswer::Refused(unsent.to_string());
             }
@@ -211,7 +211,7 @@ impl Asker {
     /// An emergency to the session's MCP, where one is attached.
     pub(crate) fn emergency(&self, emergency: Emergency) {
         if let Some(out) = held(&self.out).as_ref() {
-            let _ = out.send(&WorkerFrame::Emergency(emergency));
+            let _ = out.send(&SshFrame::Emergency(emergency));
         }
     }
 }

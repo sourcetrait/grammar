@@ -1,3 +1,4 @@
+pub(crate) mod log;
 pub(crate) mod msg;
 pub(crate) mod pin;
 pub(crate) mod reaper;
@@ -6,6 +7,7 @@ pub(crate) mod system;
 pub(crate) mod watchdog;
 #[cfg(test)]
 mod tests {
+    mod log;
     mod pin;
     mod reaper;
     mod watchdog;
@@ -19,14 +21,18 @@ pub(crate) use crate::{
 
 pub(crate) use std::{
     collections::{HashMap, HashSet},
-    path::PathBuf,
+    fs,
+    io::{self, Write},
+    path::{Path, PathBuf},
     process,
     sync::LazyLock,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 #[cfg(target_os = "linux")]
-pub(crate) use std::{fs, sync::OnceLock};
+pub(crate) use std::sync::OnceLock;
+
+pub(crate) use nuval::{NuVal, NuonStyle};
 
 pub(crate) use sourcetrait_common::{agnostic, cereal, subsys};
 
@@ -52,6 +58,7 @@ pub use sourcetrait_grammar_protocol::{
 };
 
 pub use crate::{
+    log::{announced_record, append_line, emergency_line, emergency_log_path},
     msg::{EngineReading, FromOperatorSys, HungThread, ThreadLane, ToOperatorSys},
     pin::{clear_pins, effective_supervisor, pin},
     reaper::install_child_subreaper,

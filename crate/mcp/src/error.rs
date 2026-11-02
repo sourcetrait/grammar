@@ -6,7 +6,7 @@ pub type GrammarMcpResult<T> = Result<T, GrammarMcpError>;
 pub enum GrammarMcpError {
     /// What the engine refused or failed at, its kinds and messages its own.
     Engine(EngineError),
-    /// What the transport to a worker failed at, under its `remote::engine::` kinds.
+    /// What the transport to grammar-ssh failed at, under its `remote::engine::` kinds.
     Transport(TransportError),
     /// A remote engine command's parameters or entry refused, the MCP's alone.
     RemoteEngineInvalidParams {

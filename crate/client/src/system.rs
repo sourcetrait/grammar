@@ -16,7 +16,7 @@ pub enum ToRemote {
     CloseSession(String),
 }
 
-/// What the system sends up: an answer, a worker's ask, or its emergency.
+/// What the system sends up: an answer, grammar-ssh's ask, or its emergency.
 #[cereal::derived(Data)]
 pub enum FromRemote {
     Response(RemoteResponse),
@@ -44,13 +44,13 @@ pub enum SessionPhase {
     Open,
 }
 
-/// One alias's session: its phase, its worker while open, its last open's failure.
+/// One alias's session: its phase, its grammar-ssh, its last open's failure.
 #[cereal::derived(Data, Eq)]
 pub struct SessionState {
     pub alias: String,
     pub phase: SessionPhase,
-    pub worker_nom: Option<String>,
-    pub worker_pid: Option<u32>,
+    pub nom: Option<String>,
+    pub pid: Option<u32>,
     pub failure: Option<String>,
 }
 
@@ -145,18 +145,18 @@ impl TryFrom<FromRemote> for SessionClosed {
     }
 }
 
-/// A request's response from its host's worker, or why there is none.
+/// A request's response from its host's grammar-ssh, or why there is none.
 #[cereal::derived(Data)]
 pub struct RemoteResponse(pub Result<EngineResponse, TransportError>);
 
-/// A worker's ask of the MCP, under the alias of its engine.
+/// grammar-ssh's ask of the MCP, under the alias of its engine.
 #[cereal::derived(Data)]
 pub struct RemoteAsk {
     pub alias: String,
     pub ask: SessionAsk,
 }
 
-/// A worker's emergency, under the alias of its engine.
+/// grammar-ssh's emergency, under the alias of its engine.
 #[cereal::derived(Data)]
 pub struct RemoteEmergency {
     pub alias: String,
@@ -417,7 +417,7 @@ struct Uplink {
 }
 
 impl Uplink {
-    /// A worker's ask answered by the controller, or refused saying why it wasn't.
+    /// grammar-ssh's ask answered by the controller, or refused saying why it wasn't.
     async fn ask(&self, ask: RemoteAsk) -> HostAnswer {
         match self.requester.request(ask).await {
             Ok(answer) => answer,
@@ -425,7 +425,7 @@ impl Uplink {
         }
     }
 
-    /// A worker's emergency sent up as a packet no request waits on.
+    /// grammar-ssh's emergency sent up as a packet no request waits on.
     async fn emergency(&self, emergency: RemoteEmergency) {
         let packet = subsys::Packet::singular(FromRemote::Emergency(emergency));
         let _ = self.tx.send(subsys::MsgFromSys::Packet(packet)).await;
@@ -474,7 +474,7 @@ impl Hosts {
         self.failures.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// `request`'s response from `endpoint`'s worker, a session opened where none is.
+    /// `request`'s response from `endpoint`'s grammar-ssh, opening a session if none.
     async fn request(&self, endpoint: &Endpoint, request: EngineRequest) -> Result<EngineResponse, TransportError> {
         self.session(endpoint).await?.request(request).await
     }
@@ -519,15 +519,15 @@ impl Hosts {
                     Some(Slot::Opening(_)) => SessionState {
                         alias: alias.clone(),
                         phase: SessionPhase::Opening,
-                        worker_nom: None,
-                        worker_pid: None,
+                        nom: None,
+                        pid: None,
                         failure,
                     },
                     _ => SessionState {
                         alias: alias.clone(),
                         phase: SessionPhase::Closed,
-                        worker_nom: None,
-                        worker_pid: None,
+                        nom: None,
+                        pid: None,
                         failure,
                     },
                 }
@@ -602,18 +602,18 @@ impl Hosts {
     }
 }
 
-/// An open session's state, its worker's nom and pid.
+/// An open session's state, its grammar-ssh's nom and pid.
 fn open_state(
     alias: &str,
     session: &RemoteSession,
     failure: Option<String>,
 ) -> SessionState {
-    let worker = session.worker();
+    let ssh = session.ssh();
     SessionState {
         alias: alias.to_string(),
         phase: SessionPhase::Open,
-        worker_nom: Some(worker.nom.clone()),
-        worker_pid: Some(worker.pid),
+        nom: Some(ssh.nom.clone()),
+        pid: Some(ssh.pid),
         failure,
     }
 }
@@ -634,10 +634,10 @@ async fn open_relayed(
     let (session, events) = open(&endpoint, limits).await.inspect_err(|e| {
         eprintln!("grammar: {}: no session: {}", endpoint.alias, e.message());
     })?;
-    let worker = session.worker();
+    let ssh = session.ssh();
     eprintln!(
         "grammar: {}: a session with {} as pid {}, its nom {}",
-        endpoint.alias, worker.instance, worker.pid, worker.nom
+        endpoint.alias, ssh.instance, ssh.pid, ssh.nom
     );
     tk::spawn(relay(endpoint.alias, events, uplink));
     Ok(Arc::new(session))
@@ -682,7 +682,7 @@ impl RemoteHandle {
         Ok(Self { control })
     }
 
-    /// `request`'s response from `endpoint`'s worker, or why there is none.
+    /// `request`'s response from `endpoint`'s grammar-ssh, or why there is none.
     pub async fn request(&self, endpoint: Endpoint, request: EngineRequest) -> Result<EngineResponse, TransportError> {
         match self.control.request(RemoteRequest { endpoint, request }).await {
             Ok(RemoteResponse(response)) => response,
@@ -710,7 +710,7 @@ impl RemoteHandle {
         }
     }
 
-    /// The alias's session closed, its worker ending with it; whether one was open.
+    /// The alias's session closed, grammar-ssh ending with it; whether one was open.
     pub async fn close_session(&self, alias: &str) -> bool {
         let request = CloseSessionRequest {
             alias: alias.to_string(),

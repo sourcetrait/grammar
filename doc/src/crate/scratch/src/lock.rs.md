@@ -13,8 +13,8 @@ watcher reading the old name keeps reading the live one.
 ## struct LockRecord
 Its fields name the holding process under its boot, as a scratch marker's do,
 and the holder's nom, so a reader tells which program and which host holds the
-namespace; `include/scratch/Lock.nutype` is its model. A worker's generation is
-the hello's to carry, never the lock's. On Windows its `uid` is 0, as
+namespace; `include/scratch/Lock.nutype` is its model. grammar-ssh's generation
+is the hello's to carry, never the lock's. On Windows its `uid` is 0, as
 `current_uid` answers there.
 
 ### fn current

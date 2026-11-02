@@ -63,7 +63,7 @@ fn an_entry_opens_on_its_fields_and_the_mcps_defaults() {
     assert_eq!((endpoint.host.as_str(), endpoint.port), ("build.example", 22), "port 22 by default");
     assert_eq!(endpoint.namespace, "lab", "the MCP's own namespace by default");
     assert_eq!(
-        endpoint.worker_line(),
+        endpoint.grammar_ssh_line(),
         "/opt/grammar/bin/grammar-ssh serve --id fixture --namespace lab --workdir /srv/work",
     );
     let least = vec![
@@ -76,7 +76,7 @@ fn an_entry_opens_on_its_fields_and_the_mcps_defaults() {
     ];
     let endpoint = one_entry(&engine_text(&least)).endpoint(&[], &defaults()).expect("the required fields alone");
     assert_eq!(endpoint.port, 2222);
-    assert_eq!(endpoint.worker_line(), "grammar-ssh serve --id agent --namespace lab", "every default taken");
+    assert_eq!(endpoint.grammar_ssh_line(), "grammar-ssh serve --id agent --namespace lab", "every default taken");
     assert!(parse_engines("").expect("an empty file").is_empty(), "no engine unless the file names one");
     assert!(parse_engines(REMOTES).expect("channels alone").is_empty(), "a channel is no engine");
 }

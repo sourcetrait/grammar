@@ -1,4 +1,4 @@
-//! A session's opening exchange: the MCP's hello, the worker's reply, both checks.
+//! A session's opening exchange: the MCP's hello, grammar-ssh's reply, both checks.
 use crate::*;
 
 /// The protocol version a hello names.
@@ -17,10 +17,10 @@ impl fmt::Display for ProtocolVersion {
 /// The version this build speaks, v1.0.
 pub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion { major: 1, minor: 0 };
 
-/// How long a worker waits for the MCP's hello once its start is done.
+/// How long grammar-ssh waits for the MCP's hello once its start is done.
 pub const HELLO_DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
 
-/// How long the MCP waits for a worker's reply, its start among it.
+/// How long the MCP waits for grammar-ssh's reply, its start among it.
 pub const REPLY_DEADLINE: std::time::Duration = std::time::Duration::from_secs(60);
 
 /// How long an SSH session may take to connect and authenticate.
@@ -33,7 +33,7 @@ pub const HELLO_BUDGET: DecodeBudget = DecodeBudget {
     depth: 8,
 };
 
-/// A worker's namespace: its id and its namespace.
+/// A host's namespace: its id and its namespace.
 #[cereal::derived(Data, Eq, Hash)]
 pub struct Instance {
     pub id: String,
@@ -176,27 +176,27 @@ impl ClientHello {
     }
 }
 
-/// The worker's acceptance: who it is, and the bounds the session holds to.
+/// grammar-ssh's acceptance: who it is, and the bounds the session holds to.
 #[cereal::derived(Data, Eq)]
-pub struct WorkerHello {
+pub struct SshHello {
     pub version: ProtocolVersion,
     pub schema: [u8; 32],
     pub codec: String,
     pub instance: Instance,
-    /// The worker's effective Unix UID.
+    /// grammar-ssh's effective Unix UID.
     pub uid: u32,
-    /// The worker's process id.
+    /// grammar-ssh's process id.
     pub pid: u32,
-    /// The worker's nom, drawn at its start.
+    /// grammar-ssh's nom, drawn at its start.
     pub nom: String,
     /// The negotiated bounds.
     pub effective: Limits,
 }
 
-/// The worker's first frame: the hello accepted, or refused.
+/// grammar-ssh's first frame: the hello accepted, or refused.
 #[cereal::derived(Data)]
 pub enum HelloReply {
-    Accepted(Box<WorkerHello>),
+    Accepted(Box<SshHello>),
     Refused(TransportError),
 }
 
@@ -222,24 +222,24 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-/// What a worker answers a hello from: its identity and its bounds.
+/// What grammar-ssh answers a hello from: its identity and its bounds.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WorkerProfile {
+pub struct SshProfile {
     pub instance: Instance,
     pub uid: u32,
     pub pid: u32,
     pub nom: String,
-    /// The bounds the worker allows, held to `LIMITS_HARD` as it negotiates.
+    /// The bounds grammar-ssh allows, held to `LIMITS_HARD` as it negotiates.
     pub limits: Limits,
 }
 
-impl WorkerProfile {
-    /// The worker's check of `hello`: its negotiated limits, or why it is refused.
+impl SshProfile {
+    /// grammar-ssh's check of `hello`: its negotiated limits, or why it is refused.
     pub fn check(&self, hello: &ClientHello) -> Result<Limits, TransportError> {
         agree(hello.version, &hello.schema, &hello.codec)?;
         hello.expected.check()?;
         if hello.expected != self.instance {
-            return Err(TransportError::WrongWorker {
+            return Err(TransportError::WrongNamespace {
                 expected: hello.expected.to_string(),
                 found: self.instance.to_string(),
             });
@@ -252,10 +252,10 @@ impl WorkerProfile {
         Ok(hello.requested.least(self.limits).least(LIMITS_HARD))
     }
 
-    /// The worker's reply to `hello`: accepted under the negotiated limits, or refused.
+    /// grammar-ssh's reply to `hello`: accepted under negotiated limits, or refused.
     pub fn reply(&self, hello: &ClientHello) -> HelloReply {
         match self.check(hello) {
-            Ok(effective) => HelloReply::Accepted(Box::new(WorkerHello {
+            Ok(effective) => HelloReply::Accepted(Box::new(SshHello {
                 version: PROTOCOL_VERSION,
                 schema: SCHEMA_ID,
                 codec: CODEC_ID.to_string(),
@@ -270,39 +270,39 @@ impl WorkerProfile {
     }
 }
 
-/// The MCP's check of the worker's reply to `hello`: the worker it reached.
-pub fn check_reply(reply: HelloReply, hello: &ClientHello) -> Result<WorkerHello, TransportError> {
-    let worker = match reply {
-        HelloReply::Accepted(worker) => *worker,
+/// The MCP's check of grammar-ssh's reply to `hello`: the one it reached.
+pub fn check_reply(reply: HelloReply, hello: &ClientHello) -> Result<SshHello, TransportError> {
+    let ssh = match reply {
+        HelloReply::Accepted(ssh) => *ssh,
         HelloReply::Refused(refusal) => return Err(refusal),
     };
-    agree(worker.version, &worker.schema, &worker.codec)?;
-    worker.instance.check()?;
-    if worker.instance != hello.expected {
-        return Err(TransportError::WrongWorker {
+    agree(ssh.version, &ssh.schema, &ssh.codec)?;
+    ssh.instance.check()?;
+    if ssh.instance != hello.expected {
+        return Err(TransportError::WrongNamespace {
             expected: hello.expected.to_string(),
-            found: worker.instance.to_string(),
+            found: ssh.instance.to_string(),
         });
     }
-    if !valid_peer_id(&worker.nom) {
+    if !valid_peer_id(&ssh.nom) {
         return Err(TransportError::InvalidFrame {
-            reason: "the worker's nom isn't base62".to_string(),
+            reason: "grammar-ssh's nom isn't base62".to_string(),
         });
     }
-    if let Some((name, effective, requested)) = worker.effective.past(&hello.requested) {
+    if let Some((name, effective, requested)) = ssh.effective.past(&hello.requested) {
         return Err(TransportError::InvalidFrame {
-            reason: format!("the worker raised {name} to {effective} past the {requested} requested"),
+            reason: format!("grammar-ssh raised {name} to {effective} past the {requested} requested"),
         });
     }
-    if let Some((name, effective, hard)) = worker.effective.past(&LIMITS_HARD) {
+    if let Some((name, effective, hard)) = ssh.effective.past(&LIMITS_HARD) {
         return Err(TransportError::InvalidFrame {
-            reason: format!("the worker granted {name} {effective} past the hard ceiling {hard}"),
+            reason: format!("grammar-ssh granted {name} {effective} past the hard ceiling {hard}"),
         });
     }
-    if let Some(name) = worker.effective.zero() {
+    if let Some(name) = ssh.effective.zero() {
         return Err(TransportError::InvalidFrame {
-            reason: format!("the worker set {name} to zero"),
+            reason: format!("grammar-ssh set {name} to zero"),
         });
     }
-    Ok(worker)
+    Ok(ssh)
 }

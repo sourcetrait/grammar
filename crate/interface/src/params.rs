@@ -125,13 +125,13 @@ pub struct RemoteEngineSetParams {
     pub known_hosts: Option<Vec<String>>,
     /// A known_hosts file holding the host's keys.
     pub known_hosts_file: Option<String>,
-    /// The worker on the host: a name its login's PATH finds, or an absolute path.
+    /// grammar-ssh's command: a name the login's PATH finds, or an absolute path.
     pub command: Option<String>,
-    /// The worker's id.
+    /// grammar-ssh's id.
     pub id: Option<String>,
-    /// The worker's namespace.
+    /// grammar-ssh's namespace.
     pub namespace: Option<String>,
-    /// The worker's absolute working directory on the host.
+    /// grammar-ssh's absolute working directory on the host.
     pub workdir: Option<String>,
 }
 

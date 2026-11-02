@@ -2,7 +2,7 @@
 
 The crate is the portable side of a remote engine: typed data and the wire's
 framing alone, with no evaluator, operator, MCP server, or platform monitoring
-in its dependencies. The engine, the client, the worker, the MCP frontend, and
+in its dependencies. The engine, the client, grammar-ssh, the MCP frontend, and
 the Channel's, the peer links', and the interface's crates take it, and it
 takes none of them, so the package graph stays one-way.
 
@@ -22,8 +22,8 @@ deny parsing and each command's dispatch.
 
 ## mod engine
 The engine's requests, commands, and answers, with the diagnostics, their cap
-and positions, the error, and the documents they carry, here so the MCP and a
-worker share one definition; the engine re-exports them.
+and positions, the error, and the documents they carry, here so the MCP and
+grammar-ssh share one definition; the engine re-exports them.
 
 ## mod error
 The runtime's and the transport's errors, each rendering to the envelope's rows,
@@ -49,11 +49,11 @@ delivery events, a relayed message, and the rule a send's dest is held to.
 
 ## mod purview
 The namespace's purviews, their rows and views, and the engine's requests of
-them, here so a session carries them to a worker's engine.
+them, here so a session carries them to grammar-ssh's engine.
 
 ## mod session
 A session's frames after its hellos, both ways: the MCP's requests and the
-answers to the worker's asks, the worker's responses, asks, and emergencies,
+answers to grammar-ssh's asks, grammar-ssh's responses, asks, and emergencies,
 and each side's liveness and close.
 
 ## use nuval::wide

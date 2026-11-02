@@ -2,7 +2,7 @@
 
 ## fn prepare_send
 A body's remote send as its host sends it on, its files read and its event
-rendered where they are: the MCP for a local eval, the worker for a remote
+rendered where they are: the MCP for a local eval, grammar-ssh for a remote
 one, which carries the result to the MCP inline, so no host reaches another's
 files. It is the engine's because both hosts take the engine and neither the
 other, and it runs off the runtime's workers, a blocking read of the caller's

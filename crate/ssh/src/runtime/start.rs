@@ -95,10 +95,10 @@ impl Runtime {
     }
 
     /// The worker's identity and bounds, as its reply to a hello names them.
-    pub fn profile(&self) -> GrammarSshResult<WorkerProfile> {
+    pub fn profile(&self) -> GrammarSshResult<SshProfile> {
         let instance = Instance::new(&self.config.identity.id, &self.config.identity.namespace)
             .map_err(|e| GrammarSshError::Session { reason: e.message() })?;
-        Ok(WorkerProfile {
+        Ok(SshProfile {
             instance,
             uid: self.config.identity.uid,
             pid: process::id(),
@@ -108,8 +108,8 @@ impl Runtime {
     }
 
     /// The worker's identity, homes, and plugins, as `interface info` reports them.
-    pub fn info(&self) -> WorkerInfo {
-        WorkerInfo {
+    pub fn info(&self) -> SshInfo {
+        SshInfo {
             version: env!("CARGO_PKG_VERSION").to_string(),
             nu_version: engine::NU_VERSION.to_string(),
             id: self.config.identity.id.clone(),
