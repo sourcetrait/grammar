@@ -71,6 +71,28 @@ pub fn run_output_env(scratch: &Path, args: &[&str], envs: &[(&str, &str)]) -> O
         .expect("run grammar-mcp")
 }
 
+/// `run_output` with the namespace's homes named by XDG's variables alone.
+///
+/// The UENV data and cache variables a login sets are removed, so the host's
+/// own XDG step decides where the namespace lands.
+pub fn run_output_xdg(scratch: &Path, args: &[&str]) -> Output {
+    let data = scratch.join("xdg-data");
+    let cache = scratch.join("xdg-cache");
+    std::fs::create_dir_all(&data).expect("mkdir xdg-data");
+    std::fs::create_dir_all(&cache).expect("mkdir xdg-cache");
+    let (tmp, run) = scratch_bases(scratch);
+    Command::new(grammar_mcp_bin())
+        .args(args)
+        .env("XDG_DATA_HOME", &data)
+        .env("XDG_CACHE_HOME", &cache)
+        .env_remove("UENV_USR_DATA")
+        .env_remove("UENV_USR_CACHE")
+        .env("UENV_USR_TMP", &tmp)
+        .env("UENV_USR_TRANSIENT", &run)
+        .output()
+        .expect("run grammar-mcp")
+}
+
 /// A host's temporary and runtime bases under `scratch`, private to it.
 ///
 /// What a host killed outright leaves behind stays in the test's directory.

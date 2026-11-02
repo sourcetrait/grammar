@@ -6,33 +6,35 @@ roots on every platform, so a worker and an embedded engine find one
 namespace's files in one place.
 
 ## const DATA, const CACHE
-The MCP takes these two roots from `directories`: the UENV variable, else XDG's
-on Linux, and on macOS the platform's, where `directories` reads no XDG variable
-and answers `Library/Application Support` and `Library/Caches` under `HOME`. On
-Windows `directories` answers the roaming and the local application data
-folders, which the worker reads as their variables, `APPDATA` and
-`LOCALAPPDATA`, each a session's own; XDG's variables count for neither there.
-The worker takes them the same way: it serves the MCP's namespace, so it finds
-the equips and definitions where the MCP keeps them, and XDG's defaults would
-part the two on macOS and Windows. `tests/instance_homes.rs` holds the two to
-`directories` under one environment.
+Each is its UENV variable, then XDG's, then the platform's folder, the order the
+MCP reads its two roots in on every platform. The folder is what `directories`
+answers the MCP: XDG's default under `HOME` on Linux; `Library/Application
+Support` and `Library/Caches` under `HOME` on macOS; and on Windows the roaming
+and the local application data folders, which the worker reads as their
+variables, `APPDATA` and `LOCALAPPDATA`, each a session's own. `directories`
+reads XDG's variables on Linux alone, so the worker and the MCP each read them
+first themselves. The worker serves the MCP's namespace, so it finds the equips
+and definitions where the MCP keeps them. `tests/instance_homes.rs` holds the
+worker to the MCP's order under one environment, XDG's variables set and unset.
 
 ## const TMP
 On Windows the temporary home is `TMP`, then `TEMP`, the order Windows' own
 `GetTempPath2W` reads them in, where Unix's is `TMPDIR`, then `/tmp`.
 
 ## enum Default
-`UnderHome` and `Absolute` serve Unix's defaults, `Var` Windows' second
-temporary variable; each platform keeps only the kinds it uses.
+`UnderHome` and `Absolute` serve Unix's defaults, `Var` Windows' variables read
+last, `TEMP` and the two application data folders; each platform keeps only the
+kinds it uses.
 
 ## struct InstanceHomes
 ### fn resolve
 The environment is data, so a test resolves homes without touching the real
 ones, and the caller decides whose environment it is. Each home is its UENV
 variable, then the standard one behind it, then its default: `/tmp` or `TEMP`
-for the temporary home, and the data and cache homes as above. The runtime home has no
-default, since a guessed one could sit where another user writes; without one
-the transient scratch falls back beside the bulk one (`runtime/scratch.rs`).
+for the temporary home, and the data and cache homes as above. The runtime home
+has no default, since a guessed one could sit where another user writes;
+without one the transient scratch falls back beside the bulk one
+(`runtime/scratch.rs`).
 
 ### field diagnostics
 Each variable ignored for being empty or relative, kept for the caller to

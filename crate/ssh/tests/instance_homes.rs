@@ -20,7 +20,7 @@ fn the_engine_homes_are_the_mcps_own() {
     for var in ["APPDATA", "LOCALAPPDATA"] {
         env.insert(var.to_string(), std::env::var(var).expect("Windows names it"));
     }
-    let xdg =[("XDG_DATA_HOME", root.path().join("xdg-data")), ("XDG_CACHE_HOME", root.path().join("xdg-cache"))];
+    let xdg = [("XDG_DATA_HOME", root.path().join("xdg-data")), ("XDG_CACHE_HOME", root.path().join("xdg-cache"))];
     for with_xdg in [false, true] {
         unsafe {
             std::env::set_var("HOME", &home);
@@ -41,8 +41,13 @@ fn the_engine_homes_are_the_mcps_own() {
                 env.remove(*var);
             }
         }
+        // The MCP reads XDG's variables before the platform's folders on every platform.
         let mcp = directories::BaseDirs::new().expect("the MCP's base dirs");
-        let (data, cache) = (mcp.data_dir().to_path_buf(), mcp.cache_dir().to_path_buf());
+        let (data, cache) = if with_xdg {
+            (xdg[0].1.clone(), xdg[1].1.clone())
+        } else {
+            (mcp.data_dir().to_path_buf(), mcp.cache_dir().to_path_buf())
+        };
         std::fs::create_dir_all(&data).unwrap();
         std::fs::create_dir_all(&cache).unwrap();
         let resolved = InstanceHomes::resolve(&env).expect("every home resolves");

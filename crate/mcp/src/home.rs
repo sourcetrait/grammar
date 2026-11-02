@@ -68,14 +68,14 @@ pub(crate) fn home_var(uenv: &str) -> Option<PathBuf> {
     env_dir(uenv).or_else(|| uenv_standard(uenv).and_then(env_dir))
 }
 
-/// The cache home's root, `UENV_USR_CACHE` or else XDG's, read once.
+/// The cache home's root: `UENV_USR_CACHE`, `XDG_CACHE_HOME`, or the platform's.
 static CACHE_ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
-    env_dir("UENV_USR_CACHE").unwrap_or_else(|| base_dirs().cache_dir().to_path_buf())
+    home_var("UENV_USR_CACHE").unwrap_or_else(|| base_dirs().cache_dir().to_path_buf())
 });
 
-/// The data home's root, `UENV_USR_DATA` or else XDG's, read once.
+/// The data home's root: `UENV_USR_DATA`, `XDG_DATA_HOME`, or the platform's.
 static DATA_ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
-    env_dir("UENV_USR_DATA").unwrap_or_else(|| base_dirs().data_dir().to_path_buf())
+    home_var("UENV_USR_DATA").unwrap_or_else(|| base_dirs().data_dir().to_path_buf())
 });
 
 impl Config {

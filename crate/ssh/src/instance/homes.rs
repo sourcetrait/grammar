@@ -21,7 +21,7 @@ enum Default {
     /// An absolute directory of its own.
     #[cfg(not(windows))]
     Absolute(&'static str),
-    /// A third variable, as Windows reads `TEMP` after `TMP`.
+    /// A variable read last: `TEMP` after `TMP`, a known folder's after XDG's.
     #[cfg(windows)]
     Var(&'static str),
     /// None: the home stays unresolved.
@@ -38,29 +38,29 @@ const TMP: HomeSpec = HomeSpec { name: "tmp", uenv: "UENV_USR_TMP", standard: So
 
 const RUNTIME: HomeSpec = HomeSpec { name: "runtime", uenv: "UENV_USR_TRANSIENT", standard: Some("XDG_RUNTIME_DIR"), default: Default::Unset };
 
-/// The data home: its UENV variable, else XDG's, as the MCP resolves it.
+/// The data home: its UENV variable, else XDG's, else XDG's default under `HOME`.
 #[cfg(not(any(target_os = "macos", target_os = "ios", windows)))]
 const DATA: HomeSpec = HomeSpec { name: "data", uenv: "UENV_USR_DATA", standard: Some("XDG_DATA_HOME"), default: Default::UnderHome(".local/share") };
 
-/// The cache home: its UENV variable, else XDG's, as the MCP resolves it.
+/// The cache home: its UENV variable, else XDG's, else XDG's default under `HOME`.
 #[cfg(not(any(target_os = "macos", target_os = "ios", windows)))]
 const CACHE: HomeSpec = HomeSpec { name: "cache", uenv: "UENV_USR_CACHE", standard: Some("XDG_CACHE_HOME"), default: Default::UnderHome(".cache") };
 
-/// The data home: its UENV variable, else `APPDATA`, as the MCP resolves it.
+/// The data home: its UENV variable, else XDG's, else `APPDATA`.
 #[cfg(windows)]
-const DATA: HomeSpec = HomeSpec { name: "data", uenv: "UENV_USR_DATA", standard: Some("APPDATA"), default: Default::Unset };
+const DATA: HomeSpec = HomeSpec { name: "data", uenv: "UENV_USR_DATA", standard: Some("XDG_DATA_HOME"), default: Default::Var("APPDATA") };
 
-/// The cache home: its UENV variable, else `LOCALAPPDATA`, as the MCP resolves it.
+/// The cache home: its UENV variable, else XDG's, else `LOCALAPPDATA`.
 #[cfg(windows)]
-const CACHE: HomeSpec = HomeSpec { name: "cache", uenv: "UENV_USR_CACHE", standard: Some("LOCALAPPDATA"), default: Default::Unset };
+const CACHE: HomeSpec = HomeSpec { name: "cache", uenv: "UENV_USR_CACHE", standard: Some("XDG_CACHE_HOME"), default: Default::Var("LOCALAPPDATA") };
 
-/// The data home: its UENV variable, else the platform's, as the MCP resolves it.
+/// The data home: its UENV variable, else XDG's, else the platform's under `HOME`.
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-const DATA: HomeSpec = HomeSpec { name: "data", uenv: "UENV_USR_DATA", standard: None, default: Default::UnderHome("Library/Application Support") };
+const DATA: HomeSpec = HomeSpec { name: "data", uenv: "UENV_USR_DATA", standard: Some("XDG_DATA_HOME"), default: Default::UnderHome("Library/Application Support") };
 
-/// The cache home: its UENV variable, else the platform's, as the MCP resolves it.
+/// The cache home: its UENV variable, else XDG's, else the platform's under `HOME`.
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-const CACHE: HomeSpec = HomeSpec { name: "cache", uenv: "UENV_USR_CACHE", standard: None, default: Default::UnderHome("Library/Caches") };
+const CACHE: HomeSpec = HomeSpec { name: "cache", uenv: "UENV_USR_CACHE", standard: Some("XDG_CACHE_HOME"), default: Default::UnderHome("Library/Caches") };
 
 /// A worker's homes, each an existing absolute directory, the runtime's optional.
 #[derive(Debug, Clone, PartialEq, Eq)]

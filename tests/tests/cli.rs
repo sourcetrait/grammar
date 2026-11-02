@@ -200,3 +200,37 @@ fn cli_deny_does_not_reach_the_one_shot_path() {
     let v = stdout_envelope(&out);
     assert!(v["result"]["signatures"].as_str().is_some(), "got {v}");
 }
+
+/// The namespace's homes follow XDG's variables where no UENV variable names them.
+///
+/// `directories` reads XDG's variables on Linux alone, so this holds the host's
+/// own XDG step on macOS and Windows as well.
+#[tested]
+fn cli_homes_follow_xdg_where_no_uenv_names_them() {
+    let t = testing::test!({ .using_temp_dir() });
+    let out = run_output_xdg(
+        t.temp_dir(),
+        &[
+            "--id",
+            "cid",
+            "cli",
+            "execute",
+            "def execute [data: nothing]: nothing -> record<n: int> { {n: 1} }",
+            "null",
+        ],
+    );
+    assert!(
+        out.status.success(),
+        "cli execute should exit 0; got stdout={:?} stderr={:?}",
+        stdout_str(&out),
+        String::from_utf8_lossy(&out.stderr),
+    );
+    let v = stdout_envelope(&out);
+    let nonce = v["nonce"].as_str().expect("the envelope carries its nonce").to_string();
+    let namespace = |home: &str| t.temp_dir().join(home).join("grammar").join("mcp").join("cid").join("default");
+    assert!(namespace("xdg-data").is_dir(), "the namespace's data home lands under XDG_DATA_HOME");
+    assert!(
+        namespace("xdg-cache").join("execute").join(&nonce).is_dir(),
+        "the call's artifacts land under XDG_CACHE_HOME",
+    );
+}
