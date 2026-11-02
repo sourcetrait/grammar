@@ -110,13 +110,15 @@ missing, and ends with its session, opened at the first call or a connect.
 ## SEQUENCE: DeployRemoteGrammarEngine
 1. The package for the host's os and arch in `$UENV_USR_CACHE/grammar/zst/`,
    which holds the latest release's alone.
-2. Over ssh: the package copied to the host, its three members extracted, and
-   its record checked, `sha256sum --check grammar.tar.sha256`.
-3. The host's `<opt>/grammar` emptied and `grammar.tar` unpacked into it.
-4. Its `bin/grammar-mcp` and `bin/grammar-ssh` linked from the user's local
-   bin.
-5. OpenRemoteGrammarEngine, `--command` naming its `bin/grammar-ssh` where the
-   login's `PATH` finds another first.
+2. Over ssh: the package copied to the host, its six members extracted, and
+   `package-grammar.tar` unpacked beside them.
+3. Its install script run there, `install.bash --place uenv-usr-local` under
+   bash 5, or on Windows `install.ps1 --place uenv-usr-local` in an elevated
+   pwsh 7: it checks `grammar.tar` against its record, fills
+   `$UENV_USR_LOCAL/opt/grammar`, and links each of its `bin/` from
+   `$UENV_USR_LOCAL/bin`.
+4. OpenRemoteGrammarEngine, `--command` naming the tree's `bin/grammar-ssh`
+   where the login's `PATH` finds another first.
 
 ## Command Signatures
 Note: Each begins with `interface `
