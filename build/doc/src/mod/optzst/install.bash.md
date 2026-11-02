@@ -1,12 +1,14 @@
 # install.bash
 
-An OptZst package's install for Linux and macOS, generic to any package: it
-reads the package's name from `package.nuon` and finds `<name>.tar` and its
-record beside itself, where the package's members were extracted.
+An OptZst package's install for Linux, generic to any package: it reads the
+package's name from `package.nuon` and finds `<name>.tar` and its record beside
+itself, where the package's members were extracted. macOS takes `install.zsh`
+and Windows `install.ps1`, one script an OS.
 
 ## The shell
-bash 5 and later alone; an older bash is refused before anything else runs.
-macOS's own `/bin/bash` is 3.2, so a Mac runs it with a newer bash.
+bash 5 and later alone, on Linux alone: an older bash is refused before
+anything else runs, and a host whose `uname -s` isn't `Linux` is refused, naming
+`install.zsh` for macOS and `install.ps1` for Windows.
 
 ## --place and --dir
 `uenv-usr-local` and `uenv-usr-adhoc` name a UENV home by its variable,
@@ -21,8 +23,8 @@ field alone by a pattern anchored to a key's position; OptZst names hold
 letters, digits, dots, and dashes, never `_`.
 
 ## The record
-`<name>.tar` is checked against its sha256 record, by `sha256sum` or, on
-macOS, `shasum -a 256`, before a byte of it is unpacked. The signatures are
+`<name>.tar` is checked against its sha256 record by `sha256sum`, coreutils',
+before a byte of it is unpacked. The signatures are
 the consumer's to check with a key it trusts; the script carries no key.
 
 ## The home

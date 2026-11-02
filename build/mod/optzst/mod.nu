@@ -3,8 +3,9 @@
 # `<name>_<semver>_<os>_<arch>.opt.tar.zst`, no field holding `_`: a zstd tar
 # of exactly six files, `<name>.tar` and `package-<name>.tar`, each with its
 # sha256sum record and its detached OpenPGP signature. The package tar holds
-# `package.nuon` and the install scripts, `install.bash` and `install.ps1`,
-# which unpack the inner tar into an opt home.
+# `package.nuon` and an install script for each OS, `install.bash` for Linux,
+# `install.zsh` for macOS, and `install.ps1` for Windows, which unpack the inner
+# tar into an opt home.
 
 # The tar options that make an archive's bytes depend on its content alone.
 const REPRODUCIBLE = [
@@ -19,7 +20,7 @@ const REPRODUCIBLE = [
 
 # The install scripts every package carries, kept beside this module.
 const SCRIPT_DIR = (path self | path dirname)
-const SCRIPTS = ['install.bash' 'install.ps1']
+const SCRIPTS = ['install.bash' 'install.zsh' 'install.ps1']
 
 # The fields a `package.nuon` holds, sorted.
 const PACKAGE_FIELDS = ['name' 'summary' 'title']

@@ -20,8 +20,9 @@ The scripts live beside this module, found from its own path, so a package's
 build names no path for them.
 
 ## const SCRIPTS
-`install.bash` for Linux and macOS, `install.ps1` for Windows and for any host
-with PowerShell; each package carries both.
+One install script an OS, each in that OS's own shell: `install.bash` for
+Linux, `install.zsh` for macOS, whose own bash is 3.2, and `install.ps1` for
+Windows. Each refuses another OS's host, and every package carries all three.
 
 ## const PACKAGE_FIELDS
 A `package.nuon` holds `name`, `title`, and `summary` and nothing else, so a

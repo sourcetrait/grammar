@@ -16,8 +16,9 @@ Tested with:
 Building
 --------------------------------------------------------------------------------
 `nu build.nu` builds the release, a signed OptZst in `target/pkg/` carrying the
-MCP, nushell, their plugins, and the grammar and gram equips, with
-`install.bash` and `install.ps1` to place it.
+MCP, nushell, their plugins, and the grammar and gram equips, with an install
+script for each OS to place it: `install.bash` for Linux, `install.zsh` for
+macOS, and `install.ps1` for Windows.
 
 It requires gram's repository cloned beside this one, as `gram`: `ext/gram`
 links to it, and the package carries its equip.
@@ -42,11 +43,12 @@ its `bin/` entries from that home's `bin/`; `--place dir --dir <path>` installs
 into a directory of your own and links nothing. The script checks `grammar.tar`
 against its record first.
 
-- Linux: bash 5 or later, and a tar that reads zstd, with `zstd` installed.
-- macOS: macOS ships bash 3.2, which the script refuses, and a tar that reads
-  zstd only through the `zstd` program. Homebrew's `bash` and `zstd` serve:
-  run `install.bash` under Homebrew's bash, with `zstd` on `PATH` for the
-  unpack.
+- Linux: `install.bash` under bash 5 or later, and a tar that reads zstd, with
+  `zstd` installed.
+- macOS: `install.zsh` under the zsh macOS ships, as `zsh -f install.zsh`, so
+  your startup files leave its environment alone. macOS's tar reads zstd only
+  through the `zstd` program, so the unpack takes one on `PATH`, Homebrew's
+  among them.
 - Windows: `install.ps1` under PowerShell 7, in an elevated session for a UENV
   place, its links being symlinks.
 

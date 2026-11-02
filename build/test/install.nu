@@ -1,20 +1,24 @@
-# The OptZst install scripts held to their cases, under one shell.
+# The OptZst install scripts held to their cases, one OS's script at a time.
 #
-# Usage: `nu install.nu <bash|pwsh>`, from anywhere. A fixture package, its
-# inner tar, record, and `package.nuon` beside the two scripts, is made in a
-# scratch directory; each case runs the script there and is checked by its
-# exit, its last line, and the files and links it leaves. The table prints,
-# and any failed case exits 1. A Windows run needs an elevated session for its
-# links.
+# Usage: `nu install.nu <bash|zsh|pwsh>`, from anywhere, on the shell's own OS:
+# bash on Linux, zsh on macOS, pwsh on Windows, each script refusing another.
+# A fixture package, its inner tar, record, and `package.nuon` beside the
+# three scripts, is made in a scratch directory; each case runs the script
+# there and is checked by its exit, its last line, and the files and links it
+# leaves. The table prints, and any failed case exits 1. A Windows run needs an
+# elevated session for its links.
 
 const SCRIPTS = (path self | path expand | path dirname | path dirname | path join 'mod' 'optzst')
+
+# Each shell's script.
+const SCRIPT_OF = {bash: 'install.bash', zsh: 'install.zsh', pwsh: 'install.ps1'}
 
 # The fixture's name, a valid OptZst name.
 const NAME = 'fixture'
 
 def main [shell: string]: nothing -> nothing {
-    if $shell not-in ['bash' 'pwsh'] {
-        error make {msg: $"no shell `($shell)`: bash or pwsh"}
+    if $shell not-in ($SCRIPT_OF | columns) {
+        error make {msg: $"no shell `($shell)`: bash, zsh, or pwsh"}
     }
     let scratch: path = (mktemp --directory --tmpdir 'optzst-install.XXXXXX')
     let package: path = ($scratch | path join 'package')
@@ -41,7 +45,7 @@ def main [shell: string]: nothing -> nothing {
     }
 }
 
-# A package's members as the install sees them, beside its two scripts.
+# A package's members as the install sees them, beside its three scripts.
 def fixture [dir: path]: nothing -> nothing {
     let tree: path = ($dir | path join 'tree')
     mkdir ($tree | path join 'bin') ($tree | path join 'share')
@@ -52,11 +56,12 @@ def fixture [dir: path]: nothing -> nothing {
         ^chmod 0755 ($tree | path join 'bin' 'alpha') ($tree | path join 'bin' 'beta')
     }
     let tarball: path = ($dir | path join $"($NAME).tar")
-    ^tar --create --file $tarball --directory $tree bin share
+    # short options, which macOS's bsdtar and GNU tar read alike
+    ^tar -c -f $tarball -C $tree bin share
     rm --recursive $tree
     $"(open --raw $tarball | hash sha256)  ($NAME).tar\n" | save $"($tarball).sha256"
     {name: $NAME, title: Fixture, summary: 'The OptZst install scripts test package'} | to nuon | save ($dir | path join 'package.nuon')
-    for script in ['install.bash' 'install.ps1'] {
+    for script in ($SCRIPT_OF | values) {
         cp ($SCRIPTS | path join $script) ($dir | path join $script)
     }
 }
@@ -75,11 +80,12 @@ def invoke [
     args: list<string>
     vars: record
 ]: nothing -> record<exit: int, last: string, err: string> {
+    let script: path = ($package | path join ($SCRIPT_OF | get $shell))
     let result: record<stdout: string, stderr: string, exit_code: int> = (with-env $vars {
-        if $shell == 'bash' {
-            ^bash ($package | path join 'install.bash') ...$args | complete
-        } else {
-            ^pwsh -NoProfile -NonInteractive -File ($package | path join 'install.ps1') ...$args | complete
+        match $shell {
+            'bash' => { ^bash $script ...$args | complete }
+            'zsh' => { ^zsh -f $script ...$args | complete }
+            _ => { ^pwsh -NoProfile -NonInteractive -File $script ...$args | complete }
         }
     })
     {

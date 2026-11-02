@@ -1,11 +1,12 @@
 # install.ps1
 
-An OptZst package's install for Windows, and for Linux and macOS where
-PowerShell is installed, the same install as `install.bash`, its arguments
-spelled the same.
+An OptZst package's install for Windows, the same install as `install.bash`'s
+for Linux and `install.zsh`'s for macOS, its arguments spelled the same.
 
 ## The shell
-PowerShell 7 and later alone; Windows PowerShell 5.1 is refused. The script
+PowerShell 7 and later alone, on Windows alone: Windows PowerShell 5.1 is
+refused, and so is a host where `$IsWindows` is false, naming `install.bash`
+for Linux and `install.zsh` for macOS. The script
 declares no parameters and reads `--place` and `--dir` from `$args` itself, so
 both scripts take one command line.
 

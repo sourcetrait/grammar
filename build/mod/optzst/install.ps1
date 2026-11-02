@@ -1,5 +1,6 @@
 #!/usr/bin/env pwsh
-# An OptZst package's install: its inner tar checked and unpacked into a home.
+# An OptZst package's install on Windows: its inner tar checked and unpacked
+# into a home.
 #
 # Usage: `pwsh install.ps1 --place <place> [--dir <path>]`, beside the
 # package's members, `<name>.tar` and its `.sha256` record, with the
@@ -23,6 +24,9 @@ function Fail([string] $Message) {
 
 if ($PSVersionTable.PSVersion.Major -lt 7) {
     Fail "PowerShell 7 or later is required, this is $($PSVersionTable.PSVersion)"
+}
+if (-not $IsWindows) {
+    Fail "install.ps1 is Windows': Linux takes install.bash, macOS install.zsh"
 }
 
 $place = $null

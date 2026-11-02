@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# An OptZst package's install: its inner tar checked and unpacked into a home.
+# An OptZst package's install on Linux: its inner tar checked and unpacked into
+# a home.
 #
 # Usage: `bash install.bash --place <place> [--dir <path>]`, beside the
 # package's members, `<name>.tar` and its `.sha256` record, with the
@@ -22,6 +23,7 @@ fail() {
 if ((BASH_VERSINFO[0] < 5)); then
     fail "bash 5 or later is required, this is $BASH_VERSION"
 fi
+[[ "$(uname -s)" == Linux ]] || fail "install.bash is Linux's: macOS takes install.zsh, Windows install.ps1"
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 place=
@@ -82,13 +84,8 @@ tarball="$here/$name.tar"
 sums="$tarball.sha256"
 [[ -f "$tarball" && -f "$sums" ]] || fail "no $name.tar and its record beside install.bash"
 read -r expected _ <"$sums"
-if command -v sha256sum >/dev/null 2>&1; then
-    read -r actual _ < <(sha256sum "$tarball")
-elif command -v shasum >/dev/null 2>&1; then
-    read -r actual _ < <(shasum -a 256 "$tarball")
-else
-    fail "neither sha256sum nor shasum is installed"
-fi
+command -v sha256sum >/dev/null 2>&1 || fail "sha256sum is not installed"
+read -r actual _ < <(sha256sum "$tarball")
 [[ "$actual" == "$expected" ]] || fail "$name.tar does not match its record"
 
 if [[ -L "$home" ]]; then
