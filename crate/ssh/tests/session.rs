@@ -1,4 +1,4 @@
-//! A worker over pipes: its hello, its calls and asks, its refusals, and its end.
+//! grammar-ssh over pipes: its hello, its calls and asks, its refusals, and its end.
 
 mod support;
 
@@ -11,15 +11,15 @@ use sourcetrait_grammar_client::{Session, SessionEvent};
 use sourcetrait_grammar_protocol::{
     ControlAnswer, ControlRequest, EngineCommand, EngineRequest, EngineResponse, ExecuteRequest, FromEngineSys,
     HelloReply, Host, HostAnswer, Instance, LIMITS_DEFAULT, Limits, McpFrame, NuVal, SessionAsk, SessionClose,
-    ToEngineSys, TransportError, ValueAnswer, SshFrame,
+    SshFrame, ToEngineSys, TransportError, ValueAnswer,
 };
 use sourcetrait_grammar_scratch::NamespaceLock;
-use support::{RawSession, TestInstance, exit_within, hello, open, runtime, spawn_worker, stderr_of};
+use support::{RawSession, TestInstance, exit_within, hello, open, runtime, spawn_ssh, stderr_of};
 
 /// A definition that sleeps past any test's wait, until it is cancelled.
 const SLEEP: &str = "def execute [data: nothing]: nothing -> nothing { sleep 30sec }";
 
-/// How long a worker may take to exit once its session ends.
+/// How long grammar-ssh may take to exit once its session ends.
 const EXIT_DEADLINE: Duration = Duration::from_secs(30);
 
 /// `definition` run on null data under `nonce`.
@@ -88,6 +88,8 @@ fn a_session_serves_info_and_a_call() {
         let nonces = datum::NonceGenerator::new();
         let answer = value(&session, execute(nonces.generate(), "def execute [data: nothing]: nothing -> record<n: int> { {n: 42} }")).await;
         assert_eq!(answer, record(&[("n", NuVal::Int(42))]));
+        let nom = value(&session, execute(nonces.generate(), "def execute [data: nothing]: nothing -> record<nom: string> { {nom: $env.EQUIP_MCP_NOM} }")).await;
+        assert_eq!(nom, record(&[("nom", NuVal::String(session.ssh().nom.clone()))]), "an eval reads its engine's nom");
         session.close();
         let status = exit_within(&mut child, EXIT_DEADLINE).await;
         let stderr = stderr_of(&mut child).await;
@@ -187,13 +189,13 @@ fn an_evals_asks_reach_the_mcp_and_its_answers_come_back() {
         assert_eq!(
             value(&session, execute(nonces.generate(), config)).await,
             record(&[("cpu", NuVal::Float(0.5)), ("rate", NuVal::Int(10))]),
-            "the MCP's config, the worker's own supervisor lines in it",
+            "the MCP's config, grammar-ssh's own supervisor lines in it",
         );
     });
 }
 
 #[test]
-fn a_second_worker_on_a_namespace_is_refused() {
+fn a_second_grammar_ssh_on_a_namespace_is_refused() {
     let instance = TestInstance::new("fixture");
     runtime().block_on(async {
         let (_first, opened) = open(&instance, "default", LIMITS_DEFAULT).await;
@@ -201,38 +203,39 @@ fn a_second_worker_on_a_namespace_is_refused() {
         let (mut second, refused) = open(&instance, "default", LIMITS_DEFAULT).await;
         let refusal = refused.expect_err("the second is refused");
         assert_eq!(refusal.kind(), "remote::engine::unavailable", "{refusal:?}");
-        assert!(refusal.message().contains("runtime::namespace_held"), "{}", refusal.message());
+        assert!(refusal.message().contains("namespace::held"), "{}", refusal.message());
         let status = exit_within(&mut second, EXIT_DEADLINE).await;
         assert_eq!(status.code(), Some(75), "{status:?}");
-        assert_eq!(TestInstance::worker_dirs(&instance.home("tmp")).len(), 1, "the refused worker made no scratch");
+        assert_eq!(TestInstance::scratch_dirs(&instance.home("tmp")).len(), 1, "the refused one made no scratch");
     });
 }
 
 #[test]
-fn the_end_of_stdin_ends_the_session_its_calls_and_its_files() {
+fn the_end_of_stdin_ends_the_session_and_removes_its_scratch_and_cache() {
     let instance = TestInstance::new("fixture");
+    let cache_home = instance.load("default").cache_home();
     runtime().block_on(async {
-        let mut child = spawn_worker(&instance, "default");
+        let mut child = spawn_ssh(&instance, "default");
         let (mut raw, reply) = RawSession::open(&mut child, hello(&instance, "default", LIMITS_DEFAULT)).await;
         assert!(matches!(reply, HelloReply::Accepted(_)), "{reply:?}");
         let nonce = datum::NonceGenerator::new().generate();
         raw.send(&McpFrame::Request { id: 1, request: execute(nonce, SLEEP) }).await;
-        let cache = instance.load("default").paths.cache.join("execute").join(nonce.to_string());
+        let call = cache_home.join("execute").join(nonce.to_string());
         for _ in 0..100 {
-            if cache.is_dir() {
+            if call.is_dir() {
                 break;
             }
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
-        assert!(cache.is_dir(), "the call's cache entry, made as it runs");
+        assert!(call.is_dir(), "the call's cache entry, made as it runs");
         drop(raw.sink);
         let status = exit_within(&mut child, EXIT_DEADLINE).await;
         let stderr = stderr_of(&mut child).await;
         assert!(status.success(), "{status:?}: {stderr}");
         assert!(stderr.contains("the MCP's stream ended"), "{stderr}");
-        assert!(!cache.exists(), "the session's call cache removed at its end");
-        assert!(TestInstance::worker_dirs(&instance.home("tmp")).is_empty(), "its scratch removed");
-        NamespaceLock::acquire(&instance.load("default").paths.lock).expect("its lock released");
+        assert!(!cache_home.exists(), "its cache home removed at its end, its logs among it");
+        assert!(TestInstance::scratch_dirs(&instance.home("tmp")).is_empty(), "its scratch removed");
+        NamespaceLock::acquire(&instance.load("default").lock_file()).expect("its lock released");
     });
 }
 
@@ -240,7 +243,7 @@ fn the_end_of_stdin_ends_the_session_its_calls_and_its_files() {
 fn a_session_with_no_frame_in_its_window_ends() {
     let instance = TestInstance::new("fixture");
     runtime().block_on(async {
-        let mut child = spawn_worker(&instance, "default");
+        let mut child = spawn_ssh(&instance, "default");
         let (mut raw, reply) = RawSession::open(&mut child, hello(&instance, "default", LIMITS_DEFAULT)).await;
         assert!(matches!(reply, HelloReply::Accepted(_)), "{reply:?}");
         let frame = tokio::time::timeout(Duration::from_secs(45), raw.next()).await.expect("a frame in the window's time");
@@ -259,11 +262,11 @@ fn a_session_with_no_frame_in_its_window_ends() {
 fn a_hello_for_another_namespace_is_refused() {
     let instance = TestInstance::new("fixture");
     runtime().block_on(async {
-        let mut child = spawn_worker(&instance, "default");
+        let mut child = spawn_ssh(&instance, "default");
         let (_raw, reply) = RawSession::open(&mut child, hello(&instance, "other", LIMITS_DEFAULT)).await;
         assert!(matches!(reply, HelloReply::Refused(TransportError::WrongNamespace { .. })), "{reply:?}");
         let status = exit_within(&mut child, EXIT_DEADLINE).await;
         assert_eq!(status.code(), Some(76), "{status:?}");
-        assert!(TestInstance::worker_dirs(&instance.home("tmp")).is_empty(), "its scratch removed");
+        assert!(TestInstance::scratch_dirs(&instance.home("tmp")).is_empty(), "its scratch removed");
     });
 }

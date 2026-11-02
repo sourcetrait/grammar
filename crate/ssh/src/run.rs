@@ -1,16 +1,38 @@
-//! grammar-ssh's entry: its command line parsed and its one session served.
+//! grammar-ssh's entry: its controller started, its one session served, its end.
 use crate::*;
+
+/// The stack every runtime worker gets, the size of an eval thread's.
+const WORKER_STACK_SIZE: usize = 64 * 1024 * 1024;
+
+const _: () = assert!(WORKER_STACK_SIZE >= EVAL_STACK_SIZE);
+
+/// How long the end waits for the runtime's tasks to finish.
+const SHUTDOWN_GRACE: std::time::Duration = std::time::Duration::from_secs(2);
 
 /// Parses grammar-ssh's command line, serves its session, and exits by its result.
 pub fn run_main() -> process::ExitCode {
-    let GrammarSshCmd::Serve { id, namespace, workdir } = GrammarSshCli::parse().command;
-    match serve(&id, &namespace, workdir.as_deref()) {
+    let cli = Cli::parse();
+    let ended = wire()
+        .map_err(|e| GrammarSshError::Session {
+            reason: format!("the wire's descriptors: {e}"),
+        })
+        .and_then(|(reader, writer)| {
+            let runtime = tk::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .thread_stack_size(WORKER_STACK_SIZE)
+                .build()
+                .map_err(|e| GrammarSshError::TasksUnavailable { reason: e.to_string() })?;
+            let ended = runtime.block_on(run(cli, reader, writer));
+            runtime.shutdown_timeout(SHUTDOWN_GRACE);
+            ended
+        });
+    match ended {
         Ok(end) => {
-            eprintln!("grammar-ssh: {end}, stopping");
+            eprintln!("grammar: {end}, stopping");
             process::ExitCode::SUCCESS
         }
         Err(e) => {
-            eprintln!("grammar-ssh: {e}");
+            eprintln!("grammar: {e}");
             process::ExitCode::from(e.exit_code())
         }
     }
@@ -43,50 +65,58 @@ fn wire() -> io::Result<(tk::Stdin, tk::File)> {
     Ok((tk::stdin(), tk::File::from_std(fs::File::from(out))))
 }
 
-/// `id` and `namespace`'s session, in `workdir` or its start, to its end.
-fn serve(
-    id: &str,
-    namespace: &str,
-    workdir: Option<&Path>,
+/// The controller started and its session served, or its start's failure refused.
+async fn run(
+    cli: Cli,
+    reader: tk::Stdin,
+    writer: tk::File,
 ) -> GrammarSshResult<SessionEnd> {
-    let (reader, writer) = wire().map_err(|e| GrammarSshError::Session {
-        reason: format!("the wire's descriptors: {e}"),
-    })?;
-    let env: BTreeMap<String, String> = std::env::vars_os()
-        .filter_map(|(key, value)| Some((key.into_string().ok()?, value.into_string().ok()?)))
-        .collect();
-    let started = start_dir(workdir).and_then(|workdir| {
-        InstanceConfig::load(current_uid(), id, namespace, &workdir, &env)
-    });
-    let started = started.and_then(|config| {
-        for line in &config.homes.diagnostics {
-            eprintln!("grammar-ssh: {line}");
-        }
-        enter(&config.workdir)?;
-        Runtime::start(config)
-    });
-    let runtime = match started {
-        Ok(runtime) => runtime,
+    let controller = match start(&cli).await {
+        Ok(controller) => controller,
         Err(e) => {
-            refuse_with(reader, writer, &e);
+            let refusal = TransportError::Unavailable {
+                reason: format!("{}: {e}", e.kind().name()),
+            };
+            refuse(reader, writer, refusal).await;
             return Err(e);
         }
     };
-    for line in runtime.diagnostics() {
-        eprintln!("grammar-ssh: {line}");
-    }
+    let config = controller.config();
     eprintln!(
-        "grammar-ssh: serving {}/{} as {}, pid {}",
-        runtime.identity().id,
-        runtime.identity().namespace,
-        runtime.nom(),
+        "grammar: serving {}/{} as {}, pid {}",
+        config.id,
+        config.namespace,
+        controller.nom(),
         process::id(),
     );
-    let end = runtime.serve(reader, writer);
-    let shut = runtime.shutdown();
+    let end = controller.serve(reader, writer).await;
+    let shut = controller.shutdown().await;
     let end = end?;
     shut?;
     Ok(end)
+}
+
+/// The config, the workdir entered, the lock, the scratch, and the engine's start.
+async fn start(cli: &Cli) -> GrammarSshResult<GrammarSshController> {
+    let env: BTreeMap<String, String> = std::env::vars_os()
+        .filter_map(|(key, value)| Some((key.into_string().ok()?, value.into_string().ok()?)))
+        .collect();
+    let workdir = start_dir(cli.workdir.as_deref())?;
+    let config = Config::load(current_uid(), &cli.id, &cli.namespace, &workdir, &env)?;
+    for line in &config.homes.diagnostics {
+        eprintln!("grammar: {line}");
+    }
+    enter(&config.workdir)?;
+    let lock = NamespaceLock::acquire(&config.lock_file())?;
+    let scratch = ScratchDirs::create(&config.homes)?;
+    for line in scratch.diagnostics() {
+        eprintln!("grammar: {line}");
+    }
+    if let Err(e) = init_engine(&config, &scratch).and_then(|()| ensure_substrate()) {
+        let _ = scratch.remove();
+        return Err(e);
+    }
+    GrammarSshController::start(Arc::new(config), scratch, lock).await
 }
 
 /// The workdir named, or the directory the session started in when none is.
@@ -106,19 +136,4 @@ fn enter(workdir: &Path) -> GrammarSshResult<()> {
         path: workdir.to_path_buf(),
         reason: format!("entering it: {e}"),
     })
-}
-
-/// A start's failure told the MCP: its hello read and refused with the reason.
-fn refuse_with(
-    reader: tk::Stdin,
-    writer: tk::File,
-    e: &GrammarSshError,
-) {
-    let refusal = TransportError::Unavailable {
-        reason: format!("{}: {e}", e.kind().name()),
-    };
-    match tk::runtime::Builder::new_current_thread().enable_all().build() {
-        Ok(tasks) => tasks.block_on(refuse(reader, writer, refusal)),
-        Err(io) => eprintln!("grammar-ssh: the refusal's runtime: {io}"),
-    }
 }

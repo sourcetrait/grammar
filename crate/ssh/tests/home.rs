@@ -1,8 +1,8 @@
-//! The worker's data and cache homes against the MCP's, under one environment.
+//! grammar-ssh's data and cache homes against the MCP's, under one environment.
 
 use std::collections::BTreeMap;
 
-use sourcetrait_grammar_ssh::*;
+use sourcetrait_grammar_ssh::guts::Homes;
 
 /// Alone in its binary, so nothing reads the environment while this test sets it.
 #[test]
@@ -15,7 +15,7 @@ fn the_engine_homes_are_the_mcps_own() {
     std::fs::create_dir_all(&tmp).unwrap();
     env.insert("UENV_USR_TMP".to_string(), tmp.to_string_lossy().into_owned());
     env.insert("HOME".to_string(), home.to_string_lossy().into_owned());
-    // On Windows both read the known folders, the worker through their variables.
+    // On Windows both read the known folders, grammar-ssh through their variables.
     #[cfg(windows)]
     for var in ["APPDATA", "LOCALAPPDATA"] {
         env.insert(var.to_string(), std::env::var(var).expect("Windows names it"));
@@ -50,7 +50,7 @@ fn the_engine_homes_are_the_mcps_own() {
         };
         std::fs::create_dir_all(&data).unwrap();
         std::fs::create_dir_all(&cache).unwrap();
-        let resolved = InstanceHomes::resolve(&env).expect("every home resolves");
+        let resolved = Homes::resolve(&env).expect("every home resolves");
         assert_eq!((resolved.data, resolved.cache), (data, cache), "XDG's variables set: {with_xdg}");
     }
 }

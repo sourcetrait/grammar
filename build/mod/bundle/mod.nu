@@ -3,7 +3,7 @@
 # The MCP's package: its binary is the release's, its version the release's.
 const MCP_CRATE = 'sourcetrait_grammar_mcp'
 
-# The worker's package, whose `grammar-ssh` the tree carries beside the MCP.
+# grammar-ssh's package, whose binary the tree carries beside the MCP.
 const SSH_CRATE = 'sourcetrait_grammar_ssh'
 
 # The file-name prefix of a plugin binary, the one the MCP registers by.
@@ -44,7 +44,7 @@ export def licenses [root: path]: nothing -> nothing {
         | save --force ($root | path join 'LICENSES-EXTERNAL.txt'))
 }
 
-# Build the MCP, the worker, and the plugins in cargo's `release` or `debug` profile.
+# Build the MCP, grammar-ssh, and the plugins in cargo's `release` or `debug` profile.
 export def compile [root: path, profile: string]: nothing -> nothing {
     let flags: list<string> = (profile_flags $profile '--release')
     let crates: list<string> = ([$MCP_CRATE $SSH_CRATE] | append (plugin_targets $root | get package | uniq))
@@ -101,7 +101,7 @@ export def package_semver [root: path, profile: string]: nothing -> string {
 
 # Assemble the package's tree in `pkg/<profile>` in cargo's target directory; returns it.
 #
-# `bin/` holds the MCP and the worker, `nu/bin/` nushell, `plugin/core/`
+# `bin/` holds the MCP and grammar-ssh, `nu/bin/` nushell, `plugin/core/`
 # nushell's core plugins from `nu_root`, the install nushell made,
 # `plugin/grammar/` the workspace's own, `equip/` the builtins' sources, and
 # `mcp/skill/` the MCP's skills. Each binary takes `os`'s executable suffix.

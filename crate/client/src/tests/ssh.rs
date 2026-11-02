@@ -138,16 +138,16 @@ fn a_windows_hosts_grammar_ssh_line_goes_bare() {
         platform: Platform::Windows,
         host: "windows.example".to_string(),
         port: SSH_PORT,
-        user: "worker".to_string(),
-        key: "/keys/worker".to_string(),
+        user: "vm".to_string(),
+        key: "/keys/vm".to_string(),
         host_keys: Vec::new(),
         jump: None,
-        command: r"C:\Users\worker\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe".to_string(),
+        command: r"C:\Users\vm\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe".to_string(),
         id: "fixture".to_string(),
         namespace: "default".to_string(),
-        workdir: Some(r"C:\Users\worker\work".to_string()),
+        workdir: Some(r"C:\Users\vm\work".to_string()),
     };
-    let line = r"C:\Users\worker\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe serve --id fixture --namespace default --workdir C:\Users\worker\work";
+    let line = r"C:\Users\vm\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe --id fixture --namespace default --workdir C:\Users\vm\work";
     assert_eq!(endpoint.grammar_ssh_line(), line);
     assert_eq!(endpoint.command_line(), line, "a Windows shell takes the line as it stands");
     let macos = Endpoint {
@@ -158,7 +158,7 @@ fn a_windows_hosts_grammar_ssh_line_goes_bare() {
     };
     assert_eq!(
         macos.command_line(),
-        "exec /bin/sh -c 'exec \"$SHELL\" -l -c \"exec grammar-ssh serve --id fixture --namespace default\"'",
+        "exec /bin/sh -c 'exec \"$SHELL\" -l -c \"exec grammar-ssh --id fixture --namespace default\"'",
         "macOS's login takes the Unix wrapper"
     );
 }
@@ -167,18 +167,18 @@ fn a_windows_hosts_grammar_ssh_line_goes_bare() {
 fn each_platform_holds_its_own_paths() {
     let windows = Platform::Windows;
     let linux = Platform::Linux;
-    for good in [r"C:\Users\worker\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe", r"d:\grammar-ssh.exe", "grammar-ssh"] {
+    for good in [r"C:\Users\vm\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe", r"d:\grammar-ssh.exe", "grammar-ssh"] {
         assert!(check_command(good, windows).is_ok(), "{good}");
     }
     for bad in [r"C:\Program Files\grammar\grammar-ssh.exe", "/opt/grammar/bin/grammar-ssh", r"\grammar-ssh.exe", r"C:grammar"] {
         assert!(check_command(bad, windows).is_err(), "{bad}");
     }
-    assert!(check_path(r"C:\Users\worker\work", windows).is_ok());
-    assert!(check_path(r"C:\Users\worker\my work", windows).is_err(), "a space parts the line");
+    assert!(check_path(r"C:\Users\vm\work", windows).is_ok());
+    assert!(check_path(r"C:\Users\vm\my work", windows).is_err(), "a space parts the line");
     assert!(check_path("/srv/work", windows).is_err(), "a Unix path on Windows");
     assert!(check_command("/opt/grammar/bin/grammar-ssh", linux).is_ok());
     assert!(check_command(r"C:\opt\grammar-ssh.exe", linux).is_err(), "a drive path on Linux");
-    assert!(check_path(r"C:\Users\worker\work", linux).is_err());
+    assert!(check_path(r"C:\Users\vm\work", linux).is_err());
 }
 
 /// A host key's line, its key test-only.
@@ -191,8 +191,8 @@ fn whole(alias: &str) -> Endpoint {
         platform: Platform::Linux,
         host: "build.example".to_string(),
         port: 2222,
-        user: "worker".to_string(),
-        key: "/keys/worker".to_string(),
+        user: "vm".to_string(),
+        key: "/keys/vm".to_string(),
         host_keys: vec![HOST_KEY.to_string()],
         jump: None,
         command: GRAMMAR_SSH_COMMAND.to_string(),
@@ -250,8 +250,8 @@ fn grammar_ssh_runs_through_the_accounts_login_shell() {
         platform: Platform::Linux,
         host: "build.example".to_string(),
         port: SSH_PORT,
-        user: "worker".to_string(),
-        key: "/keys/worker".to_string(),
+        user: "vm".to_string(),
+        key: "/keys/vm".to_string(),
         host_keys: Vec::new(),
         jump: None,
         command: GRAMMAR_SSH_COMMAND.to_string(),
@@ -259,14 +259,14 @@ fn grammar_ssh_runs_through_the_accounts_login_shell() {
         namespace: "default".to_string(),
         workdir: None,
     };
-    assert_eq!(endpoint.grammar_ssh_line(), "grammar-ssh serve --id fixture --namespace default");
+    assert_eq!(endpoint.grammar_ssh_line(), "grammar-ssh --id fixture --namespace default");
     assert_eq!(
         endpoint.command_line(),
-        "exec /bin/sh -c 'exec \"$SHELL\" -l -c \"exec grammar-ssh serve --id fixture --namespace default\"'"
+        "exec /bin/sh -c 'exec \"$SHELL\" -l -c \"exec grammar-ssh --id fixture --namespace default\"'"
     );
     let placed = Endpoint {
         workdir: Some("/srv/work".to_string()),
         ..endpoint
     };
-    assert_eq!(placed.grammar_ssh_line(), "grammar-ssh serve --id fixture --namespace default --workdir /srv/work");
+    assert_eq!(placed.grammar_ssh_line(), "grammar-ssh --id fixture --namespace default --workdir /srv/work");
 }

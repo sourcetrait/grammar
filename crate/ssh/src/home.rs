@@ -1,4 +1,4 @@
-//! The homes a worker resolves at its start, from its environment given as data.
+//! The homes grammar-ssh resolves at its start, from its environment given as data.
 use crate::*;
 
 /// The temporary home's default where neither of its variables names one.
@@ -62,9 +62,9 @@ const DATA: HomeSpec = HomeSpec { name: "data", uenv: "UENV_USR_DATA", standard:
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 const CACHE: HomeSpec = HomeSpec { name: "cache", uenv: "UENV_USR_CACHE", standard: Some("XDG_CACHE_HOME"), default: Default::UnderHome("Library/Caches") };
 
-/// A worker's homes, each an existing absolute directory, the runtime's optional.
+/// grammar-ssh's homes, each an existing absolute directory, the runtime's optional.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct InstanceHomes {
+pub struct Homes {
     pub data: PathBuf,
     pub cache: PathBuf,
     pub tmp: PathBuf,
@@ -74,7 +74,7 @@ pub struct InstanceHomes {
     pub diagnostics: Vec<String>,
 }
 
-impl InstanceHomes {
+impl Homes {
     /// Every home from `env`, each validated and none made.
     pub fn resolve(env: &BTreeMap<String, String>) -> GrammarSshResult<Self> {
         let mut diagnostics = Vec::new();

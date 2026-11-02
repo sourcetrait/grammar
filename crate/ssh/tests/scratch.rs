@@ -1,4 +1,4 @@
-//! The worker's scratch: private, marked, swept of dead owners, its own to remove.
+//! grammar-ssh's scratch: private, marked, swept of dead owners, its own to remove.
 
 use std::io::{BufRead, BufReader, Write};
 #[cfg(unix)]
@@ -6,20 +6,20 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 
-use sourcetrait_grammar_ssh::*;
+use sourcetrait_grammar_ssh::guts::{Homes, ScratchDirs};
 use sourcetrait_grammar_scratch::{Owner, current_uid};
 
 /// The variable naming a holder child's scratch root.
 const HOLDER_ROOT: &str = "GRAMMAR_SSH_SCRATCH_HOLDER_ROOT";
 
 /// Homes under `root`, each made, a runtime home where `runtime` asks.
-fn homes_at(root: &Path, runtime: bool) -> InstanceHomes {
+fn homes_at(root: &Path, runtime: bool) -> Homes {
     let home = |name: &str| {
         let path = root.join(name);
         std::fs::create_dir_all(&path).unwrap();
         path
     };
-    InstanceHomes {
+    Homes {
         data: home("data"),
         cache: home("cache"),
         tmp: home("tmp"),
@@ -35,7 +35,7 @@ fn hold_scratch() {
     let Ok(root) = std::env::var(HOLDER_ROOT) else {
         return;
     };
-    let scratch = WorkerScratch::create(&homes_at(Path::new(&root), true)).expect("the holder's scratch");
+    let scratch = ScratchDirs::create(&homes_at(Path::new(&root), true)).expect("the holder's scratch");
     let mut out = std::io::stdout().lock();
     writeln!(out, "holder_tmp={}", scratch.tmp().display()).unwrap();
     writeln!(out, "holder_transient={}", scratch.transient().display()).unwrap();
@@ -75,10 +75,10 @@ fn spawn_holder(root: &Path) -> (Child, PathBuf, PathBuf) {
 }
 
 #[test]
-fn the_worker_scratch_is_private_marked_and_its_own_to_remove() {
+fn grammar_ssh_s_scratch_is_private_marked_and_its_own_to_remove() {
     let root = tempfile::tempdir().unwrap();
     let homes = homes_at(root.path(), true);
-    let scratch = WorkerScratch::create(&homes).expect("the worker's scratch");
+    let scratch = ScratchDirs::create(&homes).expect("grammar-ssh's scratch");
     assert!(scratch.diagnostics().is_empty(), "{:?}", scratch.diagnostics());
     let runtime = homes.runtime.clone().unwrap();
     let mut nonces = Vec::new();
@@ -100,7 +100,7 @@ fn the_worker_scratch_is_private_marked_and_its_own_to_remove() {
 fn without_a_runtime_home_transient_files_go_under_the_tmp_home() {
     let root = tempfile::tempdir().unwrap();
     let homes = homes_at(root.path(), false);
-    let scratch = WorkerScratch::create(&homes).unwrap();
+    let scratch = ScratchDirs::create(&homes).unwrap();
     assert_eq!(scratch.transient().parent(), Some(homes.tmp.as_path()));
     assert_ne!(scratch.tmp(), scratch.transient(), "two directories still");
     assert!(scratch.diagnostics().iter().any(|d| d.contains("no runtime home")), "{:?}", scratch.diagnostics());
@@ -112,7 +112,7 @@ fn a_missing_base_is_refused() {
     let root = tempfile::tempdir().unwrap();
     let mut homes = homes_at(root.path(), true);
     homes.tmp = root.path().join("gone");
-    let refused = WorkerScratch::create(&homes).expect_err("no tmp home");
+    let refused = ScratchDirs::create(&homes).expect_err("no tmp home");
     assert_eq!(refused.kind().name(), "scratch::unavailable");
     assert_eq!(refused.exit_code(), 73);
 }
@@ -126,16 +126,16 @@ fn a_killed_owners_scratch_is_swept_and_a_live_ones_kept() {
     killed.wait().unwrap();
     assert!(killed_tmp.is_dir() && killed_transient.is_dir(), "a killed owner leaves its scratch");
     let homes = homes_at(root.path(), true);
-    let next = WorkerScratch::create(&homes).unwrap();
+    let next = ScratchDirs::create(&homes).unwrap();
     assert!(!killed_tmp.exists() && !killed_transient.exists(), "the next start sweeps it");
     assert!(live_tmp.is_dir() && live_transient.is_dir(), "and keeps a live owner's");
     assert!(next.diagnostics().is_empty(), "{:?}", next.diagnostics());
     drop(live.stdin.take());
     live.wait().unwrap();
     assert!(live_tmp.is_dir(), "an owner ending without its removal leaves its scratch");
-    let after = WorkerScratch::create(&homes).unwrap();
+    let after = ScratchDirs::create(&homes).unwrap();
     assert!(!live_tmp.exists() && !live_transient.exists(), "and the next start sweeps that too");
-    assert!(next.tmp().is_dir() && next.transient().is_dir(), "while a running worker's stays");
+    assert!(next.tmp().is_dir() && next.transient().is_dir(), "while a running grammar-ssh's stays");
     next.remove().unwrap();
     after.remove().unwrap();
 }

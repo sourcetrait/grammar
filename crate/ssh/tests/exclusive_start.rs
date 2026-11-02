@@ -1,4 +1,4 @@
-//! A namespace's one worker: the lock held for its life, a killed one's passed on.
+//! A namespace's one grammar-ssh: the lock held for its life, a killed one's passed on.
 
 mod support;
 
@@ -19,8 +19,8 @@ fn two_namespaces_start_apart() {
     runtime().block_on(async {
         let (_default, default) = open(&instance, "default", LIMITS_DEFAULT).await;
         let (_other, other) = open(&instance, "other", LIMITS_DEFAULT).await;
-        let (default, other) = (default.expect("default's worker").0, other.expect("other's worker, its lock its own").0);
-        assert_ne!(instance.load("default").paths.lock, instance.load("other").paths.lock);
+        let (default, other) = (default.expect("default's grammar-ssh").0, other.expect("other's, its lock its own").0);
+        assert_ne!(instance.load("default").lock_file(), instance.load("other").lock_file());
         assert_ne!(default.ssh().nom, other.ssh().nom, "a nom each");
     });
 }
@@ -28,13 +28,13 @@ fn two_namespaces_start_apart() {
 /// The lock's inode and record are read on Unix alone: Windows' lock covers the
 /// whole file, so no other process reads it while it is held.
 #[test]
-fn a_killed_workers_lock_passes_to_its_restart() {
+fn a_killed_holders_lock_passes_to_its_restart() {
     let instance = TestInstance::new("fixture");
     #[cfg_attr(not(unix), allow(unused_variables))]
-    let lock = instance.load("default").paths.lock;
+    let lock = instance.load("default").lock_file();
     runtime().block_on(async {
         let (mut killed, opened) = open(&instance, "default", LIMITS_DEFAULT).await;
-        let (session, _events) = opened.expect("the first worker");
+        let (session, _events) = opened.expect("the first grammar-ssh");
         #[cfg(unix)]
         let inode = std::fs::metadata(&lock).unwrap().ino();
         let killed_nom = session.ssh().nom.clone();
@@ -48,9 +48,10 @@ fn a_killed_workers_lock_passes_to_its_restart() {
             let record = std::fs::read_to_string(&lock).unwrap();
             assert!(record.contains(&format!("pid: {}", restarted.id().unwrap())), "{record}");
             assert!(record.contains("holder: grammar-ssh"), "{record}");
+            assert!(record.contains(&session.ssh().nom), "the record names its engine's nom: {record}");
         }
         assert_ne!(session.ssh().nom, killed_nom, "a fresh nom");
-        assert_eq!(TestInstance::worker_dirs(&instance.home("tmp")).len(), 1, "the killed worker's scratch swept");
+        assert_eq!(TestInstance::scratch_dirs(&instance.home("tmp")).len(), 1, "the killed one's scratch swept");
     });
 }
 
@@ -69,7 +70,7 @@ fn a_failed_start_refuses_its_hello_and_releases_its_lock() {
         assert!(refusal.message().contains("scratch::unavailable"), "{}", refusal.message());
         let status = exit_within(&mut failed, Duration::from_secs(30)).await;
         assert_eq!(status.code(), Some(73), "{status:?}");
-        let (_worker, opened) = open(&instance, "default", LIMITS_DEFAULT).await;
+        let (_ssh, opened) = open(&instance, "default", LIMITS_DEFAULT).await;
         opened.expect("the lock was released");
     });
 }

@@ -1,30 +1,18 @@
 # lib.rs
 
-The remote worker as a library, and grammar-ssh over it. A worker is an SSH
-session's command: the MCP opens the session and runs `grammar-ssh serve` as its
-command, the session's stdio the wire, and the worker's work ends with the
-session, as a command's does when its SSH session ends (User). The library
-builds without the `service` feature, so an embedding host links the runtime
-without the command line; grammar-ssh is the binary the feature adds.
+grammar-ssh, the grammar MCP on a foreign host (User): a `remote engine
+connect` reaches it over SSH, its session's stdio the wire, and it serves that
+connection for as long as it persists, until the MCP closes it or a connection
+error ends it (User). Its code follows the MCP's, the MCP its reference: the
+same files for the same concerns, `run.rs`, `cli.rs`, `config.rs`, `home.rs`,
+`scratch.rs`, `error.rs`, `controller.rs`, `host.rs`, `operator.rs`, and
+`emergency.rs`, with `session.rs` its MCP-facing session where the MCP has its
+rmcp service. It is the host: it controls its session and holds one engine
+instance, whose nom it inherits (User).
 
-## mod cli, mod run
-grammar-ssh's command line and entry, behind `service`.
-
-## mod controller
-The worker's systems, the engine's and the operator's, under the one
-controller its process owns, and the way their asks and emergencies reach the
-session's MCP.
-
-## mod instance
-The namespace a worker serves: its names, its homes, its paths, its workdir,
-and its supervisor lines, resolved before anything runs.
-
-## mod runtime
-The worker's start, its lock and its scratch, and its shutdown.
-
-## mod session
-The session on stdin and stdout: the MCP's hello answered, its requests served,
-and its end.
+## mod guts
+What the crate's integration tests name and nothing else uses: the config, the
+homes, and the scratch, public for them alone.
 
 ## mod tk
 tokio's names under one path, its stop events by platform: tokio's Unix
@@ -32,5 +20,4 @@ signals on Unix and its Windows console events on Windows, each the form
 `session.rs`'s `Stops` takes there.
 
 ## pub use
-The runtime and its identity, the worker's scratch, the instance's types, the
-session's end, the error and its kind, and, with `service`, grammar-ssh's entry.
+grammar-ssh's entry, the config file's name, and the error with its kind.

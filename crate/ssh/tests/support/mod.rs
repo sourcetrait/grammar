@@ -1,10 +1,22 @@
-//! A test instance on disk, its homes and its workdir, and a worker child over pipes.
+//! A test namespace on disk, its homes and its workdir, and grammar-ssh over pipes.
 #![allow(dead_code, unused_imports)]
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::process::{ExitStatus, Stdio};
+use std::time::Duration;
 
-use sourcetrait_grammar_ssh::*;
+use futures_util::{SinkExt, StreamExt};
+use sourcetrait_grammar_client::{Session, SessionEvent};
+use sourcetrait_grammar_protocol::{
+    ClientHello, FrameCodec, HELLO_BUDGET, HelloReply, Instance, Limits, McpFrame, SshFrame,
+    TransportError, decode_payload, payload,
+};
+use sourcetrait_grammar_ssh::CONFIG_FILE;
+use sourcetrait_grammar_ssh::guts::{Config, SCRATCH_PREFIX};
+use tokio::process::{Child, ChildStdin, ChildStdout};
+use tokio::sync::mpsc::UnboundedReceiver;
+use tokio_util::codec::{FramedRead, FramedWrite};
 
 /// One id's homes and workdir under a scratch root, and the environment naming them.
 pub struct TestInstance {
@@ -44,7 +56,7 @@ impl TestInstance {
         Self { root, id: id.to_string(), env }
     }
 
-    /// The workdir, the worker's and its config file's.
+    /// The workdir, grammar-ssh's and its config file's.
     pub fn workdir(&self) -> PathBuf {
         self.root.path().join("work")
     }
@@ -56,10 +68,10 @@ impl TestInstance {
         std::fs::write(file, text).expect("the config file");
     }
 
-    /// `namespace`'s instance loaded as this process's user.
-    pub fn load(&self, namespace: &str) -> InstanceConfig {
+    /// `namespace`'s config, loaded as this process's user.
+    pub fn load(&self, namespace: &str) -> Config {
         let uid = sourcetrait_grammar_scratch::current_uid();
-        InstanceConfig::load(uid, &self.id, namespace, &self.workdir(), &self.env).expect("the instance loads")
+        Config::load(uid, &self.id, namespace, &self.workdir(), &self.env).expect("the config loads")
     }
 
     /// A home under the scratch root.
@@ -67,128 +79,106 @@ impl TestInstance {
         self.root.path().join(name)
     }
 
-    /// The worker scratch directories in `base`.
-    pub fn worker_dirs(base: &Path) -> Vec<PathBuf> {
+    /// grammar-ssh's scratch directories in `base`.
+    pub fn scratch_dirs(base: &Path) -> Vec<PathBuf> {
         let mut dirs: Vec<PathBuf> = std::fs::read_dir(base)
             .expect("the base")
             .flatten()
             .map(|entry| entry.path())
-            .filter(|path| path.file_name().and_then(|name| name.to_str()).is_some_and(|name| name.starts_with("grammar-ssh.")))
+            .filter(|path| path.file_name().and_then(|name| name.to_str()).is_some_and(|name| name.starts_with(SCRATCH_PREFIX)))
             .collect();
         dirs.sort();
         dirs
     }
 }
 
-#[cfg(feature = "service")]
-pub use worker::*;
+/// A runtime for a test's async half.
+pub fn runtime() -> tokio::runtime::Runtime {
+    tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("a test runtime")
+}
 
-/// A grammar-ssh worker run as a child over pipes, never outliving its test.
-#[cfg(feature = "service")]
-mod worker {
-    use std::process::{ExitStatus, Stdio};
-    use std::time::Duration;
+/// grammar-ssh serving `namespace` on `instance`'s environment, its stdio piped.
+pub fn spawn_ssh(instance: &TestInstance, namespace: &str) -> Child {
+    tokio::process::Command::new(env!("CARGO_BIN_EXE_grammar-ssh"))
+        .args(["--id", &instance.id, "--namespace", namespace, "--workdir"])
+        .arg(instance.workdir())
+        .env_clear()
+        .envs(&instance.env)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
+        .expect("grammar-ssh runs")
+}
 
-    use futures_util::{SinkExt, StreamExt};
-    use sourcetrait_grammar_client::{Session, SessionEvent};
-    use sourcetrait_grammar_protocol::{
-        ClientHello, FrameCodec, HELLO_BUDGET, HelloReply, Instance, Limits, McpFrame, TransportError, SshFrame,
-        SshHello, decode_payload, payload,
-    };
-    use tokio::process::{Child, ChildStdin, ChildStdout};
-    use tokio::sync::mpsc::UnboundedReceiver;
-    use tokio_util::codec::{FramedRead, FramedWrite};
+/// The hello for `instance`'s `namespace`, asking `requested`.
+pub fn hello(instance: &TestInstance, namespace: &str, requested: Limits) -> ClientHello {
+    ClientHello::new(Instance::new(&instance.id, namespace).expect("an instance"), requested)
+}
 
-    use super::TestInstance;
+/// grammar-ssh as a child and the session opened on it, or the session's refusal.
+pub async fn open(
+    instance: &TestInstance,
+    namespace: &str,
+    requested: Limits,
+) -> (Child, Result<(Session, UnboundedReceiver<SessionEvent>), TransportError>) {
+    let mut child = spawn_ssh(instance, namespace);
+    let stdout = child.stdout.take().expect("its stdout");
+    let stdin = child.stdin.take().expect("its stdin");
+    let opened = Session::open(stdout, stdin, hello(instance, namespace, requested)).await;
+    (child, opened)
+}
 
-    /// A runtime for a test's async half.
-    pub fn runtime() -> tokio::runtime::Runtime {
-        tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("a test runtime")
-    }
-
-    /// `namespace`'s worker child on `instance`'s environment, its stdio piped.
-    pub fn spawn_worker(instance: &TestInstance, namespace: &str) -> Child {
-        tokio::process::Command::new(env!("CARGO_BIN_EXE_grammar-ssh"))
-            .args(["serve", "--id", &instance.id, "--namespace", namespace, "--workdir"])
-            .arg(instance.workdir())
-            .env_clear()
-            .envs(&instance.env)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .kill_on_drop(true)
-            .spawn()
-            .expect("grammar-ssh runs")
-    }
-
-    /// The hello for `instance`'s `namespace`, asking `requested`.
-    pub fn hello(instance: &TestInstance, namespace: &str, requested: Limits) -> ClientHello {
-        ClientHello::new(Instance::new(&instance.id, namespace).expect("an instance"), requested)
-    }
-
-    /// A worker child and the session opened on it, or the session's refusal.
-    pub async fn open(
-        instance: &TestInstance,
-        namespace: &str,
-        requested: Limits,
-    ) -> (Child, Result<(Session, UnboundedReceiver<SessionEvent>), TransportError>) {
-        let mut child = spawn_worker(instance, namespace);
-        let stdout = child.stdout.take().expect("its stdout");
-        let stdin = child.stdin.take().expect("its stdin");
-        let opened = Session::open(stdout, stdin, hello(instance, namespace, requested)).await;
-        (child, opened)
-    }
-
-    /// `child`'s exit within `deadline`, killed past it.
-    pub async fn exit_within(child: &mut Child, deadline: Duration) -> ExitStatus {
-        match tokio::time::timeout(deadline, child.wait()).await {
-            Ok(status) => status.expect("the worker's exit"),
-            Err(_) => {
-                let _ = child.kill().await;
-                panic!("the worker didn't exit in {} s", deadline.as_secs());
-            }
+/// `child`'s exit within `deadline`, killed past it.
+pub async fn exit_within(child: &mut Child, deadline: Duration) -> ExitStatus {
+    match tokio::time::timeout(deadline, child.wait()).await {
+        Ok(status) => status.expect("grammar-ssh's exit"),
+        Err(_) => {
+            let _ = child.kill().await;
+            panic!("grammar-ssh didn't exit in {} s", deadline.as_secs());
         }
     }
+}
 
-    /// `child`'s stderr, read to its end.
-    pub async fn stderr_of(child: &mut Child) -> String {
-        let mut text = String::new();
-        if let Some(mut stderr) = child.stderr.take() {
-            let _ = tokio::io::AsyncReadExt::read_to_string(&mut stderr, &mut text).await;
+/// `child`'s stderr, read to its end.
+pub async fn stderr_of(child: &mut Child) -> String {
+    let mut text = String::new();
+    if let Some(mut stderr) = child.stderr.take() {
+        let _ = tokio::io::AsyncReadExt::read_to_string(&mut stderr, &mut text).await;
+    }
+    text
+}
+
+/// A session spoken frame by frame, for a test of the stream itself.
+pub struct RawSession {
+    pub frames: FramedRead<ChildStdout, FrameCodec>,
+    pub sink: FramedWrite<ChildStdin, FrameCodec>,
+}
+
+impl RawSession {
+    /// The hello sent on `child`'s pipes and grammar-ssh's reply read.
+    pub async fn open(child: &mut Child, hello: ClientHello) -> (Self, HelloReply) {
+        let mut frames = FramedRead::new(child.stdout.take().expect("its stdout"), FrameCodec::new());
+        let mut sink = FramedWrite::new(child.stdin.take().expect("its stdin"), FrameCodec::new());
+        sink.send(payload(&hello)).await.expect("the hello sent");
+        let bytes = frames.next().await.expect("a reply").expect("its frame");
+        let reply = decode_payload::<HelloReply>(&bytes, HELLO_BUDGET).expect("a reply decoded");
+        if let HelloReply::Accepted(accepted) = &reply {
+            frames.decoder_mut().set_ceiling(accepted.effective.frame);
+            sink.encoder_mut().set_ceiling(accepted.effective.frame);
         }
-        text
+        (Self { frames, sink }, reply)
     }
 
-    /// A session spoken frame by frame, for a test of the stream itself.
-    pub struct RawSession {
-        pub frames: FramedRead<ChildStdout, FrameCodec>,
-        pub sink: FramedWrite<ChildStdin, FrameCodec>,
+    /// One frame sent.
+    pub async fn send(&mut self, frame: &McpFrame) {
+        self.sink.send(payload(frame)).await.expect("a frame sent");
     }
 
-    impl RawSession {
-        /// The hello sent on `child`'s pipes and the worker's reply read.
-        pub async fn open(child: &mut Child, hello: ClientHello) -> (Self, HelloReply) {
-            let mut frames = FramedRead::new(child.stdout.take().expect("its stdout"), FrameCodec::new());
-            let mut sink = FramedWrite::new(child.stdin.take().expect("its stdin"), FrameCodec::new());
-            sink.send(payload(&hello)).await.expect("the hello sent");
-            let bytes = frames.next().await.expect("a reply").expect("its frame");
-            let reply = decode_payload::<HelloReply>(&bytes, HELLO_BUDGET).expect("a reply decoded");
-            if let HelloReply::Accepted(worker) = &reply {
-                frames.decoder_mut().set_ceiling(worker.effective.frame);
-                sink.encoder_mut().set_ceiling(worker.effective.frame);
-            }
-            (Self { frames, sink }, reply)
-        }
-
-        /// One frame sent.
-        pub async fn send(&mut self, frame: &McpFrame) {
-            self.sink.send(payload(frame)).await.expect("a frame sent");
-        }
-
-        /// The worker's next frame, none at the stream's end.
-        pub async fn next(&mut self) -> Option<SshFrame> {
-            let bytes = self.frames.next().await?.ok()?;
-            Some(decode_payload::<SshFrame>(&bytes, sourcetrait_grammar_protocol::LIMITS_DEFAULT.decode_budget()).expect("a frame decoded"))
-        }
+    /// grammar-ssh's next frame, none at the stream's end.
+    pub async fn next(&mut self) -> Option<SshFrame> {
+        let bytes = self.frames.next().await?.ok()?;
+        Some(decode_payload::<SshFrame>(&bytes, sourcetrait_grammar_protocol::LIMITS_DEFAULT.decode_budget()).expect("a frame decoded"))
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "sourcetrait_grammar_ssh"
-description = "Grammar's remote worker, an SSH session's command"
+description = "Grammar SSH"
 version.workspace    = true
 authors.workspace    = true
 license.workspace    = true
@@ -13,34 +13,14 @@ keywords.workspace   = true
 [[bin]]
 name = "grammar-ssh"
 path = "src/main.rs"
-required-features = ["service"]
-
-[[test]]
-name = "grammar_ssh_cli"
-path = "tests/grammar_ssh_cli.rs"
-required-features = ["service"]
-
-[[test]]
-name = "exclusive_start"
-path = "tests/exclusive_start.rs"
-required-features = ["service"]
-
-[[test]]
-name = "session"
-path = "tests/session.rs"
-required-features = ["service"]
 
 [features]
-default = ["service"]
-# grammar-ssh's command line over the runtime library. An embedding host builds
-# without it.
-service = ["dep:clap"]
 # Test-only engine decls (__test_hang / __test_panic) for the lifecycle system
 # tests; never enabled in a shipped build.
 test-hooks = ["sourcetrait_grammar_engine/test-hooks"]
 
 [dependencies]
-clap = { workspace = true, optional = true }
+clap.workspace = true
 futures-util.workspace = true
 serde.workspace = true
 tokio.workspace = true

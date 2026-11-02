@@ -3,9 +3,9 @@
 What grammar's release holds, as against how an OptZst is packed.
 
 ## const SSH_CRATE
-The remote worker, `grammar-ssh`, ships in one tree with the MCP, built from the
-same lockfile in the same invocation, so a worker installed from a release
-speaks the protocol of the MCP released with it.
+`grammar-ssh`, the MCP on a foreign host, ships in one tree with the MCP, built
+from the same lockfile in the same invocation, so a grammar-ssh installed from a
+release speaks the protocol of the MCP released with it.
 
 ## const CORE_PLUGINS
 nushell's core plugins are pulled from crates.io as published, never
@@ -31,7 +31,7 @@ change in the tree to commit. It is the repository's record; the package
 carries none.
 
 ## def compile
-The MCP, the worker, and the workspace's plugin crates build in one cargo
+The MCP, grammar-ssh, and the workspace's plugin crates build in one cargo
 invocation, so one lockfile resolves them all against the same nushell crates
 and the plugins speak the engine's nu-plugin-protocol. `--locked` holds the
 build to the lockfile as committed, so a release never resolves a dependency

@@ -4,9 +4,9 @@ use crate::engines::{SshResolved, address_of, parse_engines, parse_known_keys, p
 /// An entry's key line, its file absolute on this platform, as the MCP's local
 /// path must be.
 #[cfg(not(windows))]
-const KEY_LINE: &str = "key = '/keys/worker'";
+const KEY_LINE: &str = "key = '/keys/vm'";
 #[cfg(windows)]
-const KEY_LINE: &str = r"key = 'C:\keys\worker'";
+const KEY_LINE: &str = r"key = 'C:\keys\vm'";
 
 /// A pinned host key's OpenSSH line, its key test-only.
 const HOST_KEY: &str ="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJdD7y3aLq454yWBdwLWbieU1ebz9/cu7/QEXn9OIeZJ example";
@@ -17,7 +17,7 @@ fn engine_fields(alias: &str) -> Vec<String> {
         format!("alias = \"{alias}\""),
         "platform = \"linux\"".to_string(),
         "address = \"build.example\"".to_string(),
-        "user = \"worker\"".to_string(),
+        "user = \"vm\"".to_string(),
         KEY_LINE.to_string(),
         format!("known_hosts = [\"{HOST_KEY}\"]"),
         "command = \"/opt/grammar/bin/grammar-ssh\"".to_string(),
@@ -64,19 +64,19 @@ fn an_entry_opens_on_its_fields_and_the_mcps_defaults() {
     assert_eq!(endpoint.namespace, "lab", "the MCP's own namespace by default");
     assert_eq!(
         endpoint.grammar_ssh_line(),
-        "/opt/grammar/bin/grammar-ssh serve --id fixture --namespace lab --workdir /srv/work",
+        "/opt/grammar/bin/grammar-ssh --id fixture --namespace lab --workdir /srv/work",
     );
     let least = vec![
         "alias = \"build\"".to_string(),
         "platform = \"linux\"".to_string(),
         "address = \"build.example:2222\"".to_string(),
-        "user = \"worker\"".to_string(),
+        "user = \"vm\"".to_string(),
         KEY_LINE.to_string(),
         format!("known_hosts = [\"{HOST_KEY}\"]"),
     ];
     let endpoint = one_entry(&engine_text(&least)).endpoint(&[], &defaults()).expect("the required fields alone");
     assert_eq!(endpoint.port, 2222);
-    assert_eq!(endpoint.grammar_ssh_line(), "grammar-ssh serve --id agent --namespace lab", "every default taken");
+    assert_eq!(endpoint.grammar_ssh_line(), "grammar-ssh --id agent --namespace lab", "every default taken");
     assert!(parse_engines("").expect("an empty file").is_empty(), "no engine unless the file names one");
     assert!(parse_engines(REMOTES).expect("channels alone").is_empty(), "a channel is no engine");
 }
@@ -93,16 +93,16 @@ fn a_windows_entry_takes_drive_paths_and_its_line_goes_bare() {
         fields.push(format!("workdir = '{workdir}'"));
         engine_text(&fields)
     };
-    let entry = one_entry(&windows(r"C:\Users\worker\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe", r"C:\Users\worker\work"));
+    let entry = one_entry(&windows(r"C:\Users\vm\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe", r"C:\Users\vm\work"));
     assert_eq!(entry.platform.as_deref(), Some("windows"));
     let endpoint = entry.endpoint(&[], &defaults()).expect("a whole Windows entry");
     assert_eq!(endpoint.platform, Platform::Windows);
     assert_eq!(
         endpoint.command_line(),
-        r"C:\Users\worker\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe serve --id fixture --namespace lab --workdir C:\Users\worker\work",
+        r"C:\Users\vm\.sys\adhoc\opt\grammar\bin\grammar-ssh.exe --id fixture --namespace lab --workdir C:\Users\vm\work",
         "the line as it stands, no Unix wrapper"
     );
-    for (command, workdir) in [("/opt/grammar/bin/grammar-ssh", r"C:\Users\worker\work"), (r"C:\Program Files\grammar-ssh.exe", r"C:\Users\worker\work")] {
+    for (command, workdir) in [("/opt/grammar/bin/grammar-ssh", r"C:\Users\vm\work"), (r"C:\Program Files\grammar-ssh.exe", r"C:\Users\vm\work")] {
         assert!(parse_engines(&windows(command, workdir)).is_err(), "{command}");
     }
     assert!(parse_engines(&windows("grammar-ssh", "/srv/work")).is_err(), "a Unix workdir on Windows");
@@ -210,7 +210,7 @@ fn an_entry_breaking_a_rule_is_refused() {
         ("address = \"[::1\"", "never closes"),
         ("address = \"a host\"", "space"),
         ("user = \"a user\"", "space"),
-        ("key = \"keys/worker\"", "absolute"),
+        ("key = \"keys/vm\"", "absolute"),
         ("known_hosts = []", "empty"),
         ("known_hosts = [\"not a key\"]", "OpenSSH public key"),
         ("known_hosts = \"\"", "empty"),
@@ -261,13 +261,13 @@ fn known_hosts_are_a_list_of_keys_or_a_file() {
 fn a_set_makes_then_changes_an_entry_keeping_the_rest_of_the_file() {
     let change = EngineChange {
         address: Some("build.example".to_string()),
-        user: Some("worker".to_string()),
+        user: Some("vm".to_string()),
         ..EngineChange::default()
     };
     let made = set_engine(REMOTES, "build", &change).expect("a new entry");
     assert!(made.starts_with(REMOTES), "the comment and the channel stand as they were: {made}");
     let entry = one_entry(&made);
-    assert_eq!((entry.address.as_deref(), entry.user.as_deref()), (Some("build.example"), Some("worker")));
+    assert_eq!((entry.address.as_deref(), entry.user.as_deref()), (Some("build.example"), Some("vm")));
     let file = EngineChange {
         address: Some("build.example:2222".to_string()),
         known_hosts: Some(KnownHosts::File("remote/build/known_hosts".to_string())),
@@ -277,7 +277,7 @@ fn a_set_makes_then_changes_an_entry_keeping_the_rest_of_the_file() {
     assert!(changed.contains("known_hosts = \"remote/build/known_hosts\""), "a file is a string: {changed}");
     let changed = one_entry(&changed);
     assert_eq!(changed.address.as_deref(), Some("build.example:2222"), "the field given is written");
-    assert_eq!(changed.user.as_deref(), Some("worker"), "a field not given stays");
+    assert_eq!(changed.user.as_deref(), Some("vm"), "a field not given stays");
     let keys = EngineChange {
         known_hosts: Some(KnownHosts::Keys(vec![HOST_KEY.to_string()])),
         ..EngineChange::default()
@@ -337,7 +337,7 @@ fn ssh_g_output_gives_the_fields_an_entry_takes() {
 host build
 hostname build.example
 port 2222
-user worker
+user vm
 identityfile ~/.ssh/id_ed25519
 identityfile ~/.ssh/id_rsa
 userknownhostsfile ~/.ssh/known_hosts ~/.ssh/known_hosts2
@@ -349,7 +349,7 @@ hostkeyalias none
         SshResolved {
             hostname: Some("build.example".to_string()),
             port: Some(2222),
-            user: Some("worker".to_string()),
+            user: Some("vm".to_string()),
             identity_files: vec!["~/.ssh/id_ed25519".to_string(), "~/.ssh/id_rsa".to_string()],
             known_hosts_files: vec![
                 "~/.ssh/known_hosts".to_string(),

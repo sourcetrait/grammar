@@ -1,4 +1,4 @@
-//! The worker's session: the MCP's hello answered, its requests served, its end.
+//! grammar-ssh's session: the MCP's hello answered, its requests served, its end.
 use crate::*;
 
 /// Why a session ended.
@@ -28,7 +28,7 @@ impl fmt::Display for SessionEnd {
     }
 }
 
-/// Why a frame the worker meant to send wasn't queued.
+/// Why a frame grammar-ssh meant to send wasn't queued.
 #[derive(Debug)]
 pub(crate) enum Unsent {
     /// The frame passes the session's ceiling.
@@ -70,6 +70,71 @@ impl Outbox {
     }
 }
 
+/// The way to the session's MCP: its outbox while attached, and the asks waiting.
+#[derive(Debug, Default)]
+pub(crate) struct Asker {
+    out: std::sync::Mutex<Option<Outbox>>,
+    next: AtomicU64,
+    pending: std::sync::Mutex<HashMap<u64, tk::oneshot::Sender<HostAnswer>>>,
+}
+
+impl Asker {
+    /// A session's outbox attached, the asks after it carried on it.
+    pub(crate) fn attach(&self, out: Outbox) {
+        *held(&self.out) = Some(out);
+    }
+
+    /// The session's outbox let go, each ask still waiting refused.
+    pub(crate) fn detach(&self) {
+        held(&self.out).take();
+        held(&self.pending).clear();
+    }
+
+    /// Whether a session is attached.
+    pub(crate) fn attached(&self) -> bool {
+        held(&self.out).is_some()
+    }
+
+    /// The MCP's answer to the ask under `id`, to the eval waiting on it.
+    pub(crate) fn answer(&self, id: u64, answer: HostAnswer) {
+        if let Some(waiter) = held(&self.pending).remove(&id) {
+            let _ = waiter.send(answer);
+        }
+    }
+
+    /// An eval's ask of the MCP, refused without a session or an answer in time.
+    pub(crate) async fn ask(&self, ask: SessionAsk) -> HostAnswer {
+        let id = self.next.fetch_add(1, Ordering::Relaxed);
+        let (tx, rx) = tk::oneshot::channel();
+        {
+            let out = held(&self.out);
+            let Some(out) = out.as_ref() else {
+                return HostAnswer::Refused("no session carries the ask".to_string());
+            };
+            held(&self.pending).insert(id, tx);
+            if let Err(unsent) = out.send(&SshFrame::Ask { id, ask }) {
+                held(&self.pending).remove(&id);
+                return HostAnswer::Refused(unsent.to_string());
+            }
+        }
+        match tk::timeout(ASK_DEADLINE, rx).await {
+            Ok(Ok(answer)) => answer,
+            Ok(Err(_)) => HostAnswer::Refused("the session ended before the ask's answer".to_string()),
+            Err(_) => {
+                held(&self.pending).remove(&id);
+                HostAnswer::Refused(format!("no answer to the ask in {} s", ASK_DEADLINE.as_secs()))
+            }
+        }
+    }
+
+    /// An emergency to the session's MCP, where one is attached.
+    pub(crate) fn emergency(&self, emergency: Emergency) {
+        if let Some(out) = held(&self.out).as_ref() {
+            let _ = out.send(&SshFrame::Emergency(emergency));
+        }
+    }
+}
+
 /// A session's failure to open.
 fn failed(reason: impl fmt::Display) -> GrammarSshError {
     GrammarSshError::Session {
@@ -101,7 +166,7 @@ where
     }
 }
 
-/// A worker that couldn't start: the MCP's hello read and refused with why.
+/// A start that failed: the MCP's hello read and refused with why.
 pub(crate) async fn refuse<R, W>(
     reader: R,
     writer: W,
@@ -136,7 +201,7 @@ where
     let reply = profile.reply(&hello);
     sink.send(payload(&reply)).await.map_err(failed)?;
     let limits = match reply {
-        HelloReply::Accepted(worker) => worker.effective,
+        HelloReply::Accepted(accepted) => accepted.effective,
         HelloReply::Refused(refusal) => return Err(failed(refusal.message())),
     };
     frames.decoder_mut().set_ceiling(limits.frame);
@@ -189,7 +254,7 @@ impl Stops {
         let take = |kind: tk::SignalKind| match tk::signal(kind) {
             Ok(signal) => Some(signal),
             Err(e) => {
-                eprintln!("grammar-ssh: a stop signal can't be taken: {e}");
+                eprintln!("grammar: a stop signal can't be taken: {e}");
                 None
             }
         };
@@ -224,7 +289,7 @@ impl Stops {
     fn take() -> Option<Self> {
         fn taken<T>(event: io::Result<T>) -> Option<T> {
             event
-                .inspect_err(|e| eprintln!("grammar-ssh: a stop event can't be taken: {e}"))
+                .inspect_err(|e| eprintln!("grammar: a stop event can't be taken: {e}"))
                 .ok()
         }
         Some(Self {
@@ -252,14 +317,6 @@ async fn next_stop(stops: &mut Option<Stops>) -> &'static str {
     }
 }
 
-/// What a session's request tasks share.
-struct Served {
-    /// The request ids in flight, which the MCP may not reuse.
-    ids: std::sync::Mutex<HashSet<u64>>,
-    /// The calls' nonces, whose cache entries the session's end removes.
-    nonces: std::sync::Mutex<Vec<String>>,
-}
-
 /// The session's frames served until its end, then its calls cancelled and drained.
 async fn serve_frames<R>(
     mut frames: tku::FramedRead<R, FrameCodec>,
@@ -274,10 +331,7 @@ where
     let budget = limits.decode_budget();
     let calls = Arc::new(tk::Semaphore::new(limits.calls as usize));
     let control = Arc::new(tk::Semaphore::new(limits.control as usize));
-    let served = Arc::new(Served {
-        ids: std::sync::Mutex::new(HashSet::new()),
-        nonces: std::sync::Mutex::new(Vec::new()),
-    });
+    let in_flight = Arc::new(std::sync::Mutex::new(HashSet::new()));
     let mut tasks = tk::JoinSet::new();
     let mut stops = Stops::take();
     let end = loop {
@@ -298,26 +352,23 @@ where
                 };
                 match frame {
                     McpFrame::Request { id, request } => {
-                        if !served.ids.lock().unwrap_or_else(|e| e.into_inner()).insert(id) {
+                        if !held(&in_flight).insert(id) {
                             let error = TransportError::InvalidFrame { reason: format!("request {id} is already in flight") };
                             let _ = out.send(&SshFrame::Close(SessionClose { error: Some(error) }));
                             break SessionEnd::Broken(format!("request {id} sent again while in flight"));
                         }
                         let slots = if request.is_call() { &calls } else { &control };
                         let Ok(permit) = slots.clone().try_acquire_owned() else {
-                            served.ids.lock().unwrap_or_else(|e| e.into_inner()).remove(&id);
+                            held(&in_flight).remove(&id);
                             send_response(out, id, EngineResponse::Refused(TransportError::Busy));
                             continue;
                         };
-                        if let Some(nonce) = call_nonce(&request) {
-                            served.nonces.lock().unwrap_or_else(|e| e.into_inner()).push(nonce);
-                        }
                         let engine = controller.engine();
-                        let (out, info, served) = (out.clone(), info.clone(), served.clone());
+                        let (out, info, in_flight) = (out.clone(), info.clone(), in_flight.clone());
                         tasks.spawn(async move {
                             let response = respond(request, engine, &info).await;
                             send_response(&out, id, response);
-                            served.ids.lock().unwrap_or_else(|e| e.into_inner()).remove(&id);
+                            held(&in_flight).remove(&id);
                             drop(permit);
                         });
                     }
@@ -339,23 +390,10 @@ where
     })
     .await;
     if drained.is_err() {
-        eprintln!("grammar-ssh: calls still running after {} s are dropped", DRAIN_DEADLINE.as_secs());
+        eprintln!("grammar: calls still running after {} s are dropped", DRAIN_DEADLINE.as_secs());
         tasks.abort_all();
     }
-    for nonce in served.nonces.lock().unwrap_or_else(|e| e.into_inner()).drain(..) {
-        engine::remove_call_cache(&nonce);
-    }
     end
-}
-
-/// The nonce of an eval, a rerun, or a call, whose cache the session's end removes.
-fn call_nonce(request: &EngineRequest) -> Option<String> {
-    match request {
-        EngineRequest::Wire(ToEngineSys::Execute(req)) => Some(req.nonce.to_string()),
-        EngineRequest::Wire(ToEngineSys::Rerun(req)) => Some(req.nonce.to_string()),
-        EngineRequest::Wire(ToEngineSys::Call(req)) => Some(req.nonce.to_string()),
-        _ => None,
-    }
 }
 
 /// A response sent once, a result past the frame refused in its place.
@@ -372,7 +410,7 @@ fn send_response(
     }
 }
 
-/// A request's answer from the worker's engine, or its info.
+/// A request's answer from grammar-ssh's engine, or its info.
 async fn respond(
     request: EngineRequest,
     engine: EngineResult<Arc<EngineHandle>>,

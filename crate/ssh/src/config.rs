@@ -1,11 +1,17 @@
-//! A worker's instance: its identity, homes, paths, workdir, and supervisor lines.
+//! grammar-ssh's config: its namespace, homes, workdir, and supervisor lines.
 use crate::*;
 
-/// The agent's config file under a workdir, whose `[supervisor]` a worker reads.
+/// The agent's config file under a workdir, whose `[supervisor]` grammar-ssh reads.
 pub const CONFIG_FILE: &str = ".grammar/config.toml";
 
-/// The MCP's embedded base, whose `[supervisor]` lines are a worker's defaults.
-const BASE_CONFIG: &str = include_str!("../../../../include/config/grammar_mcp.toml");
+/// The namespace grammar-ssh serves when none is named, the MCP's default.
+pub(crate) const DEFAULT_NAMESPACE: &str = "default";
+
+/// The MCP's embedded base, whose `[supervisor]` lines are grammar-ssh's defaults.
+const BASE_CONFIG: &str = include_str!("../../../include/config/grammar_mcp.toml");
+
+/// The components under a home where the MCP's namespaces sit, and grammar-ssh's.
+const NAMESPACES: [&str; 2] = ["grammar", "mcp"];
 
 /// The supervisor's lines as a config file sets them, each optional.
 #[derive(Debug, Clone, Copy, Default, PartialEq, ser::Deserialize)]
@@ -17,51 +23,63 @@ struct SupervisorLines {
     disk_warn_fraction: Option<f64>,
 }
 
-/// A config file as a worker reads it: its `[supervisor]` table alone.
+/// A config file as grammar-ssh reads it: its `[supervisor]` table alone.
 #[derive(Debug, Default, ser::Deserialize)]
 struct ConfigFile {
     supervisor: Option<SupervisorLines>,
 }
 
-/// Where a worker's files are, each from its identity and its homes.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct InstancePaths {
-    /// The engine's data home, the MCP's own layout.
-    pub data: PathBuf,
-    /// The engine's cache home, the MCP's own layout.
-    pub cache: PathBuf,
-    /// The namespace lock, the MCP's own in the engine's data home.
-    pub lock: PathBuf,
-}
+/// An id or a namespace, `[A-Za-z0-9][A-Za-z0-9._-]{0,63}`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Name(String);
 
-impl InstancePaths {
-    /// The paths of `id` and `namespace`'s instance under `homes`.
-    pub fn of(
-        homes: &InstanceHomes,
-        id: &InstanceName,
-        namespace: &InstanceName,
-    ) -> Self {
-        let mcp = |home: &Path| home.join("grammar").join("mcp").join(id.as_str()).join(namespace.as_str());
-        Self {
-            data: mcp(&homes.data),
-            cache: mcp(&homes.cache),
-            lock: mcp(&homes.data).join(LOCK_FILE),
+impl Name {
+    /// `text` as the `field` it names, refused where it isn't a name.
+    pub fn parse(
+        field: &'static str,
+        text: &str,
+    ) -> GrammarSshResult<Self> {
+        if valid_name(text) {
+            Ok(Self(text.to_string()))
+        } else {
+            Err(GrammarSshError::NameInvalid {
+                field,
+                name: text.to_string(),
+            })
         }
+    }
+
+    /// The name's text.
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
 
-/// A worker's instance: its identity, homes, paths, workdir, and supervisor lines.
+impl fmt::Display for Name {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+/// grammar-ssh's config: its namespace, homes, workdir, and supervisor lines.
 #[derive(Debug, Clone, PartialEq)]
-pub struct InstanceConfig {
-    pub identity: RuntimeIdentity,
-    pub homes: InstanceHomes,
-    pub paths: InstancePaths,
+pub struct Config {
+    /// The effective Unix UID grammar-ssh runs as.
+    pub uid: u32,
+    /// The agent identity owning the namespace.
+    pub id: String,
+    /// The namespace within the id.
+    pub namespace: String,
+    /// The homes the namespace's directories sit under.
+    pub homes: Homes,
+    /// The working directory, a definition's `$env.EQUIP_WORK_DIR`.
     pub workdir: PathBuf,
+    /// The supervisor's lines in force.
     pub supervisor: SupervisorConfig,
 }
 
-impl InstanceConfig {
-    /// `id` and `namespace`'s instance for `uid` in `workdir`, its homes from `env`.
+impl Config {
+    /// `id` and `namespace`'s config for `uid` in `workdir`, its homes from `env`.
     pub fn load(
         uid: u32,
         id: &str,
@@ -69,8 +87,8 @@ impl InstanceConfig {
         workdir: &Path,
         env: &BTreeMap<String, String>,
     ) -> GrammarSshResult<Self> {
-        let id = InstanceName::parse("id", id)?;
-        let namespace = InstanceName::parse("namespace", namespace)?;
+        let id = Name::parse("id", id)?;
+        let namespace = Name::parse("namespace", namespace)?;
         let invalid = |reason: &str| GrammarSshError::WorkdirInvalid {
             path: workdir.to_path_buf(),
             reason: reason.to_string(),
@@ -81,21 +99,43 @@ impl InstanceConfig {
         if !workdir.is_dir() {
             return Err(invalid("it is not a directory"));
         }
-        let homes = InstanceHomes::resolve(env)?;
-        let paths = InstancePaths::of(&homes, &id, &namespace);
+        let homes = Homes::resolve(env)?;
         let supervisor = read_supervisor(&workdir.join(CONFIG_FILE))?;
-        let identity = RuntimeIdentity {
+        Ok(Self {
             uid,
             id: id.as_str().to_string(),
             namespace: namespace.as_str().to_string(),
-        };
-        Ok(Self {
-            identity,
             homes,
-            paths,
             workdir: workdir.to_path_buf(),
             supervisor,
         })
+    }
+
+    /// The namespace's data home, the MCP's own.
+    pub fn data_home(&self) -> PathBuf {
+        self.namespace_in(&self.homes.data)
+    }
+
+    /// The namespace's cache home, the MCP's own.
+    pub fn cache_home(&self) -> PathBuf {
+        self.namespace_in(&self.homes.cache)
+    }
+
+    /// The namespace lock, the MCP's own in the data home.
+    pub fn lock_file(&self) -> PathBuf {
+        self.data_home().join(LOCK_FILE)
+    }
+
+    /// The namespace's directory under `home`.
+    fn namespace_in(
+        &self,
+        home: &Path,
+    ) -> PathBuf {
+        NAMESPACES
+            .iter()
+            .fold(home.to_path_buf(), |path, part| path.join(part))
+            .join(&self.id)
+            .join(&self.namespace)
     }
 }
 

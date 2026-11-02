@@ -115,7 +115,7 @@ fn wait_for_emergency(cache: &Path, id: &str, needle: &str, wait: Duration) -> O
 
 #[cfg(feature = "test-hooks")]
 #[test]
-fn grammar_ssh_s_emergency_reaches_the_mcps_policy_under_its_host() {
+fn grammar_ssh_s_emergency_is_logged_on_both_hosts_and_its_cache_goes_at_its_end() {
     let sshd = Sshd::start();
     let account = TestAccount::new();
     let root = tempfile::tempdir().expect("a scratch root");
@@ -131,4 +131,15 @@ fn grammar_ssh_s_emergency_reaches_the_mcps_policy_under_its_host() {
         .unwrap_or_else(|| panic!("grammar-ssh's hung-thread emergency in the MCP's log for {nonce}"));
     assert!(line.contains("hung_engine_thread"), "{line}");
     assert!(line.contains("host: lab"), "the emergency names its host: {line}");
+    let own = wait_for_emergency(&account.home("cache"), SSH_ID, &nonce, Duration::from_secs(30))
+        .unwrap_or_else(|| panic!("grammar-ssh's own log of its emergency for {nonce}"));
+    assert!(!own.contains("host:"), "grammar-ssh's own line names no host: {own}");
+    let closed = host.interface("interface remote engine close 'lab'");
+    assert!(extract_envelope(&closed).is_some(), "{closed}");
+    let cache = namespace_dir(&account.home("cache"), SSH_ID, "default");
+    assert!(
+        eventually(Duration::from_secs(30), || !cache.exists()),
+        "grammar-ssh's end removes its cache home, its logs among it: {}",
+        cache.display(),
+    );
 }

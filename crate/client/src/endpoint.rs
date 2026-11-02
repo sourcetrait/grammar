@@ -160,7 +160,7 @@ impl Endpoint {
 
     /// grammar-ssh's own command line, as the login shell runs it.
     pub fn grammar_ssh_line(&self) -> String {
-        let mut line = format!("{} serve --id {} --namespace {}", self.command, self.id, self.namespace);
+        let mut line = format!("{} --id {} --namespace {}", self.command, self.id, self.namespace);
         if let Some(workdir) = &self.workdir {
             line.push_str(" --workdir ");
             line.push_str(workdir);
