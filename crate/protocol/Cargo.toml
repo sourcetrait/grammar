@@ -25,5 +25,9 @@ sourcetrait_common.workspace = true
 futures-util.workspace = true
 syn.workspace = true
 
+[[bench]]
+name = "frames"
+harness = false
+
 [package.metadata]
 rein = "ai"
