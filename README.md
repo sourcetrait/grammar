@@ -50,7 +50,9 @@ against its record first.
   through the `zstd` program, so the unpack takes one on `PATH`, Homebrew's
   among them.
 - Windows: `install.ps1` under PowerShell 7, in an elevated session for a UENV
-  place, its links being symlinks.
+  place, its links being symlinks. grammar's binaries need the
+  [latest supported Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-supported-redistributable-version)
+  installed first.
 
 Repository
 --------------------------------------------------------------------------------
