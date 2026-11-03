@@ -110,9 +110,9 @@ first call or a connect.
    which holds the latest release's alone.
 2. Over ssh: the package copied to the host, its six members extracted, and
    `package-grammar.tar` unpacked beside them.
-3. Its install script run there, `install.bash --place uenv-usr-local` under
-   bash 5, or on Windows `install.ps1 --place uenv-usr-local` in an elevated
-   pwsh 7: it checks `grammar.tar` against its record, fills
+3. Its install script run there with `--place uenv-usr-local`: `install.bash`
+   under bash 5 on Linux, `zsh -f install.zsh` on macOS, or `install.ps1` in an
+   elevated pwsh 7 on Windows. It checks `grammar.tar` against its record, fills
    `$UENV_USR_LOCAL/opt/grammar`, and links each of its `bin/` from
    `$UENV_USR_LOCAL/bin`.
 4. OpenRemoteGrammarEngine, `--command` naming the tree's `bin/grammar-ssh`
