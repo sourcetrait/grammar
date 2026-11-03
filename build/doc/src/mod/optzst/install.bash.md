@@ -23,8 +23,8 @@ field alone by a pattern anchored to a key's position; OptZst names hold
 letters, digits, dots, and dashes, never `_`.
 
 ## The record
-`<name>.tar` is checked against its sha256 record by `sha256sum`, coreutils',
-before a byte of it is unpacked. The signatures are
+`<name>.tar` is checked against its sha256 record by `sha256sum`, coreutils' or
+BusyBox's, before a byte of it is unpacked. The signatures are
 the consumer's to check with a key it trusts; the script carries no key.
 
 ## The home

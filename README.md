@@ -44,7 +44,9 @@ into a directory of your own and links nothing. The script checks `grammar.tar`
 against its record first.
 
 - Linux: `install.bash` under bash 5 or later, and a tar that reads zstd, with
-  `zstd` installed.
+  `zstd` installed. A musl system takes the `linux-musl` package. Alpine needs
+  `apk add bash zstd`, and its BusyBox tar reads no zstd, so the package unpacks
+  by `zstd -dc <package> | tar -xf -`.
 - macOS: `install.zsh` under the zsh macOS ships, as `zsh -f install.zsh`, so
   your startup files leave its environment alone. macOS's tar reads zstd only
   through the `zstd` program, so the unpack takes one on `PATH`, Homebrew's
