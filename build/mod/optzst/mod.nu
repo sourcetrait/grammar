@@ -67,7 +67,7 @@ export def package_record [
     {name: $read.name, title: $read.title, summary: $read.summary}
 }
 
-# The build target's os and arch: Rust's names, `_` written `-`.
+# The build target's os and arch: Rust's names, `_` written `-`, musl's os `linux-musl`.
 export def target []: nothing -> record<os: string, arch: string> {
     let cfg: table<key: string, value: string> = (
         ^rustc --print cfg | lines | parse '{key}="{value}"'
@@ -75,7 +75,9 @@ export def target []: nothing -> record<os: string, arch: string> {
     let pick = {|key: string|
         $cfg | where key == $key | get value.0 | str replace --all '_' '-'
     }
-    {os: (do $pick 'target_os'), arch: (do $pick 'target_arch')}
+    let libc: oneof<nothing, string> = ($cfg | where key == 'target_env' | get value.0?)
+    let os: string = (do $pick 'target_os')
+    {os: (if $libc == 'musl' { $"($os)-musl" } else { $os }), arch: (do $pick 'target_arch')}
 }
 
 # The signing key from a repository's git config, and its GnuPG home.

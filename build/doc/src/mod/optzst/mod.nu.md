@@ -45,7 +45,9 @@ name the install scripts read.
 ## def target
 Rust's `target_os` and `target_arch` rather than `uname`: the names cargo built
 for, the same when a cross build arrives. `_` becomes `-` because the file name
-reserves it; x86_64 is the case that needs it.
+reserves it; x86_64 is the case that needs it. musl's os takes its libc, `linux-musl`,
+as the two Linux packages would otherwise share a file name, and glibc's stays `linux`,
+so every package named so far keeps its name.
 
 ## def signer
 A repository that signs its commits with gpg already names a key, so the
