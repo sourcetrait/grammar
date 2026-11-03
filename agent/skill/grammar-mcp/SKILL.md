@@ -21,16 +21,10 @@ A result carries a summary. Bulk goes to a file under `$env.EQUIP_TMP`, its
 path relative to it in a field named `*_tmp`. The directory is the host's
 own, gone when the host ends; `interface info`'s `tmp` names it.
 
-## grimm
-The commands a definition reaches the host with:
-- `grimm dbg <record|table>`: append to this call's `debug.nuonl`.
-- `grimm channel send <model> <event> [attached]`: a packet on your Channel,
-  `attached` kept in its inbox; answers `{event_id}`.
-- `grimm remote channel send <nom> <model> <event>`: the same to a linked
-  host; `grimm remote_channel_send_with` adds a `table<src, dest>` of files.
-- `grimm get_config <key>` and `grimm get_config_all`: the config in force.
-- `grimm pin_config <key> <pid> <value>`: hold a `supervisor.*` line while
-  the pid lives.
+## grmr
+The commands a definition reaches the host with, which the bed tool lists. A
+`channel send`'s `attached` is kept in the Channel's inbox;
+`remote_channel_send_with` takes a `table<src, dest>` of files.
 
 ## info and help
 `interface info` indents one space a level: author, rig, modules, calls. A
@@ -47,7 +41,7 @@ bare name: `gram:get:log`. `interface help` takes a namepath or a pattern:
 `author/`, `author/rig:`, `.../mod/` its subtree, `.../mod:` its calls, `*`
 everything, `.` the purview. `interface help interface` gives every
 `interface` command's signature, the block that ends this skill, and
-`interface help grimm` every `grimm` command's.
+`interface help grmr` every `grmr` command's.
 
 ## Purviews
 Named namepath patterns filtering what `info` shows, never access control:
@@ -76,9 +70,9 @@ command. Peers trust each other by known public key. A send reports
 `platform`, `windows`, `linux`, or `macos`; `address`, `user`, `key`, and
 `known_hosts`, a list or a file; `jump` (the engine whose host it is reached
 through), `command` (`grammar-ssh` by default), `id`, `namespace`, and
-`workdir` optional. Its worker runs in the account's login shell, `command not
-found: <command>` when missing, and ends with its session, opened at the first
-call or a connect.
+`workdir` optional. Its grammar-ssh runs in the account's login shell, `command
+not found: <command>` when missing, and ends with its session, opened at the
+first call or a connect.
 
 ## SEQUENCE: OpenGrammarChannel
 1. `interface channel open async`, or `interface channel open sync` where
@@ -125,7 +119,6 @@ call or a connect.
    where the login's `PATH` finds another first.
 
 ## Command Signatures
-Note: Each begins with `interface `
 ### General
 MCP details, Equipment signatures within current purview
 `info []: nothing -> record`
@@ -162,7 +155,7 @@ List the remote channels, configured and live: each one's entry and state.
 One remote channel's entry and state.
 `remote channel get [alias: string]: nothing -> record`
 Make or change a remote channel's entry in `remotes.toml`.
-`remote channel set [alias: string, --address: string, --listen: string, --cert: string]: nothing -> record`
+`remote channel set [alias: string, --address: string, --listen: string, --cert: string]: nothing -> nothing`
 Remove a remote channel's entry from `remotes.toml`; a live link stays.
 `remote channel unset [alias: string]: nothing -> nothing`
 Listen for a remote channel's peer; blocks on the bind, answers its endpoint.
@@ -176,15 +169,15 @@ List the remote engines, configured and live: each one's entry and state.
 One remote engine's entry and state.
 `remote engine get [alias: string]: nothing -> record`
 Make or change a remote engine's entry in `remotes.toml`.
-`remote engine set [alias: string, --platform: string, --address: string, --jump: string, --user: string, --key: string, --known-hosts: list<string>, --known-hosts-file: string, --command: string, --id: string, --namespace: string, --workdir: string]: nothing -> record`
+`remote engine set [alias: string, --platform: string, --address: string, --jump: string, --user: string, --key: string, --known-hosts: list<string>, --known-hosts-file: string, --command: string, --id: string, --namespace: string, --workdir: string]: nothing -> nothing`
 Remove a remote engine's entry from `remotes.toml`; a live session stays.
 `remote engine unset [alias: string]: nothing -> nothing`
-Open a remote engine's session and start its worker now.
+Open a remote engine's session, starting its grammar-ssh now; answers its nom.
 `remote engine connect [alias: string]: nothing -> record`
-Close a remote engine's session; its worker ends with it.
+Close a remote engine's session; its grammar-ssh ends with it.
 `remote engine close [alias: string]: nothing -> nothing`
 Make or change a remote engine's entry from an ssh configuration's host.
-`remote engine import [alias: string, --from: string, --ssh-config: string]: nothing -> record`
+`remote engine import [alias: string, --from: string, --ssh-config: string]: nothing -> nothing`
 ### Equip
 Register a new equip at its source and seed its rig.
 `equip new [source: string]: nothing -> record`

@@ -68,7 +68,7 @@ A rig carries `.nu` sources and `.gitignore` files; at its root `rig.toml`,
 `README.md`, `LEGAL.md`, `LICENSE.txt`, `LICENSE-*.txt`, `.assets/` with no
 script, and `.docs/` of `.md` and `.txt`. A lib carries `.nu` files alone.
 Nothing is executable. An equip can't be named `docs`, `tools`, `bin`, or
-`target`, nor take `interface` or `grimm` as its author or name.
+`target`, nor take `interface` or `grmr` as its author or name.
 
 ## Where equips live
 - the repository's own: `./equip/<author>/<name>/`

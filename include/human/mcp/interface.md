@@ -4,9 +4,9 @@ Runs a single MCP `interface` Nu Command in an isolated Nu context without
 access to any other commands.
 
 ## Example
-Tool parameter `command`:
+Tool parameter `subcommand`:
 ```nu
-interface channel close
+channel close
 ```
 Tool result:
 ```nuon
