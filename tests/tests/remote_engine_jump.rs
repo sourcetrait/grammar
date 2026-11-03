@@ -14,6 +14,9 @@ const FIRST_CALL: Duration = Duration::from_secs(90);
 /// How long grammar-ssh or a session may take to end once its session closes.
 const END_WAIT: Duration = Duration::from_secs(30);
 
+/// How long a close through a jump may take: the tunnel's end, short of the close's 2 s bound.
+const JUMP_CLOSE: Duration = Duration::from_millis(1500);
+
 /// A definition answering the process it ran in.
 const PID: &str = "def execute [data: nothing]: nothing -> record<pid: int> { {pid: $nu.pid} }";
 
@@ -68,8 +71,11 @@ fn an_engine_opens_through_its_jump_and_closes_with_it() {
     let again = host.call("execute", json!({"host": "lab", "definition": PID, "data": "null"}));
     assert_eq!(pid_of(&again), pid, "the next call rides the same session");
 
+    let started = std::time::Instant::now();
     let closed = host.interface("interface remote engine close 'lab'");
+    let took = started.elapsed();
     assert!(!has_error_path(&closed), "{closed}");
+    assert!(took < JUMP_CLOSE, "the close ends at the tunnel's end, not at its bound: {took:?}");
     assert!(eventually(END_WAIT, || !alive(pid as u32)), "the close ends grammar-ssh");
     assert!(eventually(END_WAIT, || closes(&lab_sshd) == 2), "the engine's close reaches it: {}", lab_sshd.log());
     assert!(eventually(END_WAIT, || closes(&gate_sshd) == 1), "the jump's ends with it: {}", gate_sshd.log());

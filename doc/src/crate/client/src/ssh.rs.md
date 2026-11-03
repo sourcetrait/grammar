@@ -61,9 +61,19 @@ and the exec, each failure its own transport error: the host unreached is
 Through a jump, the jump's TCP, handshake, and login come first, then a
 direct-tcpip channel from its session to the engine's address, `127.0.0.1`
 port 0 its originator, and the engine's own handshake runs over that channel,
-its host held to its own pinned keys, then its login and the exec. The jump's
-session carries the channel alone and starts no grammar-ssh; a channel the jump
-refuses is `connect_failed` on the jump's hop.
+its host held to its own pinned keys, then its login and the exec. The channel
+is read through a `TunnelReader` and written through its own writer, so the
+engine's end sends the tunnel's EOF and nothing more. The jump's session
+carries the channel alone and starts no grammar-ssh; a channel the jump refuses
+is `connect_failed` on the jump's hop.
+
+## struct TunnelReader
+The tunnel's read half owned and read as bytes. russh's own stream sends the
+channel's close when it drops, and a close this side sent first makes russh
+take the jump's answering close as for no channel, telling no handler, so
+`end` waited out its bound on every close: the jump's host, its log at DEBUG3
+showed, had ended the tunnel at once. Dropping this reader sends nothing, so
+the tunnel ends from the jump's side alone.
 
 ## fn handshake
 Generic over its stream, a TCP connection's or a jump channel's, so both hops
@@ -74,9 +84,11 @@ The engine's own disconnect crosses the jump's tunnel, and russh's session takes
 a channel's data and its own messages from two queues in no set order, so a jump
 disconnected at once could end before the tunnel's last bytes left: the
 engine's host logged a dropped connection, never the close, as the macOS VM's
-loopback sshd showed. The jump's host closes the tunnel only after everything
-sent on it, so the jump waits for that close, up to `CLOSE_FLUSH`, then
-disconnects.
+loopback sshd showed. So the jump waits, up to `CLOSE_FLUSH`, for its host to
+end the tunnel, then disconnects. The jump's host ends it with its EOF once the
+engine's host has closed its side, which it does on the disconnect, and with
+its close after: both reach `Pinned` while the tunnel is still open on this
+side, which `TunnelReader` keeps it.
 
 ## fn rsa_hash
 An RSA key signs with the strongest SHA-2 hash the host names, and a host
@@ -85,8 +97,8 @@ naming none refuses it; any other key carries its own algorithm.
 ## struct Pinned
 The connection's handler. The host's key matches a pinned one by its key data,
 so a comment never matters, and a refusal keeps the presented key's SHA-256
-fingerprint for the error. It tells `end` when the host closes a channel: a
-jump's one channel is its tunnel.
+fingerprint for the error. It tells `end` when the host ends a channel, by its
+EOF or its close: a jump's one channel is its tunnel.
 
 ## struct Witness
 What the pump saw beside grammar-ssh's output: the host refusing the command,

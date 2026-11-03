@@ -59,7 +59,7 @@ impl RemoteSession {
         match &self.jump {
             Some(through) => {
                 let jump = through.connection.lock().await;
-                let hop = Some((&*jump, &*through.tunnel_closed));
+                let hop = Some((&*jump, &*through.tunnel_ended));
                 end(&connection, hop, "the MCP closed the session").await;
             }
             None => end(&connection, None, "the MCP closed the session").await,
@@ -101,7 +101,7 @@ pub async fn open(
                 connection: tk::AsyncMutex::new(connection),
                 jump: through.map(|through| Through {
                     connection: tk::AsyncMutex::new(through.connection),
-                    tunnel_closed: through.tunnel_closed,
+                    tunnel_ended: through.tunnel_ended,
                 }),
                 pump: std::sync::Mutex::new(Some(pump)),
                 witness,
@@ -109,7 +109,7 @@ pub async fn open(
             events,
         )),
         Err(refusal) => {
-            let hop = through.as_ref().map(|through| (&through.connection, &*through.tunnel_closed));
+            let hop = through.as_ref().map(|through| (&through.connection, &*through.tunnel_ended));
             end(&connection, hop, "the session didn't open").await;
             let _ = tk::timeout(CLOSE_FLUSH, &mut pump).await;
             let witness = witness.lock().unwrap_or_else(|e| e.into_inner());
@@ -139,10 +139,10 @@ type Connected = (
     russh::Channel<russh::client::Msg>,
 );
 
-/// A jump's connection and the signal its host gives when it closes the tunnel.
+/// A jump's connection and the signal its host gives when the tunnel ends.
 struct Gate<C> {
     connection: C,
-    tunnel_closed: Arc<tk::Notify>,
+    tunnel_ended: Arc<tk::Notify>,
 }
 
 /// A session's jump, held as long as the session's connection is.
@@ -215,8 +215,8 @@ async fn connect(
     let (mut connection, through) = match jump {
         None => (handshake(tcp(&target).await?, &target, Arc::default()).await?, None),
         Some(jump) => {
-            let tunnel_closed = Arc::new(tk::Notify::new());
-            let mut gate = handshake(tcp(&jump).await?, &jump, tunnel_closed.clone()).await?;
+            let tunnel_ended = Arc::new(tk::Notify::new());
+            let mut gate = handshake(tcp(&jump).await?, &jump, tunnel_ended.clone()).await?;
             authenticate(&mut gate, &jump).await?;
             let tunnel = gate
                 .channel_open_direct_tcpip(target.host.clone(), u32::from(target.port), "127.0.0.1", 0)
@@ -224,8 +224,10 @@ async fn connect(
                 .map_err(|e| TransportError::ConnectFailed {
                     reason: format!("{} opened no channel to {}:{}: {e}", jump.place, target.host, target.port),
                 })?;
-            let connection = handshake(tunnel.into_stream(), &target, Arc::default()).await?;
-            (connection, Some(Gate { connection: gate, tunnel_closed }))
+            let (read, write) = tunnel.split();
+            let stream = tokio::io::join(TunnelReader::new(read), write.make_writer());
+            let connection = handshake(stream, &target, Arc::default()).await?;
+            (connection, Some(Gate { connection: gate, tunnel_ended }))
         }
     };
     authenticate(&mut connection, &target).await?;
@@ -237,6 +239,76 @@ async fn connect(
         reason: format!("{place} took no command: {e}"),
     })?;
     Ok((connection, through, channel))
+}
+
+/// A wait for the tunnel's next message, the read half returned with it.
+type TunnelWait =
+    std::pin::Pin<Box<dyn std::future::Future<Output = (russh::ChannelReadHalf, Option<russh::ChannelMsg>)> + Send>>;
+
+/// A jump's tunnel read as bytes, owning its read half, so its drop closes nothing.
+struct TunnelReader {
+    /// The read half, while no wait holds it.
+    half: Option<russh::ChannelReadHalf>,
+    /// The wait for the next message, holding the read half.
+    waiting: Option<TunnelWait>,
+    /// The last data message and how much of it was read.
+    rest: Option<(russh::ChannelMsg, usize)>,
+    /// Whether the tunnel's data has ended.
+    ended: bool,
+}
+
+impl TunnelReader {
+    fn new(half: russh::ChannelReadHalf) -> Self {
+        Self {
+            half: Some(half),
+            waiting: None,
+            rest: None,
+            ended: false,
+        }
+    }
+}
+
+impl tk::AsyncRead for TunnelReader {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        loop {
+            if let Some((russh::ChannelMsg::Data { data }, read)) = self.rest.take() {
+                let n = buf.remaining().min(data.len() - read);
+                buf.put_slice(&data[read..read + n]);
+                if read + n < data.len() {
+                    self.rest = Some((russh::ChannelMsg::Data { data }, read + n));
+                }
+                return std::task::Poll::Ready(Ok(()));
+            }
+            if self.ended {
+                return std::task::Poll::Ready(Ok(()));
+            }
+            if self.waiting.is_none() {
+                let Some(mut half) = self.half.take() else {
+                    self.ended = true;
+                    continue;
+                };
+                self.waiting = Some(Box::pin(async move {
+                    let msg = half.wait().await;
+                    (half, msg)
+                }));
+            }
+            let Some(waiting) = self.waiting.as_mut() else {
+                continue;
+            };
+            let (half, msg) = std::task::ready!(std::future::Future::poll(waiting.as_mut(), cx));
+            self.waiting = None;
+            self.half = Some(half);
+            match msg {
+                Some(data @ russh::ChannelMsg::Data { .. }) => self.rest = Some((data, 0)),
+                Some(russh::ChannelMsg::Eof | russh::ChannelMsg::Close) | None => self.ended = true,
+                Some(_) => {}
+            }
+        }
+    }
 }
 
 /// A TCP connection to the hop's host, its failure named by the hop's place.
@@ -252,7 +324,7 @@ async fn tcp(login: &Login) -> Result<tk::TcpStream, TransportError> {
 async fn handshake<S>(
     stream: S,
     login: &Login,
-    closed: Arc<tk::Notify>,
+    ended: Arc<tk::Notify>,
 ) -> Result<russh::client::Handle<Pinned>, TransportError>
 where
     S: tk::AsyncRead + tk::AsyncWrite + Unpin + Send + 'static,
@@ -261,7 +333,7 @@ where
     let handler = Pinned {
         keys: login.pinned.clone(),
         rejected: rejected.clone(),
-        closed,
+        ended,
     };
     let config = Arc::new(russh::client::Config {
         preferred: preferred(),
@@ -302,15 +374,15 @@ async fn authenticate(
     Ok(())
 }
 
-/// The connection ended, then the jump's once its host has closed the tunnel.
+/// The connection ended, then the jump's once its host has ended the tunnel.
 async fn end(
     connection: &russh::client::Handle<Pinned>,
     jump: Option<(&russh::client::Handle<Pinned>, &tk::Notify)>,
     reason: &str,
 ) {
     disconnect(connection, reason).await;
-    if let Some((jump, tunnel_closed)) = jump {
-        let _ = tk::timeout(CLOSE_FLUSH, tunnel_closed.notified()).await;
+    if let Some((jump, tunnel_ended)) = jump {
+        let _ = tk::timeout(CLOSE_FLUSH, tunnel_ended.notified()).await;
         disconnect(jump, reason).await;
     }
 }
@@ -345,8 +417,8 @@ pub(crate) struct Pinned {
     keys: Vec<keys::PublicKey>,
     /// Why the host's key was refused, kept for the connect's error.
     rejected: Arc<std::sync::Mutex<Option<String>>>,
-    /// Told when the host closes a channel: a jump's one channel is its tunnel.
-    closed: Arc<tk::Notify>,
+    /// Told when the host ends a channel, its EOF or its close: a jump's one channel is its tunnel.
+    ended: Arc<tk::Notify>,
 }
 
 impl russh::client::Handler for Pinned {
@@ -366,12 +438,21 @@ impl russh::client::Handler for Pinned {
         Ok(matched)
     }
 
+    async fn channel_eof(
+        &mut self,
+        _channel: russh::ChannelId,
+        _session: &mut russh::client::Session,
+    ) -> Result<(), Self::Error> {
+        self.ended.notify_one();
+        Ok(())
+    }
+
     async fn channel_close(
         &mut self,
         _channel: russh::ChannelId,
         _session: &mut russh::client::Session,
     ) -> Result<(), Self::Error> {
-        self.closed.notify_one();
+        self.ended.notify_one();
         Ok(())
     }
 }
