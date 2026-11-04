@@ -4,7 +4,7 @@
 # machine's own distribution, of the Fedora family, the Debian family, or Alpine,
 # RUST the toolchain.
 
-ARG BASE=registry.fedoraproject.org/fedora:44
+ARG BASE=registry.fedoraproject.org/fedora:45
 FROM ${BASE}
 
 ARG RUST=1.99.1

@@ -5,7 +5,7 @@ with the run.
 
 ## ARG BASE
 The Fedora release the rpm is for, the release's builder in copr being that
-release's own; Fedora 44 is the default.
+release's own; Fedora 45 is the default.
 
 ## RUN
 Fedora's own Rust and cargo rather than rustup's, since copr builds a source

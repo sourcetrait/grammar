@@ -18,7 +18,7 @@
 set -euo pipefail
 
 repos=(grammar common common_mono srcert gram)
-base=registry.fedoraproject.org/fedora:44
+base=registry.fedoraproject.org/fedora:45
 jobs=4
 sources=
 out=

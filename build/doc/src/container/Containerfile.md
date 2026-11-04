@@ -6,10 +6,10 @@ with the run.
 ## ARG BASE
 The machine's own distribution, so what the container builds links against the
 libraries the machine has: a binary built against a newer glibc than the
-machine's refuses to start there. Fedora 44 is the default, the release's
-first machines running it. A Debian-family base serves a machine Fedora
-publishes no image for, Ubuntu's on riscv64. Alpine's builds the package for musl
-Linux, where a glibc binary doesn't start at all.
+machine's refuses to start there. Fedora 45 is the default, Fedora's latest
+release. A Debian-family base serves a machine Fedora publishes no image for,
+Ubuntu's on riscv64. Alpine's builds the package for musl Linux, where a glibc
+binary doesn't start at all.
 
 ## RUN
 The base's package manager picks the family, `dnf` Fedora's, `apt-get`
