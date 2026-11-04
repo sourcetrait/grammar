@@ -72,7 +72,7 @@ for repo in "${repos[@]}"; do
     mounts+=(--volume "$sources/$repo:/src/$repo:ro,Z")
 done
 
-podman build --tag "$image" --file "$context/Containerfile" \
+podman build --pull=newer --tag "$image" --file "$context/Containerfile" \
     --build-arg "BASE=$base" --build-arg "RUST=$rust" "$context"
 podman run --rm --init --env "JOBS=$jobs" "${mounts[@]}" \
     --volume "$work:/work:Z" --volume "$out:/out:Z" \
