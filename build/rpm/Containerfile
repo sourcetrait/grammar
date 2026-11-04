@@ -4,7 +4,7 @@
 # Built and run by run.bash beside it, then removed with its image: BASE is the
 # Fedora release the rpm is for.
 
-ARG BASE=registry.fedoraproject.org/fedora:45
+ARG BASE=registry.fedoraproject.org/fedora:latest
 FROM ${BASE}
 
 RUN dnf install -y --setopt=install_weak_deps=False \
