@@ -424,8 +424,8 @@ fn channel_send_spills_oversized_event() {
         .await_packet(|p| p.model == "test/Big", Duration::from_secs(10))
         .expect("consumer should receive the test/Big packet");
     assert!(
-        pkt.event.contains("spilled_event_path"),
-        "an oversized event is replaced by a spill pointer; got {pkt:?}",
+        pkt.event.starts_with("{size:"),
+        "an oversized event is replaced by its file's size; got {pkt:?}",
     );
     assert!(
         !pkt.event.contains("SPILL_MARKER_42"),
@@ -464,8 +464,8 @@ fn remote_send_spills_oversized_event() {
         )
         .expect("B should receive the relayed oversized event");
     assert!(
-        relayed.event.contains("spilled_event_path"),
-        "the relayed oversized event is a spill pointer; got {relayed:?}",
+        relayed.event.starts_with("{size:"),
+        "the relayed oversized event is its file's size; got {relayed:?}",
     );
     assert!(
         !relayed.event.contains("REMOTE_SPILL_99"),
@@ -476,7 +476,7 @@ fn remote_send_spills_oversized_event() {
         "the relayed pointer stays under the notification cap; got {} chars",
         relayed.raw.chars().count(),
     );
-    assert!(relayed.attached.is_some(), "the relayed packet names the delivery dir; got {relayed:?}");
+    assert!(relayed.attached.is_none(), "a spill alone leaves the packet no files; got {relayed:?}");
 
     let content = b.read_inbox(&spill_path(&relayed));
     assert!(
@@ -523,7 +523,16 @@ fn remote_send_with_returns_its_event_id() {
         )
         .expect("B should receive the relayed test/Files");
     assert!(relayed.event.contains("files-1"), "the relayed event carries the payload; got {relayed:?}");
-    assert!(relayed.attached.is_some(), "the relayed packet names its delivery dir; got {relayed:?}");
+    assert_eq!(
+        relayed.attached,
+        Some(vec!["note.txt".to_string()]),
+        "the relayed packet names the files in its own directory; got {relayed:?}",
+    );
+    assert_eq!(
+        b.read_inbox(&format!("{}/note.txt", relayed.id)),
+        "files-1",
+        "the file sits in the packet's <id>/, moved from its staging",
+    );
 }
 
 /// A host linked to two peers at once, an alias each: a send to each by its nom
@@ -674,10 +683,9 @@ fn attach_bare(root: &Path, name: &str, keys: &GeneratedKeys) -> Consumer {
     Consumer::attach(host, &keys.ca)
 }
 
-/// The inbox-relative spill path from a spill-pointer packet's event.
+/// The inbox-relative file a spilled packet's whole event sits in, `<id>.nuon`.
 fn spill_path(pkt: &Packet) -> String {
-    let ev = NuVal::from_nuon(&pkt.event).expect("event parses as NUON");
-    ev["spilled_event_path"].as_str().expect("a spill pointer carries spilled_event_path").to_string()
+    format!("{}.nuon", pkt.id)
 }
 
 /// Spawn a listener host (B) and a connector host (A) cross-configured on one free

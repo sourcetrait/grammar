@@ -112,6 +112,21 @@ fn assert_scratch(dir: &Path, base: &Path, pid: u32) {
     assert!(owner.contains("nonce: "), "and its guard's nonce; got {owner:?}");
 }
 
+/// The host's tree, `grammar/<nom>/` in `base`, private and marked by its host.
+fn assert_tree(dir: &Path, base: &Path, pid: u32) {
+    let trees = base.join("grammar");
+    assert_eq!(dir.parent(), Some(trees.as_path()), "{} sits in {}", dir.display(), trees.display());
+    let name = dir.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+    assert!(
+        !name.is_empty() && name.bytes().all(|b| b.is_ascii_alphanumeric()),
+        "the tree is named for the host's nom; got {name}",
+    );
+    #[cfg(unix)]
+    assert_eq!(mode(dir), 0o700, "only its owner may enter {}", dir.display());
+    let owner = std::fs::read_to_string(dir.join("owner.nuon")).expect("its owner marker");
+    assert!(owner.contains(&format!("pid: {pid},")), "the marker names its host's pid; got {owner:?}");
+}
+
 /// The UENV homes come first, so the standard variables' decoys stay empty.
 #[tested]
 fn both_directories_are_private_marked_and_exported() {
@@ -121,7 +136,7 @@ fn both_directories_are_private_marked_and_exported() {
     let mut host = spawn_on(&scratch, "scratchown", &tmp, &run);
     let (tmp_dir, transient_dir) = scratch_dirs(&mut host);
     assert_scratch(&tmp_dir, &tmp, host.pid());
-    assert_scratch(&transient_dir, &run, host.pid());
+    assert_tree(&transient_dir, &run, host.pid());
     for decoy in ["tmp", "run"] {
         let decoy = scratch.join("decoy").join(decoy);
         assert_eq!(scratch_in(&decoy), 0, "nothing in {}", decoy.display());
@@ -162,7 +177,7 @@ fn the_standard_variables_stand_behind_the_uenv_ones() {
     );
     let (tmp_dir, transient_dir) = scratch_dirs(&mut host);
     assert_scratch(&tmp_dir, &tmp, host.pid());
-    assert_scratch(&transient_dir, &run, host.pid());
+    assert_tree(&transient_dir, &run, host.pid());
 }
 
 /// With no runtime directory, transient files go under the temporary one.
@@ -185,10 +200,10 @@ fn transient_files_fall_back_to_the_temporary_directory() {
     );
     let (tmp_dir, transient_dir) = scratch_dirs(&mut host);
     assert_scratch(&tmp_dir, &tmp, host.pid());
-    assert_scratch(&transient_dir, &tmp, host.pid());
-    assert_ne!(tmp_dir, transient_dir, "two directories still, side by side");
+    assert_tree(&transient_dir, &tmp, host.pid());
+    assert_ne!(tmp_dir, transient_dir, "two directories still");
     let inbox = open_inbox(&mut host);
-    assert_eq!(inbox.parent(), Some(tmp.as_path()), "the Channel's inbox goes with them");
+    assert_eq!(inbox, transient_dir.join("channel"), "the Channel's directory goes in the tree");
     let stderr = std::fs::read_to_string(&log).expect("the host's stderr");
     assert!(stderr.contains("XDG_RUNTIME_DIR"), "the fallback is warned of; got {stderr:?}");
 }
@@ -234,12 +249,12 @@ fn sigterm_removes_both_directories() {
     assert!(!transient_dir.exists(), "and {}", transient_dir.display());
 }
 
-/// Each open makes the Channel's inbox beside the transient directory.
+/// Each open makes the Channel's directory, `channel/`, in the host's tree.
 ///
-/// It is named for the host's nom, private, and the inbox itself, an
-/// attachment landing in it; a close removes it, a taken name falls back to a
-/// random one, and the host's end removes what it made and nothing else. The
-/// mode and the signalled end on Unix alone.
+/// It is private, a send's event landing in it as `<id>.nuon` and its
+/// attachment in `<id>/`; a close removes it, a reopen makes it again, and the
+/// host's end removes its tree and nothing else. The mode and the signalled
+/// end on Unix alone.
 #[tested]
 fn each_open_makes_the_channel_inbox_in_the_transient_base() {
     let t = testing::test!({ .using_temp_dir() });
@@ -250,10 +265,10 @@ fn each_open_makes_the_channel_inbox_in_the_transient_base() {
         .as_str()
         .unwrap_or_else(|| panic!("info carries nom; got {info}"))
         .to_string();
-    let named = run.join(format!("grammar.channel.{nom}"));
+    let named = run.join("grammar").join(&nom).join("channel");
 
     let inbox = open_inbox(&mut host);
-    assert_eq!(inbox, named, "the inbox is named for the host's nom in the transient base");
+    assert_eq!(inbox, named, "the Channel's directory sits in the tree named for the host's nom");
     #[cfg(unix)]
     assert_eq!(mode(&inbox), 0o700, "only its owner may enter {}", inbox.display());
     host.interface("interface channel sync");
@@ -267,29 +282,29 @@ fn each_open_makes_the_channel_inbox_in_the_transient_base() {
         .as_str()
         .unwrap_or_else(|| panic!("the send answers its id; got {resp}"))
         .to_string();
+    assert!(inbox.join(format!("{id}.nuon")).is_file(), "the event lands as {id}.nuon");
     assert!(
-        inbox.join(format!("{id}.nuon")).is_file(),
-        "the attachment lands in the inbox itself, as {id}.nuon",
+        inbox.join(&id).join("attached.nuon").is_file(),
+        "the attachment lands in the packet's own {id}/",
     );
 
     host.interface("interface channel close");
     assert!(!inbox.exists(), "a close removes {}", inbox.display());
 
-    std::fs::create_dir(&named).expect("a directory holding the nom's name");
-    let fallback = open_inbox(&mut host);
-    assert_ne!(fallback, named, "a taken name falls back to a random one");
-    assert_eq!(fallback.parent(), Some(run.as_path()), "beside it in the transient base");
-    let name = fallback.file_name().and_then(|name| name.to_str()).unwrap_or_default();
-    assert!(name.starts_with("grammar.channel."), "under the inbox's prefix; got {name}");
+    let stray = run.join("grammar").join("strayhost");
+    std::fs::create_dir(&stray).expect("a directory no host made");
+    let reopened = open_inbox(&mut host);
+    assert_eq!(reopened, named, "a reopen makes the Channel's directory again");
     #[cfg(unix)]
     {
-        assert_eq!(mode(&fallback), 0o700, "only its owner may enter {}", fallback.display());
+        assert_eq!(mode(&reopened), 0o700, "only its owner may enter {}", reopened.display());
+        let tree = reopened.parent().expect("the tree").to_path_buf();
         let status = host
             .signal_and_wait(Signal::SIGTERM, Duration::from_secs(15))
             .expect("a signalled host should exit rather than hang");
         assert_eq!(status.code(), Some(128 + Signal::SIGTERM as i32), "the handler ran");
-        assert!(!fallback.exists(), "the host's end removes {}", fallback.display());
-        assert!(named.is_dir(), "and leaves {}, which it never made", named.display());
+        assert!(!tree.exists(), "the host's end removes its tree {}", tree.display());
+        assert!(stray.is_dir(), "and leaves {}, which it never made", stray.display());
     }
 }
 

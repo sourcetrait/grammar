@@ -133,7 +133,8 @@ pub struct Packet {
     pub id: String,
     pub from: String,
     pub model: String,
-    pub attached: Option<String>,
+    /// The names of the files in the packet's own directory, `<id>/`.
+    pub attached: Option<Vec<String>>,
     pub event: String,
     /// The full raw NUON wire line - what the client renders (and truncates) as a
     /// notification, so a spilled-pointer packet can be asserted under the cap.
@@ -148,12 +149,14 @@ fn parse_line(line: &str) -> Option<Packet> {
     if model.is_empty() {
         return None;
     }
-    let attached = field("attached");
+    let attached = packet.get("attached").and_then(NuVal::as_list).map(|names| {
+        names.iter().filter_map(NuVal::as_str).map(str::to_string).collect::<Vec<_>>()
+    });
     Some(Packet {
         id: field("id"),
         from: field("from"),
         model,
-        attached: (!attached.is_empty()).then_some(attached),
+        attached,
         event: packet.get("event").map_or_else(|| "{}".to_string(), |event| event.to_string()),
         raw: line.to_string(),
     })
