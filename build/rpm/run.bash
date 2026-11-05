@@ -5,8 +5,8 @@
 # Usage: `bash run.bash --sources <dir> --out <dir> [--base <image>]
 # [--jobs <n>]`, on a Fedora machine of the architecture the rpm is for.
 #
-# `--sources` holds grammar beside common, common_mono, srcert, and gram. The
-# image is built from this directory's Containerfile on `--base`; srpm.bash
+# `--sources` holds grammar beside nuval, common, common_mono, srcert, and gram.
+# The image is built from this directory's Containerfile on `--base`; srpm.bash
 # writes the source rpm into `<out>`; `rpmbuild --rebuild` runs on it with no
 # network, its rpm copied into `<out>`; and the rpm is installed on `--base`
 # itself, also with no network, each binary run. Each phase's log lands in
@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-repos=(grammar common common_mono srcert gram)
+repos=(grammar nuval common common_mono srcert gram)
 base=registry.fedoraproject.org/fedora:latest
 jobs=4
 sources=

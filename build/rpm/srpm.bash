@@ -3,15 +3,15 @@
 # network builds it.
 #
 # Run by run.bash in its one-time container, with the network: /src holds
-# grammar beside common, common_mono, srcert, and gram, read-only, as grammar's
-# path dependencies and its equip read them; /work is the run's own; /out
+# grammar beside nuval, common, common_mono, srcert, and gram, read-only, as
+# grammar's path dependencies and its equip read them; /work is the run's own; /out
 # receives `grammar-<version>.src.rpm`. nushell's and its core plugins' crates
 # come from crates.io at the engine's version, and `cargo vendor` fills one
 # vendor directory for every manifest the build reads.
 
 set -euo pipefail
 
-repos=(grammar common common_mono srcert gram)
+repos=(grammar nuval common common_mono srcert gram)
 crates=(nu nu_plugin_formats nu_plugin_gstat nu_plugin_inc nu_plugin_polars nu_plugin_query)
 
 for repo in "${repos[@]}"; do

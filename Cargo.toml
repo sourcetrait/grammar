@@ -1,7 +1,6 @@
 [workspace]
 resolver = "3"
 members = [
-  "crate/nuval",
   "crate/protocol",
   "crate/channel",
   "crate/peer",
@@ -79,7 +78,7 @@ nu-plugin-test-support = { version = "0.116.1" }
 nu-protocol = { version = "0.116.1" }
 nu-std = { version = "0.116.1" }
 nuon = { version = "0.116.1" }
-nuval = { path = "crate/nuval", default-features = false }
+nuval = { path = "../nuval/rust/crate/nuval", default-features = false }
 sourcetrait_grammar_channel = { path = "crate/channel" }
 sourcetrait_grammar_client = { path = "crate/client" }
 sourcetrait_grammar_engine = { path = "crate/engine" }

@@ -29,7 +29,7 @@ const MODELED: [(&str, &str); 8] = [
 
 /// The workspace's root.
 fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("..")
 }
 
 /// A file's text, from the workspace's root.
@@ -62,7 +62,6 @@ fn each_repository_nuon_holds_to_its_model() {
 
 /// Each file's type annotates a definition's parameter, and nushell reads it
 /// as nuval does.
-#[cfg(feature = "nushell")]
 #[test]
 fn each_repository_nutype_annotates_a_parameter_as_nushell_reads_it() {
     for file in FILES {

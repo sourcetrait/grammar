@@ -36,3 +36,9 @@ sourcetrait_grammar_protocol.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 nix.workspace = true
+
+[dev-dependencies]
+nu-cmd-lang.workspace = true
+nu-parser.workspace = true
+nu-protocol.workspace = true
+nuval = { workspace = true, features = ["nushell"] }
