@@ -63,27 +63,27 @@ environment names another, as the build container's does.
 ## def target
 Rust's `target_os` and `target_arch` rather than `uname`: the names cargo built
 for, the same when a cross build arrives. `_` becomes `-` because the file name
-reserves it; x86_64 is the case that needs it. musl's os takes its libc, `linux-musl`,
-as the two Linux packages would otherwise share a file name, and glibc's stays `linux`,
-so every package named so far keeps its name.
+reserves it; x86_64 is the case that needs it. musl's os takes its libc,
+`linux-musl`, as the two Linux packages would otherwise share a file name, and
+glibc's stays `linux`, so every package named so far keeps its name.
 
 ## def layout
-The tree sits at `package/` under its profile's directory, where `optzst create` reads
-a package's program from. One home for every product (User): `bin/` holds each product's binary, `mcp/`
-the MCP's own parts, its skills, and what the products share sits at the top,
-`nu/`, `plugin/`, and `equip/`; `ssh/`, grammar-ssh's own, is made when it has
-any. nushell's binary sits in `nu/bin/`, apart from the products', so an
-install links every entry of `bin/` and no other shell's `nu` is shadowed.
-Each binary finds the shared parts beside its `bin/`. The binaries come from
-the target directory the build used (`target_dir`), each with its target's
-executable suffix. The tree is emptied and rebuilt rather than updated, so a
-file dropped from the release cannot linger in it. `plugin/` keeps its plugins
-apart by kind: `core/` nushell's, `grammar/` the workspace's own; `rig/`, for
-custom plugins, is the MCP's to read when one exists. `equip/` holds each
-builtin's equip as its source holds it, the host's install taking its `lib/`
-and `rig/`. On Unix, `chmod u=rwX,go=rX` leaves directories and executables at
-0755 and everything else at 0644, the modes the archive records; Windows keeps
-no such modes.
+The tree sits at `package/` under its profile's directory, where `optzst create`
+reads a package's program from. One home for every product (User): `bin/` holds
+each product's binary, `mcp/` the MCP's own parts, its skills, and what the
+products share sits at the top, `nu/`, `plugin/`, and `equip/`; `ssh/`,
+grammar-ssh's own, is made when it has any. nushell's binary sits in `nu/bin/`,
+apart from the products', so an install links every entry of `bin/` and no other
+shell's `nu` is shadowed. Each binary finds the shared parts beside its `bin/`.
+The binaries come from the target directory the build used (`target_dir`), each
+with its target's executable suffix. The tree is emptied and rebuilt rather than
+updated, so a file dropped from the release cannot linger in it. `plugin/` keeps
+its plugins apart by kind: `core/` nushell's, `grammar/` the workspace's own;
+`rig/`, for custom plugins, is the MCP's to read when one exists. `equip/` holds
+each builtin's equip as its source holds it, the host's install taking its
+`lib/` and `rig/`. On Unix, `chmod u=rwX,go=rX` leaves directories and
+executables at 0755 and everything else at 0644, the modes the archive records;
+Windows keeps no such modes.
 
 ## def exe_suffix
 Rust names a binary for its target: `.exe` on Windows, nothing elsewhere; the

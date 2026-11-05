@@ -48,7 +48,8 @@ from crates.io.
 ## def signing_key
 The key's file comes from the repository's git config, `optzst.key`, a setting a
 developer makes once; a program reaches a key through its config, never the
-environment. `optzst` on `PATH` is checked with it, the pair being what a pack needs.
+environment. `optzst` on `PATH` is checked with it, the pair being what a pack
+needs.
 
 ## def pack_tree
 The tree is packed as a whole build packs its own, so a split release's
@@ -59,5 +60,5 @@ refused, the two having come from different checkouts.
 ## def pack
 `optzst create` reads a directory holding `package/` and `install/`, so the
 package's own part is copied in beside the tree for the pack and removed after,
-leaving the directory as the build left it. The package's path is `optzst`'s last
-line.
+leaving the directory as the build left it. The package's path is `optzst`'s
+last line.
