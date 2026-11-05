@@ -1,6 +1,6 @@
 # bundle/mod.nu
 
-What grammar's release holds, as against how an OptZst is packed.
+What grammar's release holds; `optzst` packs it into an OptZst.
 
 ## const SSH_CRATE
 `grammar-ssh`, the MCP on a foreign host, ships in one tree with the MCP, built
@@ -60,8 +60,16 @@ package land where the build did. A `target/` assumed beside the manifest
 would hand the package whatever an earlier build left there whenever the
 environment names another, as the build container's does.
 
+## def target
+Rust's `target_os` and `target_arch` rather than `uname`: the names cargo built
+for, the same when a cross build arrives. `_` becomes `-` because the file name
+reserves it; x86_64 is the case that needs it. musl's os takes its libc, `linux-musl`,
+as the two Linux packages would otherwise share a file name, and glibc's stays `linux`,
+so every package named so far keeps its name.
+
 ## def layout
-One home for every product (User): `bin/` holds each product's binary, `mcp/`
+The tree sits at `package/` under its profile's directory, where `optzst create` reads
+a package's program from. One home for every product (User): `bin/` holds each product's binary, `mcp/`
 the MCP's own parts, its skills, and what the products share sits at the top,
 `nu/`, `plugin/`, and `equip/`; `ssh/`, grammar-ssh's own, is made when it has
 any. nushell's binary sits in `nu/bin/`, apart from the products', so an

@@ -47,7 +47,7 @@ cargo install --offline --locked --root "$CARGO_TARGET_DIR/nu/release" \
 
 %install
 mkdir -p %{buildroot}/opt/grammar %{buildroot}%{_bindir}
-cp -a out/tree/. %{buildroot}/opt/grammar/
+cp -a out/package/. %{buildroot}/opt/grammar/
 for path in %{buildroot}/opt/grammar/bin/*; do
     name="$(basename "$path")"
     ln -s "/opt/grammar/bin/$name" "%{buildroot}%{_bindir}/$name"

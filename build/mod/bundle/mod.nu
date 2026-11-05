@@ -99,7 +99,20 @@ export def package_semver [root: path, profile: string]: nothing -> string {
     if $profile == 'debug' { $"($version)+dbg" } else { $version }
 }
 
-# Assemble the package's tree in `pkg/<profile>` in cargo's target directory; returns it.
+# The build target's os and arch: Rust's names, `_` written `-`, musl's os `linux-musl`.
+export def target []: nothing -> record<os: string, arch: string> {
+    let cfg: table<key: string, value: string> = (
+        ^rustc --print cfg | lines | parse '{key}="{value}"'
+    )
+    let pick = {|key: string|
+        $cfg | where key == $key | get value.0 | str replace --all '_' '-'
+    }
+    let libc: oneof<nothing, string> = ($cfg | where key == 'target_env' | get value.0?)
+    let os: string = (do $pick 'target_os')
+    {os: (if $libc == 'musl' { $"($os)-musl" } else { $os }), arch: (do $pick 'target_arch')}
+}
+
+# Assemble the package's tree in `pkg/<profile>/package` in cargo's target directory; returns it.
 #
 # `bin/` holds the MCP and grammar-ssh, `nu/bin/` nushell, `plugin/core/`
 # nushell's core plugins from `nu_root`, the install nushell made,
@@ -109,9 +122,9 @@ export def layout [root: path, profile: string, nu_root: path, os: string]: noth
     let exe: string = (exe_suffix $os)
     let target: path = (target_dir $root)
     let built: path = ($target | path join $profile)
-    let tree: path = ($target | path join 'pkg' $profile)
-    if ($tree | path exists) {
-        rm --recursive $tree
+    let tree: path = ($target | path join 'pkg' $profile 'package')
+    if ($tree | path dirname | path exists) {
+        rm --recursive ($tree | path dirname)
     }
     let bin: path = ($tree | path join 'bin')
     mkdir $bin

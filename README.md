@@ -21,13 +21,21 @@ script for each OS to place it: `install.bash` for Linux, `install.zsh` for
 macOS, and `install.ps1` for Windows.
 
 It requires gram's repository cloned beside this one, as `gram`: `ext/gram`
-links to it, and the package carries its equip.
+links to it, and the package carries its equip. It packs with `optzst`, OptZst's
+own command, which must be on `PATH`, signing with the OpenPGP secret key whose file the
+repository's git config names as `optzst.key`.
 
 Installing
 --------------------------------------------------------------------------------
-A package is `grammar_<version>_<os>_<arch>.opt.tar.zst`. Unpack it, check
-both signatures with a key you trust, and run its install script beside the
-unpacked files:
+A package is `grammar_<version>_<os>_<arch>.opt.tar.zst`. `optzst` checks and places
+it, on any OS, given a key you trust:
+
+```bash
+optzst install --place uenv-usr-local --keyring <key> grammar_<version>_<os>_<arch>.opt.tar.zst
+```
+
+Without `optzst`, unpack it, check both signatures with a key you trust, and run its
+install script beside the unpacked files:
 
 ```bash
 tar -xf grammar_<version>_<os>_<arch>.opt.tar.zst

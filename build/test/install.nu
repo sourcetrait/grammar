@@ -8,7 +8,7 @@
 # leaves. The table prints, and any failed case exits 1. A Windows run needs an
 # elevated session for its links.
 
-const SCRIPTS = (path self | path expand | path dirname | path dirname | path join 'mod' 'optzst')
+const SCRIPTS = (path self | path expand | path dirname | path dirname | path join 'install')
 
 # Each shell's script.
 const SCRIPT_OF = {bash: 'install.bash', zsh: 'install.zsh', pwsh: 'install.ps1'}

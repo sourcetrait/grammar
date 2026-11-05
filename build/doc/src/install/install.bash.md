@@ -3,7 +3,8 @@
 An OptZst package's install for Linux, generic to any package: it reads the
 package's name from `package.nuon` and finds `<name>.tar` and its record beside
 itself, where the package's members were extracted. macOS takes `install.zsh`
-and Windows `install.ps1`, one script an OS.
+and Windows `install.ps1`, one script an OS. They do what `optzst install` does by
+itself, and stay in grammar's package for what unpacks it by hand.
 
 ## The shell
 bash 5 and later alone, on Linux alone: an older bash is refused before

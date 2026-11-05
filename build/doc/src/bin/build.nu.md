@@ -15,10 +15,12 @@ link and directly.
 The same real path, three levels up, so the script builds the repository it
 lives in from any working directory.
 
-## const PACKAGE
-The package's record, `build/package.nuon`, is the one source of its name:
-the build's message, the tree's record, the package's file name, and the
-package tar all take the name from it, checked by `optzst package_record`.
+## const INSTALL
+The package's own part, `build/install/`: `package.nuon`, the one source of its
+name, which the build's message, the tree's record, and the package's file name
+all take, and the install scripts. `optzst` needs those only for a package's own
+install, which this isn't; grammar's package keeps them for what unpacks it by
+hand.
 
 ## const BUILD_RECORD
 What `--pack` needs of the build, its name, semver, os, and arch, written
@@ -26,9 +28,9 @@ beside the tree, so the packing machine needs neither the build's cargo
 metadata nor its rustc; `build/type/BuildRecord.nutype` is its model.
 
 ## def main
-A whole build resolves the signer first, before any build, because a
-repository without a usable key cannot produce a package and should say so in
-a second rather than after the release builds. gram's equip is checked beside
+A whole build finds its key first, before any build, because a repository
+without a usable key cannot produce a package and should say so in a second
+rather than after the release builds. gram's equip is checked beside
 it for the same reason. The licenses are tallied before the compile, from the
 same manifest it builds.
 
@@ -43,8 +45,19 @@ package carries nushell's and its core plugins' published sources beside the
 vendored crates (`build/rpm/`), so nushell installs from them rather than
 from crates.io.
 
+## def signing_key
+The key's file comes from the repository's git config, `optzst.key`, a setting a
+developer makes once; a program reaches a key through its config, never the
+environment. `optzst` on `PATH` is checked with it, the pair being what a pack needs.
+
 ## def pack_tree
 The tree is packed as a whole build packs its own, so a split release's
 package is the same OptZst; it lands beside the tree, in the directory the
 build left. A tree whose record names another package than `package.nuon` is
 refused, the two having come from different checkouts.
+
+## def pack
+`optzst create` reads a directory holding `package/` and `install/`, so the
+package's own part is copied in beside the tree for the pack and removed after,
+leaving the directory as the build left it. The package's path is `optzst`'s last
+line.

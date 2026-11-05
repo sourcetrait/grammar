@@ -7,7 +7,7 @@
 # `--sources` holds grammar beside the repositories it reaches: nuval, common,
 # common_mono, srcert, and gram. The image is built from this
 # directory's Containerfile on `--base`, this machine's own distribution, and
-# runs build.bash, which leaves the tree in `<out>/tree` and its build record
+# runs build.bash, which leaves the tree in `<out>/package` and its build record
 # in `<out>/build.nuon`. The image, the base when this run pulled it, and the
 # build's work directory beside `--out` are removed afterwards, whatever the
 # outcome. The last line is the tree's path.
@@ -77,4 +77,4 @@ podman build --pull=newer --tag "$image" --file "$context/Containerfile" \
 podman run --rm --init --env "JOBS=$jobs" "${mounts[@]}" \
     --volume "$work:/work:Z" --volume "$out:/out:Z" \
     "$image" bash /src/grammar/build/container/build.bash
-echo "$out/tree"
+echo "$out/package"
