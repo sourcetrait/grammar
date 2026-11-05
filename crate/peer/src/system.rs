@@ -565,7 +565,7 @@ fn spill_remote_event(
     if !event_overflows(&event_nuon) {
         return Ok((event_nuon, payloads));
     }
-    let pointer_nuon = render_nuon(&event_spill_pointer(EVENT_SPILL_DEST, event_nuon.len()))?;
+    let pointer_nuon = render_nuon(&event_spill_pointer(event_nuon.len()))?;
     payloads.push((EVENT_SPILL_DEST.to_string(), event_nuon.into_bytes()));
     Ok((pointer_nuon, payloads))
 }

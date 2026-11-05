@@ -29,8 +29,8 @@ pub(crate) mod tku {
 
 pub use crate::{
     channel::{
-        ChannelEpoch, ChannelMode, ChannelPhase, ChannelSendData, ChannelState, EVENT_BYTES_KEY,
-        EVENT_SPILL_DEST, EVENT_SPILL_KEY, MAX_FRAME_BYTES, MCP_RESERVED_PREFIX, NOTIFICATION_CAP,
+        ChannelEpoch, ChannelMode, ChannelPhase, ChannelSendData, ChannelState, EVENT_SIZE_KEY,
+        EVENT_SPILL_DEST, MAX_FRAME_BYTES, MCP_RESERVED_PREFIX, NOTIFICATION_CAP,
         REMOTE_RESERVED_PREFIX, RemoteSendData, SYNC_QUEUE_CAP, SpamThresholdsData, reserved_prefix,
     },
     codec::{

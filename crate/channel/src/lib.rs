@@ -29,7 +29,7 @@ pub(crate) use sourcetrait_common::{agnostic, cereal, datum, subsys};
 
 pub(crate) use sourcetrait_grammar_protocol::{
     ChannelEpoch, ChannelMode, ChannelPhase, ChannelSendData, ChannelSpamErrorEmergency,
-    ChannelSpamWarningEmergency, ChannelState, EVENT_BYTES_KEY, EVENT_SPILL_KEY, Emergency,
+    ChannelSpamWarningEmergency, ChannelState, EVENT_SIZE_KEY, Emergency,
     NOTIFICATION_CAP, NuVal, SYNC_QUEUE_CAP, SpamThresholdsData, reserved_prefix,
 };
 
@@ -57,8 +57,8 @@ pub use crate::{
         ThresholdsRequest, ToChannelSys,
     },
     render::{
-        MsgId, escape_line, event_overflows, event_spill_pointer, mint_msg_id, render_nuon,
-        render_packet,
+        ATTACHED_FILE, MsgId, escape_line, event_file, event_overflows, event_spill_pointer,
+        mint_msg_id, render_nuon, render_packet,
     },
     spam::SpamThresholds,
     system::{ChannelHandle, ChannelSysConfig, ChannelSysParams, ChannelSysPaths, ChannelSystem},

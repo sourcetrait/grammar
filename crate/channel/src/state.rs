@@ -121,11 +121,16 @@ impl Channel {
         self.sink = Some(match req.mode {
             ChannelMode::Async => Sink::Hub,
             ChannelMode::Sync => Sink::Sync {
-                lines: req.greeting.into_iter().collect(),
+                lines: req.greeting.into_iter().map(|greeting| greeting.line).collect(),
                 dropped: 0,
             },
         });
         self.inbox = Some(PathBuf::from(req.inbox));
+    }
+
+    /// The inbox the open made, none while closed or once a close took it.
+    pub(crate) fn inbox_dir(&self) -> Option<&PathBuf> {
+        self.inbox.as_ref()
     }
 
     /// Take a sync Channel's queued lines and its drop count, claiming it.
@@ -289,24 +294,52 @@ impl Channel {
         }
     }
 
-    /// A host packet through the gate: rendered, its id minted, and emitted.
-    pub(crate) fn emit_packet(
+    /// A host packet through the gate up to its files: its id minted, its line rendered.
+    pub(crate) fn plan_emit(
         &mut self,
         req: EmitRequest,
-    ) -> Result<String, EmitError> {
+    ) -> Result<PlannedSend, EmitError> {
         let EmitRequest {
             from,
             model,
             event,
             attached,
         } = req;
+        match self.phase {
+            ChannelPhase::Closed => return Err(EmitError::Refused(ChannelSendError::NotOpen)),
+            ChannelPhase::Open => return Err(EmitError::Refused(ChannelSendError::NotVerified)),
+            ChannelPhase::Verified => {}
+        }
         let event = nu_value(event).map_err(EmitError::Render)?;
         let event_nuon = render_nuon(&event).map_err(EmitError::Render)?;
-        let id = mint_msg_id(&self.nonce_gen, &from, &model, &event_nuon, attached.as_deref());
-        let line = render_packet(id, &from, &model, &event, attached.as_deref())
+        let names = attached.as_ref().map(|names| names.join("\n"));
+        let id = mint_msg_id(&self.nonce_gen, &from, &model, &event_nuon, names.as_deref());
+        let path = self
+            .inbox
+            .as_ref()
+            .map(|dir| dir.join(event_file(id)))
+            .ok_or(EmitError::Refused(ChannelSendError::NotOpen))?;
+        let wire_event = if event_overflows(&event_nuon) {
+            event_spill_pointer(event_nuon.len())
+        } else {
+            event
+        };
+        let line = render_packet(id, &from, &model, &wire_event, attached.as_deref())
             .map_err(EmitError::Render)?;
-        self.emit(line).map_err(EmitError::Refused)?;
-        Ok(id.to_string())
+        Ok(PlannedSend {
+            id: id.to_string(),
+            files: vec![(path, event_nuon)],
+            line,
+        })
+    }
+
+    /// A planned host packet's emit, once its files are written.
+    pub(crate) fn finish_emit(
+        &mut self,
+        planned: PlannedSend,
+    ) -> Result<String, EmitError> {
+        self.emit(planned.line).map_err(EmitError::Refused)?;
+        Ok(planned.id)
     }
 
     /// Apply a partial update and return what is now in force.
@@ -405,24 +438,20 @@ impl Channel {
             attached_nuon.as_deref(),
         );
 
-        let mut files = Vec::new();
-        let attached_name = match attached_nuon {
-            Some(nuon) => {
-                let name = format!("{id}.nuon");
-                files.push((self.inbox_path(&name)?, nuon));
-                Some(name)
-            }
-            None => None,
-        };
         let wire_event = if event_overflows(&event_nuon) {
-            let name = format!("{id}.event.nuon");
-            let pointer = event_spill_pointer(&name, event_nuon.len());
-            files.push((self.inbox_path(&name)?, event_nuon));
-            pointer
+            event_spill_pointer(event_nuon.len())
         } else {
             event
         };
-        let line = render_packet(id, &from, &model, &wire_event, attached_name.as_deref())
+        let mut files = vec![(self.inbox_path(&event_file(id))?, event_nuon)];
+        let attached_names = match attached_nuon {
+            Some(nuon) => {
+                files.push((self.inbox_path(&id.to_string())?.join(ATTACHED_FILE), nuon));
+                Some(vec![ATTACHED_FILE.to_string()])
+            }
+            None => None,
+        };
+        let line = render_packet(id, &from, &model, &wire_event, attached_names.as_deref())
             .map_err(SendVerdict::Refused)?;
         Ok(PlannedSend {
             id: id.to_string(),

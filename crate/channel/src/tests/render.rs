@@ -48,15 +48,23 @@ fn a_rendered_packet_is_one_line_and_parses_back() {
 }
 
 #[test]
-fn an_attachment_is_carried_by_name() {
-    let line = render_packet(an_id(), "thread/abc", "foo/bar/Car", &an_event(), Some("x.nuon"))
+fn an_attachment_is_carried_by_its_names() {
+    let names = vec![ATTACHED_FILE.to_string()];
+    let line = render_packet(an_id(), "thread/abc", "foo/bar/Car", &an_event(), Some(&names))
         .expect("render");
     let value = nuon::from_nuon(&line, None).expect("valid NUON record");
     let record = value.as_record().expect("record");
+    let attached: Vec<&str> = record
+        .get("attached")
+        .and_then(|v| v.as_list().ok())
+        .expect("a list")
+        .iter()
+        .filter_map(|v| v.as_str().ok())
+        .collect();
     assert_eq!(
-        record.get("attached").and_then(|v| v.as_str().ok()),
-        Some("x.nuon"),
-        "the wire carries the inbox name; the content was written under it",
+        attached,
+        vec![ATTACHED_FILE],
+        "the wire names the files in the packet's own directory, no path",
     );
     assert_eq!(
         record.get("from").and_then(|v| v.as_str().ok()),
@@ -89,12 +97,9 @@ fn an_event_overflows_past_the_cap_less_the_wrapper() {
 }
 
 #[test]
-fn a_spill_pointer_names_its_file_and_the_event_size() {
-    let pointer = event_spill_pointer("abc.event.nuon", 4096);
+fn a_spilled_event_carries_its_file_size_alone() {
+    let pointer = event_spill_pointer(4096);
     let record = pointer.as_record().expect("record");
-    assert_eq!(
-        record.get(EVENT_SPILL_KEY).and_then(|v| v.as_str().ok()),
-        Some("abc.event.nuon"),
-    );
-    assert_eq!(record.get(EVENT_BYTES_KEY).and_then(|v| v.as_int().ok()), Some(4096));
+    assert_eq!(record.columns().map(String::as_str).collect::<Vec<_>>(), vec![EVENT_SIZE_KEY], "no path rides the wire");
+    assert_eq!(record.get(EVENT_SIZE_KEY).and_then(|v| v.as_filesize().ok()).map(|size| size.get()), Some(4096));
 }

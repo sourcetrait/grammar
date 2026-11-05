@@ -30,11 +30,11 @@ const UNSTARTED_REASON: &str = "the channel hub did not start";
 /// An open whose Channel was closed while its hub started, the hub dropped unused.
 const CLOSED_DURING_START: &str = "the channel was closed while its hub started";
 
-/// The host's `channel/Open` packet, rendered.
+/// The host's `channel/Open` packet, rendered with its id and its event's NUON.
 fn greeting(
     nonce_gen: &datum::NonceGenerator,
     mcp_nom: &datum::NomPair,
-) -> Result<String, GrammarMcpError> {
+) -> Result<HostRequest, GrammarMcpError> {
     open_packet(nonce_gen, mcp_nom).map_err(|reason| GrammarMcpError::Internal {
         phase: "channel_open::render".to_string(),
         reason,
@@ -188,8 +188,8 @@ impl ChannelFace {
         if mode == ChannelMode::Async && self.hub.peer_gone(epoch) {
             return Err(GrammarMcpError::ChannelPeerGone);
         }
-        let line = greeting(&self.nonce_gen, &self.mcp_nom)?;
-        match self.channel.request(HostRequest { line }).await.map_err(channel_failed)? {
+        let greeting = greeting(&self.nonce_gen, &self.mcp_nom)?;
+        match self.channel.request(greeting).await.map_err(channel_failed)? {
             Ok(()) => Ok(()),
             Err(ChannelSendError::NotOpen) => Err(GrammarMcpError::ChannelNotOpen),
             Err(_) => Err(GrammarMcpError::ChannelPeerGone),

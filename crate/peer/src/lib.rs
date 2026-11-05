@@ -41,7 +41,7 @@ pub(crate) use std::{
 pub(crate) use sourcetrait_common::{agnostic, cereal, datum, subsys};
 
 pub(crate) use sourcetrait_grammar_protocol::{
-    DECODE_BUDGET_DEFAULT, EVENT_SPILL_DEST, EVENT_SPILL_KEY, NuVal, RemoteChannelEvent,
+    DECODE_BUDGET_DEFAULT, EVENT_SPILL_DEST, NuVal, RemoteChannelEvent,
     RemoteChannelRow, RemoteFailure, RemoteLinkState, RemoteListenResult, RemotePacket,
     RemoteResult, RuntimeError, decode_payload, reserved_prefix, safe_dest, valid_peer_id,
 };

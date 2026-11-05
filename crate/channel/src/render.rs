@@ -31,12 +31,14 @@ pub fn render_nuon(value: &nu::Value) -> Result<String, String> {
 }
 
 /// Render one packet as the single NUON line the wire carries.
+///
+/// `attached` names the files in the packet's `<id>/`, none where it has none.
 pub fn render_packet(
     id: MsgId,
     from: &str,
     model: &str,
     event: &nu::Value,
-    attached: Option<&str>,
+    attached: Option<&[String]>,
 ) -> Result<String, String> {
     let span = nu::Span::unknown();
     let mut record = nu::Record::new();
@@ -44,8 +46,9 @@ pub fn render_packet(
     record.insert("from", nu::Value::string(from.to_string(), span));
     record.insert("model", nu::Value::string(model.to_string(), span));
     record.insert("event", event.clone());
-    if let Some(name) = attached {
-        record.insert("attached", nu::Value::string(name.to_string(), span));
+    if let Some(names) = attached.filter(|names| !names.is_empty()) {
+        let names = names.iter().map(|name| nu::Value::string(name.clone(), span)).collect();
+        record.insert("attached", nu::Value::list(names, span));
     }
     let rendered = render_nuon(&nu::Value::record(record, span))?;
     Ok(escape_line(&rendered))
@@ -64,15 +67,19 @@ pub fn event_overflows(event_nuon: &str) -> bool {
     event_nuon.chars().count() > NOTIFICATION_CAP - NOTIFICATION_WRAPPER_RESERVE
 }
 
-/// The pointer event replacing an oversized one: the spill's path and its size.
-pub fn event_spill_pointer(
-    path: &str,
-    event_bytes: usize,
-) -> nu::Value {
+/// The name a local send's attachment takes in its packet's `<id>/`.
+pub const ATTACHED_FILE: &str = "attached.nuon";
+
+/// The name a packet's event takes in the Channel's directory, `<id>.nuon`.
+pub fn event_file(id: impl Display) -> String {
+    format!("{id}.nuon")
+}
+
+/// The event replacing an oversized one on the wire: its own file's size.
+pub fn event_spill_pointer(event_bytes: usize) -> nu::Value {
     let span = nu::Span::unknown();
     let mut r = nu::Record::new();
-    r.insert(EVENT_SPILL_KEY, nu::Value::string(path.to_string(), span));
-    r.insert(EVENT_BYTES_KEY, nu::Value::int(event_bytes as i64, span));
+    r.insert(EVENT_SIZE_KEY, nu::Value::filesize(event_bytes as i64, span));
     nu::Value::record(r, span)
 }
 

@@ -18,7 +18,11 @@ fn open_request(mode: ChannelMode) -> OpenRequest {
         epoch: EPOCH,
         mode,
         inbox: "/tmp/grammar.channel.x".to_string(),
-        greeting: matches!(mode, ChannelMode::Sync).then(|| "greeting".to_string()),
+        greeting: matches!(mode, ChannelMode::Sync).then(|| HostRequest {
+            id: "greetingid".to_string(),
+            event_nuon: "{}".to_string(),
+            line: "greeting".to_string(),
+        }),
     }
 }
 
@@ -415,7 +419,7 @@ fn a_send_on_a_verified_channel_goes_up_under_its_id() {
 }
 
 #[test]
-fn an_oversized_event_spills_and_an_attachment_rides_by_name() {
+fn a_send_writes_its_event_and_its_attachment_and_spills_by_size() {
     let mut channel = verified_async();
     let big = NuVal::Record(vec![("text".to_string(), NuVal::String("x".repeat(1_000)))]);
     let data = ChannelSendData {
@@ -425,29 +429,28 @@ fn an_oversized_event_spills_and_an_attachment_rides_by_name() {
     let planned = channel
         .plan_send(data, Instant::now())
         .unwrap_or_else(|_| panic!("a verified channel takes a body's send"));
-    let names: Vec<String> = planned
-        .files
-        .iter()
-        .map(|(path, _)| path.file_name().unwrap().to_string_lossy().into_owned())
-        .collect();
+    let inbox = PathBuf::from("/tmp/grammar.channel.x");
+    let paths: Vec<PathBuf> = planned.files.iter().map(|(path, _)| path.clone()).collect();
     assert_eq!(
-        names,
-        [format!("{}.nuon", planned.id), format!("{}.event.nuon", planned.id)],
-        "the attachment, then the spill, each named by the packet's id",
+        paths,
+        [inbox.join(format!("{}.nuon", planned.id)), inbox.join(&planned.id).join(ATTACHED_FILE)],
+        "the event as <id>.nuon, then the attachment in <id>/",
     );
     let line = nuon::from_nuon(&planned.line, None).expect("NUON");
     let record = line.as_record().expect("record");
-    let expected_attached = format!("{}.nuon", planned.id);
-    assert_eq!(
-        record.get("attached").and_then(|v| v.as_str().ok()),
-        Some(expected_attached.as_str()),
-    );
+    let attached: Vec<&str> = record
+        .get("attached")
+        .and_then(|v| v.as_list().ok())
+        .expect("a list")
+        .iter()
+        .filter_map(|v| v.as_str().ok())
+        .collect();
+    assert_eq!(attached, vec![ATTACHED_FILE]);
     let event = record.get("event").and_then(|v| v.as_record().ok()).expect("event");
-    let expected_spill = format!("{}.event.nuon", planned.id);
     assert_eq!(
-        event.get(EVENT_SPILL_KEY).and_then(|v| v.as_str().ok()),
-        Some(expected_spill.as_str()),
-        "the pointer rides the wire in the event's place",
+        event.get(EVENT_SIZE_KEY).and_then(|v| v.as_filesize().ok()).map(|size| size.get()),
+        Some(planned.files[0].1.len() as i64),
+        "the event's file's size rides the wire in the event's place",
     );
 }
 
@@ -505,14 +508,22 @@ fn a_host_packet_through_the_gate_is_rendered_and_minted_here() {
         event: small_event(),
         attached: None,
     };
-    assert_eq!(
-        channel.emit_packet(req()),
-        Err(EmitError::Refused(ChannelSendError::NotVerified)),
+    assert!(
+        matches!(
+            channel.plan_emit(req()),
+            Err(EmitError::Refused(ChannelSendError::NotVerified))
+        ),
         "a host announcement waits on verification like any emit",
     );
     channel.hub_notice(HubNotice::Claimed(EPOCH));
     assert_eq!(channel.mark_verified(), Ok(EPOCH));
-    let id = channel.emit_packet(req()).expect("emitted");
+    let planned = channel.plan_emit(req()).unwrap_or_else(|_| panic!("planned"));
+    assert_eq!(
+        planned.files.iter().map(|(path, _)| path.clone()).collect::<Vec<_>>(),
+        [PathBuf::from("/tmp/grammar.channel.x").join(format!("{}.nuon", planned.id))],
+        "a host packet's event is written too",
+    );
+    let id = channel.finish_emit(planned).expect("emitted");
     let ups = channel.take_ups();
     let [Up { kind: UpKind::Line(line), .. }] = ups.as_slice() else {
         panic!("one line goes up: {ups:?}");

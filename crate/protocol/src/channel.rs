@@ -22,11 +22,8 @@ pub const SYNC_QUEUE_CAP: usize = 1000;
 /// The client's task-notification cap on a rendered packet line, in characters.
 pub const NOTIFICATION_CAP: usize = 500;
 
-/// The event key marking a spilled event, its value the full event's path.
-pub const EVENT_SPILL_KEY: &str = "spilled_event_path";
-
-/// The event key a spilled event's size in bytes rides under.
-pub const EVENT_BYTES_KEY: &str = "event_bytes";
+/// The event key of a spilled event, its value the size of the event's own file.
+pub const EVENT_SIZE_KEY: &str = "size";
 
 /// The dest a remote event spill transfers under, in its delivery's directory.
 pub const EVENT_SPILL_DEST: &str = ".mcp_event.nuon";

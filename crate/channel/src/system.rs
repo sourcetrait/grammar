@@ -89,7 +89,13 @@ impl ChannelSystem {
     ) -> Option<FromChannelSys> {
         Some(match msg {
             ToChannelSys::Open(req) => {
+                let greeting = req.greeting.as_ref().map(|greeting| {
+                    (PathBuf::from(&req.inbox).join(event_file(&greeting.id)), greeting.event_nuon.clone())
+                });
                 self.channel.open(req);
+                if let Some(file) = greeting {
+                    self.write_host_file(file).await;
+                }
                 FromChannelSys::Opened(Opened)
             }
             ToChannelSys::Close(req) => FromChannelSys::Closed(self.channel.close_request(req)),
@@ -107,16 +113,50 @@ impl ChannelSystem {
             ToChannelSys::Thresholds(update) => FromChannelSys::Thresholds(
                 self.channel.set_thresholds(update).map(SpamThresholds::data),
             ),
-            ToChannelSys::Host(HostRequest { line }) => {
+            ToChannelSys::Host(HostRequest { id, event_nuon, line }) => {
+                if let Some(dir) = self.channel.inbox_dir() {
+                    let file = (dir.join(event_file(&id)), event_nuon);
+                    self.write_host_file(file).await;
+                }
                 FromChannelSys::Hosted(self.channel.send_control(line))
             }
-            ToChannelSys::Emit(req) => FromChannelSys::Emitted(self.channel.emit_packet(req)),
+            ToChannelSys::Emit(req) => FromChannelSys::Emitted(self.emit(req).await),
             ToChannelSys::Send(SendRequest(data)) => FromChannelSys::Sent(self.send(data).await),
             ToChannelSys::Stopped(StoppedNotice(stopped)) => {
                 self.channel.stopped(stopped);
                 return None;
             }
         })
+    }
+
+    /// A greeting's event file written off the loop, a failure logged, the greeting sent.
+    async fn write_host_file(
+        &self,
+        file: (PathBuf, String),
+    ) {
+        let path = file.0.clone();
+        let written = match tk::spawn_blocking(move || write_files(vec![file])).await {
+            Ok(written) => written,
+            Err(e) => Err(e.to_string()),
+        };
+        if let Err(reason) = written {
+            eprintln!("grammar: the greeting's event {} not written: {reason}", path.display());
+        }
+    }
+
+    /// A host packet: its gate and render, its event's file written off the loop, its emit.
+    async fn emit(
+        &mut self,
+        req: EmitRequest,
+    ) -> Result<String, EmitError> {
+        let mut planned = self.channel.plan_emit(req)?;
+        let files = std::mem::take(&mut planned.files);
+        match tk::spawn_blocking(move || write_files(files)).await {
+            Ok(Ok(())) => {}
+            Ok(Err(reason)) => return Err(EmitError::Write(reason)),
+            Err(e) => return Err(EmitError::Write(format!("the inbox write failed: {e}"))),
+        }
+        self.channel.finish_emit(planned)
     }
 
     /// A body's send: its checks, its files written off the loop, then its emit.

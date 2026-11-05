@@ -8,7 +8,7 @@ pub struct OpenRequest {
     /// The directory the open made for the Channel's files.
     pub inbox: String,
     /// A sync Channel's greeting, its first queued line; none in async.
-    pub greeting: Option<String>,
+    pub greeting: Option<HostRequest>,
 }
 
 /// The Channel opened.
@@ -84,9 +84,13 @@ pub struct ThresholdsRequest {
     pub error_rate: Option<u32>,
 }
 
-/// A host packet's rendered line, past the verification gate.
+/// A host packet rendered outside the Channel, past the verification gate.
 #[cereal::derived(Data)]
 pub struct HostRequest {
+    /// Its id, which names its event's file.
+    pub id: String,
+    /// Its event's NUON, written as `<id>.nuon`.
+    pub event_nuon: String,
     pub line: String,
 }
 
@@ -96,8 +100,8 @@ pub struct EmitRequest {
     pub from: String,
     pub model: String,
     pub event: NuVal,
-    /// The inbox-relative name its files already sit under, if any.
-    pub attached: Option<String>,
+    /// The names of the files in the packet's `<id>/`, if any.
+    pub attached: Option<Vec<String>>,
 }
 
 /// A body's send, its eval's stop held back on the sender's side.
@@ -158,6 +162,8 @@ pub enum EmitError {
     Render(String),
     /// The gate refused it.
     Refused(ChannelSendError),
+    /// Its files could not be written.
+    Write(String),
 }
 
 /// What a body's send came to.

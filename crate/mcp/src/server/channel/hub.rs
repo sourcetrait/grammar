@@ -17,14 +17,19 @@ const CLAIM_REASON: &str = "channel already claimed";
 pub(crate) fn open_packet(
     nonce_gen: &datum::NonceGenerator,
     mcp_nom: &datum::NomPair,
-) -> Result<String, String> {
+) -> Result<HostRequest, String> {
     let span = nu::Span::unknown();
     let mut data = nu::Record::new();
     data.insert("mcp_nom", nu::Value::string(mcp_nom.as_str().to_string(), span));
     let event = nu::Value::record(data, span);
     let event_nuon = render_nuon(&event)?;
     let id = mint_msg_id(nonce_gen, FROM_MCP, MODEL_OPEN, &event_nuon, None);
-    render_packet(id, FROM_MCP, MODEL_OPEN, &event, None)
+    let line = render_packet(id, FROM_MCP, MODEL_OPEN, &event, None)?;
+    Ok(HostRequest {
+        id: id.to_string(),
+        event_nuon,
+        line,
+    })
 }
 
 /// The hub's TLS: the host's `[identity]` certificate and key, which it presents.
@@ -131,6 +136,9 @@ async fn accept_loop(
                 match peer_slot.take() {
                     Some((packet_rx, close_rx)) => {
                         let _ = peer.channel.notify(HubNotice::Claimed(peer.epoch)).await;
+                        if let Ok(greeting) = open_packet(&peer.nonce_gen, &peer.mcp_nom) {
+                            let _ = peer.channel.request(greeting).await;
+                        }
                         tk::spawn(serve_peer(tcp, acceptor, packet_rx, close_rx, peer.clone()));
                     }
                     None => {
@@ -154,7 +162,8 @@ async fn serve_peer(
     let _ = peer.channel.notify(HubNotice::PeerGone(peer.epoch)).await;
 }
 
-/// The peer's greeting, then its packets until a close, its leaving, or a failure.
+/// The peer's packets, its greeting queued first at the claim, until a close, its
+/// leaving, or a failure.
 async fn serve(
     tcp: tk::TcpStream,
     acceptor: tls::TlsAcceptor,
@@ -168,12 +177,6 @@ async fn serve(
     let Ok(mut socket) = ws::accept_async(tls_stream).await else {
         return;
     };
-
-    if let Ok(line) = open_packet(&peer.nonce_gen, &peer.mcp_nom)
-        && socket.send(ws::Message::text(line)).await.is_err()
-    {
-        return;
-    }
 
     let mut close_rx = close_rx;
     loop {

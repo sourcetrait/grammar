@@ -911,7 +911,6 @@ fn relay_to_channel(
     }
     let event = nu::from_nuon(&info.event_nuon, None)
         .map_err(|e| ("event_unparseable".to_string(), e.to_string()))?;
-    let event = rewrite_spill_pointer(event, &ctx.peer_nom, id);
     let event = NuVal::try_from_nu(event).map_err(|e| ("render".to_string(), e.to_string()))?;
     ctx.ctx.relay(Relay {
         packet: RemotePacket {
@@ -923,28 +922,6 @@ fn relay_to_channel(
         files: has_files,
     });
     Ok(())
-}
-
-/// A spill pointer's dest made inbox-relative, under this delivery's directory.
-fn rewrite_spill_pointer(
-    event: nu::Value,
-    peer_nom: &str,
-    id: &str,
-) -> nu::Value {
-    let span = nu::Span::unknown();
-    let Ok(rec) = event.as_record() else {
-        return event;
-    };
-    let Some(dest) = rec.get(EVENT_SPILL_KEY).and_then(|v| v.as_str().ok()) else {
-        return event;
-    };
-    if dest.contains('/') {
-        return event;
-    }
-    let full = format!("{peer_nom}/{id}/{dest}");
-    let mut new = rec.clone();
-    new.insert(EVENT_SPILL_KEY, nu::Value::string(full, span));
-    nu::Value::record(new, span)
 }
 
 /// Handle one inbound message-connection frame (a Deliver to relay).
