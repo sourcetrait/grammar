@@ -56,7 +56,6 @@ pub(crate) use futures_util::{SinkExt, StreamExt};
 pub(crate) use tokio_rustls::rustls::pki_types::pem::PemObject;
 
 pub(crate) mod nu {
-    pub(crate) use nu_protocol::{Span, Value};
     pub(crate) use nuon::from_nuon;
 }
 

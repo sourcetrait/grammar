@@ -158,7 +158,7 @@ async fn serve_peer(
     close_rx: tk::oneshot::Receiver<ChannelCloseSignal>,
     peer: PeerContext,
 ) {
-    serve(tcp, acceptor, packets, close_rx, &peer).await;
+    serve(tcp, acceptor, packets, close_rx).await;
     let _ = peer.channel.notify(HubNotice::PeerGone(peer.epoch)).await;
 }
 
@@ -169,7 +169,6 @@ async fn serve(
     acceptor: tls::TlsAcceptor,
     mut packets: tk::UnboundedReceiver<String>,
     close_rx: tk::oneshot::Receiver<ChannelCloseSignal>,
-    peer: &PeerContext,
 ) {
     let Ok(tls_stream) = acceptor.accept(tcp).await else {
         return;
