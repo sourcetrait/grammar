@@ -13,7 +13,8 @@
 # cargo-license, `cargo license`, which must be installed.
 #
 # `--tree <dir>` builds and lays the package's tree out as `<dir>/package`, with
-# `<dir>/build.nuon` naming its name, semver, os, and arch: no tally, no pack,
+# `<dir>/install`, its own part, and `<dir>/build.nuon` naming its name, semver,
+# os, and arch: no tally, no pack,
 # no signature, so a machine without the key builds it, a server's tree among
 # them. `--pack <dir>` packs such a `<dir>` into the signed OptZst, building
 # nothing, so the key's machine runs no build. `--nu-sources <dir>` installs
@@ -67,6 +68,11 @@ def main [
         }
         mkdir $dir
         cp --recursive $laid $out
+        let own: path = ($dir | path join 'install')
+        if ($own | path exists) {
+            rm --recursive $own
+        }
+        cp --recursive $INSTALL $own
         {name: $name, semver: $semver, os: $target.os, arch: $target.arch} | to nuon | save --force ($dir | path join $BUILD_RECORD)
         print $out
         return

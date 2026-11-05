@@ -32,7 +32,8 @@ rather than after the release builds. gram's equip is checked beside
 it for the same reason. The licenses are tallied before the compile, from the
 same manifest it builds.
 
-`--tree` and `--pack` split the release at the key. The machine the tree is
+`--tree` and `--pack` split the release at the key, and a tree's directory is all
+`optzst create` needs, as a release pipeline packs it (`release.nuon`, `build/release/`). The machine the tree is
 for builds it, against its own libraries, with no key and no cargo-license,
 which a whole build on the key's machine keeps current; the key's machine packs
 and signs it, building nothing. A server's tree is built that way on the

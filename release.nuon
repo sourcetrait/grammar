@@ -1,0 +1,15 @@
+{
+  package: grammar,
+  kind: optzst,
+  sources: [grammar, nuval, common, common_mono, srcert, gram],
+  targets: [
+    [platform, arch, script];
+    [linux, x86-64, build/release/linux.bash],
+    [linux, aarch64, build/release/linux.bash],
+    [linux, riscv64, build/release/linux.bash],
+    [linux-musl, x86-64, build/release/linux.bash],
+    [linux-musl, aarch64, build/release/linux.bash],
+    [macos, aarch64, build/release/macos.zsh],
+    [windows, x86-64, build/release/windows.ps1]
+  ]
+}
