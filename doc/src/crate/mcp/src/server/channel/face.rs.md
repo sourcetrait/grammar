@@ -46,13 +46,17 @@ agent's config file is named for the refusal a host without `[identity]` gives.
 
 ## struct PeerPump
 The face's handler of its peer links. A relay goes onto the Channel through its
-gate, as a body's send would, its files already in the inbox; a report is
-emitted from `mcp`, best effort. The links' control task awaits each before it
-takes the next, so the Channel takes them in the order the links sent them up.
+gate, as a body's send would, its files already staged in the Channel's
+directory; a report is emitted from `mcp`, best effort. The links' control task
+awaits each before it takes the next, so the Channel takes them in the order the
+links sent them up.
 
 ## fn relay_onto
-A relay the Channel refuses is logged by its delivery's id, the one record of
-a peer's message that reached no agent.
+The relay's staging goes to the Channel whole, its spilled event named apart
+from the files the packet's `attached` lists, so the Channel's system makes
+every move under the id it mints. A relay the Channel refuses is logged by its
+delivery's id, the one record of a peer's message that reached no agent; its
+files stay staged until a deliberate close or the host's end.
 
 ## struct Hub
 One async open's hub as the face holds it: its epoch, its endpoint, the queue

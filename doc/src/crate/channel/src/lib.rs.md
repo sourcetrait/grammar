@@ -19,6 +19,7 @@ them, never adding a wire variant.
 
 ## pub use
 What a controller names: the system, its handle, its parameters and paths; each
-request and answer; the rendering a face's own packets need, its greeting among
-them; and the spam thresholds a config carries. The state, the counter, and the
-sink are the crate's own.
+request and answer, a relay's staging among them; the rendering a face's own
+packets need, its greeting among them, and the names a packet's files take; and
+the spam thresholds a config carries. The state, the counter, the sink, and the
+moves and writes are the crate's own.

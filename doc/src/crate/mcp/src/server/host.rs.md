@@ -6,12 +6,12 @@ homes the namespace's (`home.rs`). No engine can be built before it, so the
 server and the one-shot CLI start it first, after the namespace's lock
 (`run.rs`), and the test harness once a process (`guts.rs`).
 
-The scratch directories are made here, before the engine, because parameters
-carry them: every definition reads them as `$env.EQUIP_TMP` and
-`$env.EQUIP_TRANSIENT` (`scratch.rs`). A directory that cannot be made fails the
-start, as any other parameter would. The nom is no parameter: each engine
-instance draws its own (the engine's `identity.rs`), and the controller
-inherits it.
+The identity is drawn first, since the host's tree of transient files is named
+for its nom, then the scratch directories, both carried in the parameters:
+every definition reads the directories as `$env.EQUIP_TMP` and
+`$env.EQUIP_TRANSIENT` (`scratch.rs`), and the engine takes the identity from
+them (the engine's `identity.rs`), the controller inheriting it. A directory
+that cannot be made fails the start, as any other parameter would.
 
 ## fn ensure_substrate
 The engine's equip store first, then mcp's purview bookkeeping, the plugin

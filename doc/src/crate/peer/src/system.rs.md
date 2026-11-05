@@ -47,16 +47,15 @@ the address bound; the accept runs behind on a task of its own.
 ## fn PeerSystem::send
 The send's reservation is held here as on the sender's side. The id is minted
 over the model and the event as rendered, then an event the receiver's cap
-would truncate spills into the files under `EVENT_SPILL_DEST`, its pointer
-riding the wire in its place, and the frames queue on the link to the peer the
-send names.
+would truncate spills into the files under `EVENT_SPILL_DEST`, `{size}` riding
+the wire in its place, and the frames queue on the link to the peer the send
+names.
 
 ## fn spill_remote_event
 The sender's half of the event spill: an event over 1 MiB cannot ride the
-inline Deliver frame at all, so only the file transfer reaches the agent. The
-pointer's path is dest-relative; the receiver rewrites it under the delivery's
-inbox directory (link.rs's `rewrite_spill_pointer`), so the agent resolves it
-as `<inbox>/<spilled_event_path>`, exactly as for a local channel send's spill.
+inline Deliver frame at all, so only the file transfer reaches the agent.
+`{size}` is the event's own size, which the file keeps as the receiving
+Channel's `<id>.nuon`, so nothing on the way rewrites it.
 
 ## fn PeerSystem::on_event
 Each registry change a link's task asked for, made in the order asked, and

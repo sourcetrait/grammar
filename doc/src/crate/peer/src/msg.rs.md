@@ -24,17 +24,23 @@ a source the sender can't read is its own error, surfaced at the call. The
 system mints the id, spills an oversized event, and queues the frames.
 
 ## struct InboxRequest
-The Channel's inbox, which each open makes and a deliberate close removes. The
-controller tells the system at both, so a link lands its files where the
-Channel's attachments sit, and the answer comes once the links hold it, so a
+The Channel's directory, which an open makes or takes and a deliberate close
+removes. The controller tells the system at both, so a link stages its files in
+the Channel's own directory, and the answer comes once the links hold it, so a
 close removes the directory only after no link reads it there.
 
 ## struct Relay
-A peer's message for the Channel, and whether its files landed beside it.
+A peer's message for the Channel, and the names of the files it staged, sorted
+so a packet's `attached` reads the same however its chunks landed.
 
-### fn attached
-The inbox-relative directory the relay's files landed in, `<origin>/<delivery>`,
-which its packet names.
+### fn staged
+The inbox-relative directory the relay's files are staged in,
+`.incoming/<origin>/<delivery>`: the peer's nom keeps two peers' deliveries
+apart until the Channel mints their packets' ids.
+
+## const INCOMING_DIR
+A dotted name, so the staging sorts apart from the packets' files in the flat
+directory, and a deliberate close removes it with them.
 
 ## enum FromPeerSys
 ### variant Relay / variant Report

@@ -9,11 +9,13 @@ end user talks to the engine through either host, their processes and
 lifetimes opaque to it, so a controller shows no nom of its own (User).
 
 ## struct EngineIdentity
-Drawn by `EngineHandle::start` for each instance (`system.rs`), so an engine
-started again after a failure is a new instance under a new nom, and its
-controller's session changes with it (User). The generator rides with the nom:
-the nonces a controller mints come from the generator that drew its engine's
-nom.
+Drawn by its host before anything is made under its nom, the MCP's tree of
+transient files among them, and carried in `EngineParams` for
+`EngineHandle::start` to take (`system.rs`). A host process starts one engine
+instance, so an engine started again after a failure is a new process, a
+grammar-ssh its MCP restarts, under a new nom, and its controller's session
+changes with it (User). The generator rides with the nom: the nonces a
+controller mints come from the generator that drew its engine's nom.
 
 ### fn draw
 The nom is the generator's first draw.

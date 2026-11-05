@@ -8,7 +8,7 @@ crate's own type, wrapping the wire's where it carries wire data: a send carries
 ## struct OpenRequest
 The face mints the epoch, since the face starts the hub whose notices carry it;
 the system takes it as the open's generation. A sync Channel's greeting comes
-rendered, since the Open packet is the face's (`hub.rs`).
+rendered as a `HostRequest`, since the Open packet is the face's (`hub.rs`).
 
 ### field inbox
 A string, the path the face made: a message is data, and the face refuses an
@@ -31,10 +31,26 @@ notice for another epoch is stale and changes nothing.
 Answers the epoch it verified, so the face stands down that open's verify timer
 alone.
 
+## struct HostRequest
+The greeting, which the face renders and the gate never holds. Its id and its
+event's NUON ride beside the line, so the system writes `<id>.nuon` before the
+line goes out, as it does for every other packet.
+
 ## struct EmitRequest
 A host packet through the gate - an emergency's announcement, a remote link's
 relay or report - its event data, rendered and its id minted by the system on
-the Channel's one counter.
+the Channel's one counter. A relay's files arrive staged, and the system moves
+them under the id it mints, so the Channel's directory has one owner.
+
+## struct Staged
+Inbox-relative, since a message carries data rather than a path of the host's.
+`spill` names the peer's spilled event among the files, which becomes the
+packet's `<id>.nuon` rather than a file in `<id>/`.
+
+## enum EmitError
+### variant Write
+The moves and writes go before the line, so a failed one refuses the emit, and
+no packet goes out whose files aren't there.
 
 ## struct SendRequest
 A body's send as data. The eval's stop stays on the sender's side, since a

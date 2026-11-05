@@ -13,12 +13,19 @@ or rate fails the start, which the config never gives.
 
 ## struct ChannelSysPaths
 The namespace's homes, as every grammar system takes them. The Channel writes
-none of them: its files go to each open's inbox.
+none of them: its files go to the Channel's directory in the host's tree.
 
-## fn ChannelSystem::send
+## fn ChannelSystem::send / fn ChannelSystem::emit
 The files are written on a blocking thread, the loop awaiting them, so a bulky
 attachment never holds a runtime worker. The Channel's next message waits
-behind the write, since the line must not go up before its files exist.
+behind the write, since the line must not go up before its files exist. An
+emit's moves go first on the same thread, a relayed packet's staged files
+renamed under its id before its event is written.
+
+## fn ChannelSystem::write_host_file
+The greeting's event, written before its line as every packet's is. A failed
+write is logged and the greeting still goes out: the greeting is the handshake
+itself, which a missing record of it must not break.
 
 ## fn ChannelSystem::send_ups
 What a step sent up goes before its answer, each a singular packet the control

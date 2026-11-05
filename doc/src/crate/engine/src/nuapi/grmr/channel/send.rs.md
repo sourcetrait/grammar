@@ -1,13 +1,13 @@
 # send.rs
 
 ## struct GrmrChannelSend
-The Channel is a notification lane, not a serialization lane. `event` says "state
-changed, here is a tiny summary"; the agent fetches the actual data itself. That
-premise is why the signature has two slots rather than one: an author with
-something bulky puts it in `attached`, which the host writes to the inbox and
-names on the wire rather than carrying. The contract is structural, the ergonomic
-path being the next argument, so nobody has to be talked out of putting data on
-the wire.
+The Channel is a notification lane, not a serialization lane. `event` says
+"state changed, here is a tiny summary"; the agent fetches the actual data
+itself. That premise is why the signature has two slots rather than one: an
+author with something bulky puts it in `attached`, which the host writes as the
+packet's `<id>/attached.nuon` and names on the wire rather than carrying. The
+contract is structural, the ergonomic path being the next argument, so nobody
+has to be talked out of putting data on the wire.
 
 It returns the message id as `{event_id}`, the record its signature declares, so
 an author can correlate what it sent with what the agent later fetches.

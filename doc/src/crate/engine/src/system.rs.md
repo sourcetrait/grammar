@@ -59,8 +59,9 @@ An engine instance, one a controller (User), and its identity (`identity.rs`).
 
 ## fn EngineHandle::start
 The system starts on the namespace `init` set, so `init` comes first, and the equip store
-before both (`serve.rs`'s `EngineCore`). Each start draws the instance's identity, so
-an engine started again after a failure is a new instance under a new nom.
+before both (`serve.rs`'s `EngineCore`). The identity is the one its host drew into the
+params (`identity.rs`), since the host names its scratch for the nom before the engine
+starts.
 
 The handler is the controller's. It hears the system's status and its end, an end it
 didn't ask for among them, and it answers the host asks (`on_request`). The engine sends

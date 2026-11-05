@@ -18,7 +18,9 @@ tell apart.
 Built in one place because it has three emitters: the hub greets a freshly
 connected peer with it, a sync open queues it as its first line, and `interface
 channel open` re-sends it on an existing channel, where a gone peer is what a
-re-greeting reveals.
+re-greeting reveals. It answers a `HostRequest`, its id and event beside its
+line, so each of the three goes through the Channel's system, which writes its
+`<id>.nuon` before the line goes out.
 
 ## fn server_config
 The certificate and key are the host's `[identity]`, the same pair its remote
@@ -53,14 +55,17 @@ The hub is one open's: its epoch rides every notice its tasks send the
 Channel's system, so a notice from a hub since closed concerns nothing.
 
 ## struct PeerContext
-What the peer task needs beyond its lanes: the Channel's system it tells, the
-open's epoch, and the identity its greeting carries.
+What the hub's tasks need beyond the lanes: the Channel's system they tell and
+greet through, the open's epoch, and the identity the greeting carries.
 
 ## fn accept_loop
 The first connection takes the peer's lanes and with them the claim. The loop is
 one task, so two simultaneous connections cannot both win. The claim reaches the
 Channel's system before the peer task starts, so it precedes the Open packet and
-any `ready` the agent sends after seeing it.
+any `ready` the agent sends after seeing it. The greeting is asked of the
+Channel right after the claim, so it is the first line on the peer's lane,
+queued before the peer task takes the lane, its event written as any packet's
+is.
 
 Dropping the shutdown sender counts as shutdown, which is why a torn-down
 channel ends this loop even though nothing is ever sent on that oneshot.
@@ -71,8 +76,9 @@ Channel's system hears it, so a send after the peer left answers that the hub
 is gone, as it did when the push itself failed.
 
 ## fn serve
-The winner receives `channel/Open` immediately, because the verification step is
-that the agent sees a real packet - there is no separate ack channel by design.
+The winner receives `channel/Open` first, queued at the claim, because the
+verification step is that the agent sees a real packet - there is no separate
+ack channel by design.
 
 The loop is `biased;` and the arm order is load-bearing. The face's hub close
 signals the close and drops the packet sender in the same breath, so the close

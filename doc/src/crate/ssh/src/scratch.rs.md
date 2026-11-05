@@ -1,8 +1,9 @@
 # scratch.rs
 
 ## const SCRATCH_PREFIX
-Apart from the MCP's `grammar-mcp.`, so grammar-ssh's sweep and the MCP's never
-judge each other's directories, though both may share a base.
+Apart from the MCP's `grammar-mcp.` and its trees under `grammar/`, so
+grammar-ssh's sweep and the MCP's never judge each other's directories, though
+both may share a base.
 
 ## struct ScratchDirs
 The two directories the MCP's `scratch.rs` makes, owned rather than kept in a

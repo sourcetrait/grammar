@@ -2,8 +2,9 @@
 
 ## fn init_engine
 The engine's start on the config's namespace and homes and the scratch's
-directories, as the MCP's `init_engine` starts its own. Once a process: the
-engine's parameters are process-wide (the engine's `params.rs`).
+directories, as the MCP's `init_engine` starts its own, its identity drawn here
+as the MCP's is. Once a process: the engine's parameters are process-wide (the
+engine's `params.rs`).
 
 ## fn ensure_substrate
 The MCP's substrate, made as its host makes it: the equip store, the default

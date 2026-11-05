@@ -12,7 +12,7 @@ use std::time::Duration;
 
 #[cfg(unix)]
 use nix::sys::signal::Signal;
-use sourcetrait_grammar_tests::{Host, envelope, run_output_env};
+use sourcetrait_grammar_tests::{Host, envelope, has_error_path, run_output_env};
 use sourcetrait_common::testing::prelude::*;
 
 static TESTING: testing::Module = testing::module!(Integration, { .using_temp_dir() });
@@ -368,6 +368,47 @@ fn each_open_makes_the_channel_inbox_in_the_transient_base() {
         assert!(!tree.exists(), "the host's end removes its tree {}", tree.display());
         assert!(stray.is_dir(), "and leaves {}, which it never made", stray.display());
     }
+}
+
+/// A teardown other than a deliberate close leaves the Channel's files.
+///
+/// A send before `ready` tears the Channel down, leaving the greeting's event;
+/// an open that fails to start, here for want of an `[identity]`, leaves it
+/// too, and the next open takes the directory as it stands.
+#[tested]
+fn a_teardown_leaves_the_channels_files_for_the_next_open() {
+    let t = testing::test!({ .using_temp_dir() });
+    let cwd = t.temp_dir().join("bare");
+    std::fs::create_dir_all(&cwd).expect("a start directory with no config");
+    let mut host = Host::spawn_in(&t.temp_dir().join("host"), &["--id", "scratchkeep"], &cwd);
+    let inbox = open_inbox(&mut host);
+    let events = || {
+        let mut events: Vec<PathBuf> = std::fs::read_dir(&inbox)
+            .expect("the Channel's directory reads")
+            .flatten()
+            .map(|entry| entry.path())
+            .filter(|path| path.extension().is_some_and(|ext| ext == "nuon"))
+            .collect();
+        events.sort();
+        events
+    };
+    let greeting = events();
+    assert_eq!(greeting.len(), 1, "the open writes its greeting's event; got {greeting:?}");
+
+    let early = host.execute(
+        "def execute [data: nothing]: nothing -> record<event_id: string> { \
+         grmr channel send test/early {n: 1} }",
+        "null",
+    );
+    assert!(has_error_path(&early), "a send before ready is refused; got {early}");
+    assert_eq!(events(), greeting, "the teardown leaves the greeting's event");
+
+    let failed = host.interface("interface channel open async");
+    assert!(has_error_path(&failed), "an open with no [identity] fails to start; got {failed}");
+    assert_eq!(events(), greeting, "and so does the failed start");
+
+    assert_eq!(open_inbox(&mut host), inbox, "the next open takes the directory as it stands");
+    assert!(greeting.iter().all(|event| event.is_file()), "the greeting's event is still in it");
 }
 
 /// A dead host's directories go at the next start.

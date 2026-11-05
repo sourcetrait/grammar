@@ -105,9 +105,10 @@ present iff the link established, error present iff it failed - absent when
 not, never null.
 
 ## fn delivery_path
-A delivery's file lands at `<inbox>/<peer_nom>/<id>/<dest>`, and all three
-parts come from the peer: its nom from its Hello, the id and the dest from
-its frames. `Path::join` takes a `..` as written and an absolute part in place
+A delivery's file is staged at `<inbox>/.incoming/<peer_nom>/<id>/<dest>`
+until the Channel moves its directory under the relayed packet's id, and all
+three parts come from the peer: its nom from its Hello, the id and the dest
+from its frames. `Path::join` takes a `..` as written and an absolute part in place
 of everything before it, so each part is held before the join: the nom and
 the id to base62 (`valid_peer_id`) and the dest to the protocol's `safe_dest`,
 the guard a sender applies too. A part that
@@ -170,11 +171,13 @@ fired from the sender's write, and a refused relay (an unverified Channel among
 the causes) is logged on the receiver alone, never reported to the sender as
 Unsent. The slot-map is what makes the files exist on disk before the agent
 observes the emission. land_file_chunk appends under
-<inbox>/<peer_nom>/<id>/<dest> - the same inbox the Channel's own attachments
-use, so a relayed packet's `attached` ref resolves for the local agent. The
-inbox is read from the context as each chunk lands, since every open makes a
-new one: a closed Channel has none and lands nothing, and a delivery that spans
-a close and an open loses its earlier chunks with the inbox the close removed.
+`<inbox>/.incoming/<peer_nom>/<id>/<dest>`, the Channel's own directory, staged
+apart from its packets; try_finalize hands the relay the files' names, sorted,
+and the Channel moves the directory to `<id>/` once it mints the packet's id, so
+a relayed packet's files sit where a local one's do. The inbox is read from the
+context as each chunk lands: a closed Channel has none and lands nothing, and a
+delivery that spans a deliberate close loses its earlier chunks with the
+directory the close removed.
 
 relay_to_channel refuses a model under `mcp/` or `remote/` first,
 `reserved_model`, as the sending grmr commands do: the reservation is what
@@ -182,11 +185,11 @@ lets an agent take a model's path as proof of the host's origin, and a peer is
 not the local host. Its files have landed by then and stay, as for any refused
 relay.
 
-rewrite_spill_pointer: a sender spills an oversized event to the reserved
-EVENT_SPILL_DEST file with a dest-relative pointer; relay_to_channel rewrites
-that path to <peer_nom>/<id>/<dest> before relaying, so the agent resolves it
-as <inbox>/<spilled_event_path> uniformly with a local spill. A no-op for a
-normal event or a path already carrying a `/`.
+A sender spills an oversized event to the reserved `EVENT_SPILL_DEST` file,
+`{size}` riding as its event. The file lands with the rest and is named among
+the relay's files; the face tells it apart, and the Channel moves it to
+`<id>.nuon`, so a relayed spill reads as a local one does, with nothing on the
+way rewritten.
 
 ## the McpNom handshake
 A Hello variant in each language (codec.rs), exchanged over the same Framed

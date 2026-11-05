@@ -3,10 +3,11 @@
 ## struct EngineParams
 What the engine reads of its host, given once at its start rather than read from
 the host's globals: five of the six EQUIP values a definition sees, the two scratch
-directories among them, and the namespace's two homes, the data home holding
-the lib dirs and the plugin registry, the cache home holding the call logs and
-the cached definitions. The host builds them from its own config, the scratch
-directories made before them.
+directories among them, the namespace's two homes, the data home holding the lib
+dirs and the plugin registry, the cache home holding the call logs and the cached
+definitions, and the identity the host drew. The host builds them from its own
+config, the identity drawn first and the scratch directories made under its nom
+before them.
 
 ## fn params
 `None` before `init`, so the registry's path reads as no registry rather than a
@@ -22,4 +23,5 @@ Once a process: the parameters, then nushell's config dirs, which need the
 registry's path in the data home. A second start is refused. A failed
 resolution leaves the parameters set, since the host exits on it. The host is
 no parameter: each engine system's controller answers its evals' asks
-(`system.rs`), so one process may run several, each on its own controller.
+(`system.rs`), so one process may run several, each on its own controller and
+all under the one identity, as the in-process tests do.

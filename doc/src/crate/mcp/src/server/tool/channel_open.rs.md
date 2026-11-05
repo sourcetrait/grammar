@@ -17,7 +17,9 @@ code is for the record.
 A gone peer is the only way to learn the connection has gone: the peer task's
 lane closed, read here first, or the peer's end the Channel's system already
 heard. Nothing else reports a peer that simply went away, which is why an
-`existing` open re-greets rather than trusting its own state.
+`existing` open re-greets rather than trusting its own state. The re-greeting
+goes through the Channel's system as every greeting does, its event written as
+`<id>.nuon`.
 
 ## fn arm_verify_timer
 Expiry asks the Channel to close the open of its epoch while still unverified,
@@ -28,7 +30,8 @@ message - it cannot be missed.
 ## fn start_open
 The Channel opens before the hub binds, so the hub's claim can never reach the
 system ahead of the open it belongs to. A hub that fails to start closes the
-open again, the inbox taken back for the caller to remove.
+open again, the Channel and the peer links letting the directory go, its files
+left where they are.
 
 A close can land while the hub starts, the agent's own `interface channel
 close` or an early send's teardown, neither of which takes the open's lock.
@@ -56,12 +59,15 @@ The decide-then-start sequence spans an await, so it runs under one guard: two
 concurrent calls would otherwise both read Closed and both bind a hub.
 
 ## fn open_or_report
-A new open makes its inbox first (`scratch.rs`'s `make_channel_dir`) and hands
-the path to the channel, so the emit path writes an attachment without
-composing it again, and the result reports it, so the agent learns where a
-spill lands from the same call that gave it the endpoint. A start that fails
-takes the inbox back and removes it. An `existing` open answers the inbox its
-Channel opened with.
+A new open makes the Channel's directory, `channel/` in the host's tree, or
+takes the one an earlier teardown left (`scratch.rs`'s `make_channel_dir`), and
+hands the path to the channel, so every path that emits writes its files
+without composing it again; the result reports it as `inbox`, so the agent
+learns where every packet's files land from the same call that gave it the
+endpoint. A start that fails leaves the directory as it stands: it may hold an
+earlier open's packets, which only a deliberate close takes, and the host's end
+removes it with the tree. An `existing` open answers the directory its Channel
+opened with.
 
 A mode is never switched under a live channel: an open in the other mode is
 refused `channel::wrong_mode`, naming the open one, since switching would strand
