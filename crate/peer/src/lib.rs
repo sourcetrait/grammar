@@ -108,9 +108,10 @@ pub(crate) mod rv {
 
 pub use crate::{
     msg::{
-        ExpandDefault, FromPeerSys, IdentityKeys, InboxRequest, Payload, Relay, RemoteCloseRequest,
-        RemoteConnectRequest, RemoteGetRequest, RemoteListRequest, RemoteListenRequest,
-        RemoteSendRequest, RemoteSetRequest, RemoteUnsetRequest, ToPeerSys,
+        ExpandDefault, FromPeerSys, INCOMING_DIR, IdentityKeys, InboxRequest, Payload, Relay,
+        RemoteCloseRequest, RemoteConnectRequest, RemoteGetRequest, RemoteListRequest,
+        RemoteListenRequest, RemoteSendRequest, RemoteSetRequest, RemoteUnsetRequest, ToPeerSys,
+        staged_dir,
     },
     remotes::{REMOTES_FILE, edit_remotes},
     system::{PeerHandle, PeerSysConfig, PeerSysParams, PeerSysPaths, PeerSystem},

@@ -102,6 +102,17 @@ pub struct EmitRequest {
     pub event: NuVal,
     /// The names of the files in the packet's `<id>/`, if any.
     pub attached: Option<Vec<String>>,
+    /// A relayed packet's files staged in the inbox, moved to `<id>/` once minted.
+    pub staged: Option<Staged>,
+}
+
+/// A relayed packet's files where they landed, and its spilled event among them.
+#[cereal::derived(Data)]
+pub struct Staged {
+    /// The inbox-relative directory they sit in.
+    pub dir: String,
+    /// The spilled event's file among them, which becomes `<id>.nuon`.
+    pub spill: Option<String>,
 }
 
 /// A body's send, its eval's stop held back on the sender's side.

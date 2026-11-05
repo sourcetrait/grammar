@@ -244,14 +244,14 @@ fn safe_dest_rejects_escapes() {
     assert!(!safe_dest("sub/../../escape"));
 }
 
-/// A delivery's file lands beneath its peer's inbox directory, or nowhere.
+/// A delivery's file lands in its staging beneath the inbox, or nowhere.
 #[test]
 fn a_delivery_path_stays_beneath_the_inbox() {
     use crate::link::delivery_path;
     let inbox = std::path::Path::new("/srv/inbox");
     assert_eq!(
         delivery_path(inbox, "peernom0001", "eventid0001", "sub/out.txt"),
-        Some(inbox.join("peernom0001").join("eventid0001").join("sub/out.txt")),
+        Some(inbox.join(".incoming").join("peernom0001").join("eventid0001").join("sub/out.txt")),
     );
     let escapes = [
         ("..", "eventid0001", "out.txt"),

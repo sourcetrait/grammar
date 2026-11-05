@@ -35,9 +35,11 @@ enum Sink {
     },
 }
 
-/// A body's send past its checks: its id, the files it writes, and its line.
+/// A packet past its checks: its id, the moves and writes its files take, its line.
 pub(crate) struct PlannedSend {
     pub(crate) id: String,
+    /// Each staged path renamed into place, in order, before the writes.
+    pub(crate) moves: Vec<(PathBuf, PathBuf)>,
     pub(crate) files: Vec<(PathBuf, String)>,
     pub(crate) line: String,
 }
@@ -304,6 +306,7 @@ impl Channel {
             model,
             event,
             attached,
+            staged,
         } = req;
         match self.phase {
             ChannelPhase::Closed => return Err(EmitError::Refused(ChannelSendError::NotOpen)),
@@ -314,11 +317,7 @@ impl Channel {
         let event_nuon = render_nuon(&event).map_err(EmitError::Render)?;
         let names = attached.as_ref().map(|names| names.join("\n"));
         let id = mint_msg_id(&self.nonce_gen, &from, &model, &event_nuon, names.as_deref());
-        let path = self
-            .inbox
-            .as_ref()
-            .map(|dir| dir.join(event_file(id)))
-            .ok_or(EmitError::Refused(ChannelSendError::NotOpen))?;
+        let inbox = self.inbox.clone().ok_or(EmitError::Refused(ChannelSendError::NotOpen))?;
         let wire_event = if event_overflows(&event_nuon) {
             event_spill_pointer(event_nuon.len())
         } else {
@@ -326,9 +325,20 @@ impl Channel {
         };
         let line = render_packet(id, &from, &model, &wire_event, attached.as_deref())
             .map_err(EmitError::Render)?;
+        let own = inbox.join(id.to_string());
+        let mut moves = Vec::new();
+        let mut files = Vec::new();
+        if let Some(staged) = &staged {
+            moves.push((inbox.join(&staged.dir), own.clone()));
+        }
+        match staged.and_then(|staged| staged.spill) {
+            Some(spill) => moves.push((own.join(spill), inbox.join(event_file(id)))),
+            None => files.push((inbox.join(event_file(id)), event_nuon)),
+        }
         Ok(PlannedSend {
             id: id.to_string(),
-            files: vec![(path, event_nuon)],
+            moves,
+            files,
             line,
         })
     }
@@ -455,6 +465,7 @@ impl Channel {
             .map_err(SendVerdict::Refused)?;
         Ok(PlannedSend {
             id: id.to_string(),
+            moves: Vec::new(),
             files,
             line,
         })
@@ -488,6 +499,22 @@ impl Channel {
 /// A send refused for the gate's reason.
 fn refused(e: ChannelSendError) -> SendVerdict {
     SendVerdict::Refused(e.message().to_string())
+}
+
+/// Rename each staged path into place, then drop the directories the moves emptied.
+pub(crate) fn apply_moves(moves: Vec<(PathBuf, PathBuf)>) -> Result<(), String> {
+    for (from, to) in &moves {
+        fs::rename(from, to).map_err(|e| format!("move {} to {}: {e}", from.display(), to.display()))?;
+    }
+    for (from, to) in &moves {
+        if to.is_dir() && fs::read_dir(to).is_ok_and(|mut entries| entries.next().is_none()) {
+            let _ = fs::remove_dir(to);
+        }
+        if let Some(parent) = from.parent() {
+            let _ = fs::remove_dir(parent);
+        }
+    }
+    Ok(())
 }
 
 /// Write each planned file, its directory made first, stopping at a failure.

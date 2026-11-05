@@ -81,20 +81,31 @@ pub struct RemoteSendRequest {
 #[cereal::derived(Data, Eq)]
 pub struct InboxRequest(pub Option<String>);
 
-/// A peer's message for the Channel, and whether its files landed beside it.
+/// A peer's message for the Channel, and the names its files landed under.
 #[cereal::derived(Data)]
 pub struct Relay {
     pub packet: RemotePacket,
-    pub files: bool,
+    /// Each file's name in its staged directory, sorted; none for a message alone.
+    pub files: Vec<String>,
 }
 
 impl Relay {
-    /// The inbox-relative directory its files landed in, if any.
-    pub fn attached(&self) -> Option<String> {
-        self.files
-            .then(|| format!("{}/{}", self.packet.origin, self.packet.delivery))
+    /// The inbox-relative directory its files are staged in, if any.
+    pub fn staged(&self) -> Option<String> {
+        (!self.files.is_empty()).then(|| staged_dir(&self.packet.origin, &self.packet.delivery))
     }
 }
+
+/// The inbox's directory a peer's delivery is staged in, `.incoming/<nom>/<id>`.
+pub fn staged_dir(
+    peer_nom: &str,
+    id: &str,
+) -> String {
+    format!("{INCOMING_DIR}/{peer_nom}/{id}")
+}
+
+/// The inbox's directory remote deliveries are staged under until relayed.
+pub const INCOMING_DIR: &str = ".incoming";
 
 /// What the peer links' controller asks of them.
 #[cereal::derived(Data)]

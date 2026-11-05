@@ -124,7 +124,7 @@ pub(crate) fn delivery_path(
     dest: &str,
 ) -> Option<PathBuf> {
     (valid_peer_id(peer_nom) && valid_peer_id(id) && safe_dest(dest))
-        .then(|| inbox.join(peer_nom).join(id).join(dest))
+        .then(|| inbox.join(staged_dir(peer_nom, id)).join(dest))
 }
 
 /// How long a connector's dial may take before the open fails.
@@ -863,13 +863,14 @@ fn try_finalize(
     };
     let Some(slot) = taken else { return };
     let info = slot.deliver.expect("ready implies a deliver");
-    let has_files = slot.expected.is_some_and(|want| !want.is_empty());
-    if let Err((kind, message)) = relay_to_channel(ctx, id, &info, has_files) {
+    let mut files: Vec<String> = slot.expected.unwrap_or_default().into_iter().collect();
+    files.sort();
+    if let Err((kind, message)) = relay_to_channel(ctx, id, &info, files) {
         eprintln!("grammar: remote delivery `{id}` not relayed onto the Channel: {kind}: {message}");
     }
 }
 
-/// Append one chunk to `<inbox>/<peer_nom>/<id>/<dest>`; true iff `last`.
+/// Append one chunk to `<inbox>/.incoming/<peer_nom>/<id>/<dest>`; true iff `last`.
 fn land_file_chunk(
     ctx: &RecvContext,
     id: &str,
@@ -901,7 +902,7 @@ fn relay_to_channel(
     ctx: &RecvContext,
     id: &str,
     info: &DeliverInfo,
-    has_files: bool,
+    files: Vec<String>,
 ) -> Result<(), (String, String)> {
     if let Some(prefix) = reserved_prefix(&info.model) {
         return Err((
@@ -919,7 +920,7 @@ fn relay_to_channel(
             model: info.model.clone(),
             event,
         },
-        files: has_files,
+        files,
     });
     Ok(())
 }

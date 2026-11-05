@@ -84,6 +84,7 @@ impl EmergencyPolicy {
             model: emergency_model(emergency).to_string(),
             event: announced_record(emergency, host),
             attached: None,
+            staged: None,
         };
         let _ = self.channel.request(emit).await;
     }

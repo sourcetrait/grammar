@@ -444,8 +444,9 @@ mod schema {
     /// The schema's model, beside it.
     pub const MODEL: &str = "schema/Schema.nutype";
 
-    /// The crates whose source declares the wire's own types, by directory.
-    const CRATES: [&str; 2] = ["protocol", "nuval"];
+    /// The sources that declare the wire's own types, from this crate's manifest:
+    /// its own, and nuval's in its repository beside the workspace.
+    const SOURCES: [&str; 2] = ["src", "../../../nuval/rust/crate/nuval/src"];
 
     /// Common's datum, the workspace's sibling, whose types the wire carries
     /// where a field names them.
@@ -471,8 +472,8 @@ mod schema {
         let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
         let mut types = Records::new();
         let mut reachable = Records::new();
-        for name in CRATES {
-            let src = manifest.join("..").join(name).join("src");
+        for dir in SOURCES {
+            let src = manifest.join(dir);
             walk_file(&src.join("lib.rs"), &src, &mut types, &mut reachable);
         }
         let mut datum = Records::new();

@@ -117,6 +117,7 @@ impl subsys::Handler<PeerSystem> for PeerPump {
                         model: report.model().to_string(),
                         event: report.event(),
                         attached: None,
+                        staged: None,
                     };
                     let _ = channel.request(emit).await;
                 }
@@ -132,14 +133,19 @@ async fn relay_onto(
     channel: &ChannelHandle,
     relay: Relay,
 ) {
-    let attached = relay.attached().map(|dir| vec![dir]);
-    let Relay { packet, .. } = relay;
+    let staged = relay.staged().map(|dir| Staged {
+        dir,
+        spill: relay.files.iter().any(|name| name == EVENT_SPILL_DEST).then(|| EVENT_SPILL_DEST.to_string()),
+    });
+    let Relay { packet, files } = relay;
+    let names: Vec<String> = files.into_iter().filter(|name| name != EVENT_SPILL_DEST).collect();
     let from = packet.packet_from();
     let emit = EmitRequest {
         from,
         model: packet.model,
         event: packet.event,
-        attached,
+        attached: (!names.is_empty()).then_some(names),
+        staged,
     };
     let (kind, message) = match channel.request(emit).await {
         Ok(Ok(_)) => return,

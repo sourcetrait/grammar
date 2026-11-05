@@ -402,7 +402,11 @@ fn a_send_on_a_verified_channel_goes_up_under_its_id() {
     let planned = channel
         .plan_send(send_data("thread/a", "foo/Bar", small_event()), Instant::now())
         .unwrap_or_else(|_| panic!("a verified channel takes a body's send"));
-    assert!(planned.files.is_empty(), "a small event without attachment writes nothing");
+    assert_eq!(
+        planned.files.iter().map(|(path, _)| path.clone()).collect::<Vec<_>>(),
+        [PathBuf::from("/tmp/grammar.channel.x").join(format!("{}.nuon", planned.id))],
+        "a small event without attachment writes its event alone",
+    );
     let id = planned.id.clone();
     let SendVerdict::Sent(sent) = channel.finish_send(planned) else {
         panic!("the planned send emits");
@@ -507,6 +511,7 @@ fn a_host_packet_through_the_gate_is_rendered_and_minted_here() {
         model: "mcp/supervisor/CpuWarning".to_string(),
         event: small_event(),
         attached: None,
+        staged: None,
     };
     assert!(
         matches!(
@@ -529,6 +534,55 @@ fn a_host_packet_through_the_gate_is_rendered_and_minted_here() {
         panic!("one line goes up: {ups:?}");
     };
     assert!(line.contains(&id), "the line carries its minted id");
+}
+
+#[test]
+fn a_relayed_packet_moves_its_staged_files_under_its_id() {
+    let mut channel = verified_async();
+    let req = EmitRequest {
+        from: "remote/channel/peer".to_string(),
+        model: "foo/Bar".to_string(),
+        event: small_event(),
+        attached: Some(vec!["notes.nuon".to_string()]),
+        staged: Some(Staged {
+            dir: ".incoming/peer/abc".to_string(),
+            spill: Some(".mcp_event.nuon".to_string()),
+        }),
+    };
+    let planned = channel.plan_emit(req).unwrap_or_else(|_| panic!("planned"));
+    let inbox = PathBuf::from("/tmp/grammar.channel.x");
+    let own = inbox.join(&planned.id);
+    assert_eq!(
+        planned.moves,
+        [
+            (inbox.join(".incoming/peer/abc"), own.clone()),
+            (own.join(".mcp_event.nuon"), inbox.join(format!("{}.nuon", planned.id))),
+        ],
+        "the staged directory becomes <id>/, its spilled event <id>.nuon",
+    );
+    assert!(planned.files.is_empty(), "a spilled event's file is moved, not written");
+    let line = nuon::from_nuon(&planned.line, None).expect("NUON");
+    let attached = line.as_record().expect("record").get("attached").and_then(|v| v.as_list().ok()).map(|names| names.len());
+    assert_eq!(attached, Some(1), "the files it names, the spill not among them");
+}
+
+#[test]
+fn the_moves_rename_into_place_and_drop_what_they_emptied() {
+    let dir = std::env::temp_dir().join(format!("grammar_channel_moves_{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    let staged = dir.join(".incoming/peer/abc");
+    fs::create_dir_all(&staged).expect("staged");
+    fs::write(staged.join(".mcp_event.nuon"), "{big: 1}").expect("spill");
+    let own = dir.join("xyz");
+    apply_moves(vec![
+        (staged.clone(), own.clone()),
+        (own.join(".mcp_event.nuon"), dir.join("xyz.nuon")),
+    ])
+    .expect("moved");
+    assert_eq!(fs::read_to_string(dir.join("xyz.nuon")).ok().as_deref(), Some("{big: 1}"));
+    assert!(!own.exists(), "an <id>/ left empty goes");
+    assert!(!dir.join(".incoming/peer").exists(), "the peer's staging emptied goes");
+    let _ = fs::remove_dir_all(&dir);
 }
 
 #[test]

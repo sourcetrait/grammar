@@ -150,8 +150,9 @@ impl ChannelSystem {
         req: EmitRequest,
     ) -> Result<String, EmitError> {
         let mut planned = self.channel.plan_emit(req)?;
+        let moves = std::mem::take(&mut planned.moves);
         let files = std::mem::take(&mut planned.files);
-        match tk::spawn_blocking(move || write_files(files)).await {
+        match tk::spawn_blocking(move || apply_moves(moves).and_then(|()| write_files(files))).await {
             Ok(Ok(())) => {}
             Ok(Err(reason)) => return Err(EmitError::Write(reason)),
             Err(e) => return Err(EmitError::Write(format!("the inbox write failed: {e}"))),

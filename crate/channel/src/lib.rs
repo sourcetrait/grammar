@@ -14,7 +14,7 @@ mod tests {
 pub(crate) use crate::{
     render::nu_value,
     spam::{Spam, SpamVerdict},
-    state::{Channel, UpKind, write_files},
+    state::{Channel, UpKind, apply_moves, write_files},
 };
 
 pub(crate) use std::{
@@ -53,7 +53,7 @@ pub use crate::{
         ChannelSendError, ChannelStatus, ChannelSyncError, ChannelVerifyError, CloseHub,
         CloseRequest, Closed, EmitError, EmitRequest, ExpireRequest, FromChannelSys,
         HostRequest, HubNotice, Line, OpenRequest, Opened, ReadyRequest, SendRequest,
-        SendVerdict, SpamStop, StatusRequest, StoppedNotice, SyncRequest, Synced,
+        SendVerdict, SpamStop, Staged, StatusRequest, StoppedNotice, SyncRequest, Synced,
         ThresholdsRequest, ToChannelSys,
     },
     render::{

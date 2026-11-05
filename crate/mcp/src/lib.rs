@@ -158,7 +158,7 @@ pub(crate) use sourcetrait_grammar_channel::{
     ChannelHandle, ChannelSendError, ChannelStatus, ChannelSyncError, ChannelSysParams,
     ChannelSysPaths, ChannelSystem, ChannelVerifyError, CloseHub, CloseRequest, EmitError,
     EmitRequest, ExpireRequest, FromChannelSys, HostRequest, HubNotice, Line, OpenRequest,
-    ReadyRequest, SendRequest, SendVerdict, SpamThresholds, StatusRequest, StoppedNotice,
+    ReadyRequest, SendRequest, SendVerdict, SpamThresholds, Staged, StatusRequest, StoppedNotice,
     SyncRequest, ThresholdsRequest, mint_msg_id, render_nuon, render_packet,
 };
 
@@ -178,8 +178,9 @@ pub(crate) use sourcetrait_grammar_peer::{
 };
 
 pub(crate) use sourcetrait_grammar_protocol::{
-    ChannelEpoch, ChannelPhase, ChannelSendData, ControlRequest, EngineRequest, EngineResponse,
-    FromEngineSys, LIMITS_DEFAULT, LOCAL_HOST, MAX_FRAME_BYTES, PreparedSend, PurviewAnswer,
+    ChannelEpoch, ChannelPhase, ChannelSendData, ControlRequest, EVENT_SPILL_DEST, EngineRequest,
+    EngineResponse, FromEngineSys, LIMITS_DEFAULT, LOCAL_HOST, MAX_FRAME_BYTES, PreparedSend,
+    PurviewAnswer,
     PurviewRequest, PurviewRow, PurviewView, RemoteResult, RemoteSendData, RuntimeError,
     SessionAsk, SpamThresholdsData, ToEngineSys, TransportError, SshInfo,
 };
