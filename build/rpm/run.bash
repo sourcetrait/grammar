@@ -82,8 +82,8 @@ podman run --rm --init --network none --env "RPM_BUILD_NCPUS=$jobs" \
     --volume "$work/rebuild:/work:Z" --volume "$out:/out:Z" "$image" \
     bash -c 'rpmbuild --rebuild --define "_topdir /work" /out/*.src.rpm && cp /work/RPMS/*/*.rpm /out/' \
     > "$out/rebuild.log" 2>&1
-# rpm 6 asks a signature of what it installs by default, and this one isn't signed until a
-# repository signs it, so its digests alone are held to.
+# Fedora 45's rpm asks a signature of what it installs by default, and this one isn't signed until
+# a repository signs it, so its digests alone are held to.
 podman run --rm --init --network none --volume "$out:/out:ro,Z" "$base" \
     bash -c 'rpm -i --define "_pkgverify_level digest" /out/grammar-*.$(uname -m).rpm && grammar-mcp --version && grammar-ssh --version && /opt/grammar/nu/bin/nu --version' \
     > "$out/install.log" 2>&1
