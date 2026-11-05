@@ -28,14 +28,16 @@ Kept past a close until the next open, so a stale notice or expiry finds the
 open it concerns already ended.
 
 ### field inbox
-The directory each open makes (`scratch.rs`'s `make_channel_dir`), where both
-producers meet: a channel's attachments and a remote link's landed files share
-it, so a relayed packet's refs resolve for the local agent. A deliberate
-`interface channel close` takes it and prunes it; every other teardown leaves
-it. The shutdown close, the verify-timer expiry and the unverified-emit
-teardown are all host-initiated, so an attachment stays readable by nonce when
-the channel went away without the caller asking for it, until the host itself
-ends.
+The host tree's `channel/` (`scratch.rs`'s `make_channel_dir`), flat: every
+packet's event as `<id>.nuon` and its files in `<id>/`, whoever sent it, so the
+agent reads any packet's files by its id alone. A remote link's files are staged
+under `.incoming/` and moved under the relayed packet's id, so a relayed
+packet's layout is a local one's. A deliberate `interface channel close` takes
+it and prunes it; every other teardown leaves it. The shutdown close, the
+verify-timer expiry and the unverified-emit teardown are all host-initiated, so
+a packet's files stay readable by its id when the channel went away without the
+caller asking for it, until the host itself ends; the next open takes the
+directory as it stands.
 
 ### fn open
 A sync channel binds nothing: its greeting is the first line queued, and its
@@ -100,11 +102,11 @@ emergency (`stopped`).
 
 The id is minted before the files are named because their names derive from
 it, which is also why the hash covers the attached content rather than its
-path. After the attachment, the rendered event is checked against the
-notification cap; an oversized event spills to `<id>.event.nuon` and a compact
-pointer rides the wire in its place. The pointer names its own spill file, so it
-is orthogonal to the caller's `attached`: a big event and an attachment both
-survive, in separate files.
+path. The event is written as `<id>.nuon` whatever its size, so every packet's
+event is on disk; one over the notification cap goes out as `{size}`, the
+file's size, and the agent reads the event by the packet's id. The attachment
+is `<id>/attached.nuon`, and the packet's `attached` names it: a big event and
+an attachment both survive, in separate files.
 
 The plan stops at the files, which the system writes before it finishes the
 send (`system.rs`).
@@ -112,6 +114,23 @@ send (`system.rs`).
 ### fn finish_send
 The gate is read again at the emit, as `emit` always reads it; nothing between
 the plan and the finish changes it, since the system runs one step at a time.
+
+### fn plan_emit
+A host packet's send, a relay's or a report's, gated as `emit` is. Its files are
+already on disk, a peer's staged by the link, so the id is minted over their
+names rather than their content. A staged directory moves to `<id>/` and its
+spilled event to `<id>.nuon`, so the event the agent reads is the one the peer
+spilled, never a copy; an event with no spill is written as a send's.
+
+### fn finish_emit
+As `finish_send`, the gate read again at the emit.
+
+## fn apply_moves
+Renames within the inbox, so a peer's files land whole under the packet's id or
+not at all, and the moves go before the writes, since the event file may be the
+moved spill. The directories the moves emptied go after them: `<id>/` when the
+spill was its one file, and the peer's staging directory once its send's
+directory has left it.
 
 ## fn write_files
 Each file's directory is made before its write, so an inbox removed from under

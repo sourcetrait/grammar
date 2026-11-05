@@ -230,6 +230,68 @@ fn a_missing_temporary_directory_fails_the_start() {
     assert!(!missing.exists(), "{} is never made", missing.display());
 }
 
+/// A runtime directory that doesn't exist fails the start too.
+///
+/// The hosts' trees' parent is made in it, the base itself never, and the
+/// failed start leaves no bulk directory behind.
+#[tested]
+fn a_missing_runtime_directory_fails_the_start() {
+    let t = testing::test!({ .using_temp_dir() });
+    let (tmp, _) = bases(t.temp_dir());
+    let missing = t.temp_dir().join("absent");
+    let out = run_output_env(
+        &t.temp_dir().join("host"),
+        &["--id", "scratchrunmiss", "cli", "interface", "interface info"],
+        &[("UENV_USR_TMP", text(&tmp)), ("UENV_USR_TRANSIENT", text(&missing))],
+    );
+    assert_eq!(out.status.code(), Some(2), "the start fails; got {out:?}");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains(text(&missing)),
+        "the refusal names {}; got {stderr}",
+        missing.display(),
+    );
+    assert!(!missing.exists(), "{} is never made", missing.display());
+    assert_eq!(scratch_in(&tmp), 0, "no bulk directory is left in {}", tmp.display());
+}
+
+/// A trees' parent that isn't this user's alone fails the start.
+///
+/// One others may write would let them replace a host's tree, and a link
+/// would put the trees wherever it points. Unix alone, whose modes it sets.
+#[cfg(unix)]
+#[tested]
+fn a_trees_parent_not_this_users_alone_fails_the_start() {
+    let t = testing::test!({ .using_temp_dir() });
+    let (tmp, run) = bases(t.temp_dir());
+    let trees = run.join("grammar");
+    let start = |id: &str| {
+        run_output_env(
+            &t.temp_dir().join("host"),
+            &["--id", id, "cli", "interface", "interface info"],
+            &[("UENV_USR_TMP", text(&tmp)), ("UENV_USR_TRANSIENT", text(&run))],
+        )
+    };
+
+    std::fs::create_dir(&trees).expect("a trees' parent");
+    std::fs::set_permissions(&trees, std::fs::Permissions::from_mode(0o777)).expect("its mode");
+    let out = start("scratchshared");
+    assert_eq!(out.status.code(), Some(2), "an open parent fails the start; got {out:?}");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains(text(&trees)), "the refusal names {}; got {stderr}", trees.display());
+    assert_eq!(std::fs::read_dir(&trees).expect("it reads").count(), 0, "no tree is made in it");
+
+    std::fs::remove_dir(&trees).expect("the open parent removed");
+    let elsewhere = private_dir(t.temp_dir().join("elsewhere"));
+    std::os::unix::fs::symlink(&elsewhere, &trees).expect("a link in its place");
+    let out = start("scratchlinked");
+    assert_eq!(out.status.code(), Some(2), "a link fails the start; got {out:?}");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains(text(&trees)), "the refusal names {}; got {stderr}", trees.display());
+    assert_eq!(std::fs::read_dir(&elsewhere).expect("it reads").count(), 0, "nothing lands there");
+    assert_eq!(scratch_in(&tmp), 0, "no bulk directory is left in {}", tmp.display());
+}
+
 /// Unix alone, whose signal it sends.
 #[cfg(unix)]
 #[tested]

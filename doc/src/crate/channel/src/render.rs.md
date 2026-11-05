@@ -17,6 +17,12 @@ timestamp, so two byte-identical packets still get distinct ids.
 Rendering from a Value is deterministic, which is what lets the id hash cover
 the rendered form.
 
+## fn render_packet
+`attached` names the files in `<id>/` and never a path: the agent has the
+Channel's directory from its open and the id from the packet, so no field
+carries a directory, and the line stays short. It is left out where there are
+no files, as `<id>/` is.
+
 ## fn escape_line
 `to nuon` renders compactly but does not escape a newline inside a string
 value, and the client batches frames arriving close together into one event
@@ -33,18 +39,23 @@ but the client truncates a task-notification at about 500 characters of the
 whole rendered packet line - a claude-code constant the server never observes,
 measured at 500. An event between the two transits and fires Sent (the
 transport write), yet renders back to the agent truncated, silently and
-unrecoverably. So a send whose rendered event would overflow the notification
-cap spills: the full event NUON goes to a file and a compact
-event_spill_pointer ({spilled_event_path, event_bytes}) rides the wire in its
-place, so the agent reads <inbox>/<spilled_event_path> for the real event,
-`event_bytes` its original size. event_overflows tests the rendered event's
-character count against the cap minus a wrapper reserve (the id, from, model,
-attached, and NUON punctuation around it), not the exact line, so one threshold
-serves every send path without re-deriving the wrapper. Distinct from the frame
-cap: an event over 1 MiB cannot ride a Deliver frame inline, so the remote spill
-transfers it through the file connection under `EVENT_SPILL_DEST`, inside the
-delivery's own inbox directory, which is why the spill is a send-path act, not a
-render choice.
+unrecoverably. Every event is written as `<id>.nuon` already, so a send whose
+rendered event would overflow the notification cap spills by sending
+event_spill_pointer, `{size}`, its file's size, in the event's place, and the
+agent reads `<id>.nuon` for the real event. A real event of the same shape needs
+no telling apart, since its file holds it either way. event_overflows tests the
+rendered event's character count against the cap minus a wrapper reserve (the
+id, from, model, attached, and NUON punctuation around it), not the exact line,
+so one threshold serves every send path without re-deriving the wrapper.
+Distinct from the frame cap: an event over 1 MiB cannot ride a Deliver frame
+inline, so the remote spill transfers it through the file connection under
+`EVENT_SPILL_DEST`, inside the delivery's staging directory, and the Channel
+moves it to `<id>.nuon` with the rest, which is why the spill is a send-path
+act, not a render choice.
+
+## const ATTACHED_FILE / fn event_file
+One name for each in every path that emits, so the agent finds any packet's
+event and a local attachment without asking which path sent it.
 
 ## fn nu_value
 A request's NuVal back as nushell's value for the render. It refuses only what

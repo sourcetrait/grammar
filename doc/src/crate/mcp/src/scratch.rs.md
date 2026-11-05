@@ -1,53 +1,50 @@
 # scratch.rs
 
-A host's scratch directories, two a process, each private to it, made at its
-start, and removed at its end: one for bulk, read by every definition as
-`$env.EQUIP_TMP`, and one for small runtime files, `$env.EQUIP_TRANSIENT`. The
-host makes them rather than reading directories from the environment, so it
-works on any machine whatever its environment's conventions, and a path no
-other process shares needs no id inside it to keep two hosts apart. The split
-follows the XDG Base Directory spec, which keeps larger files out of
-`XDG_RUNTIME_DIR`, since it may sit in memory that cannot be swapped out.
-
-Beside the transient one, each Channel open makes the Channel's inbox, a
-directory of its own in the same base.
+A host's scratch, made at its start and removed at its end: a bulk directory,
+read by every definition as `$env.EQUIP_TMP`, and the host's tree under the
+runtime directory, `grammar/<nom>/`, read as `$env.EQUIP_TRANSIENT`, a
+definition's small runtime files beside the reserved `owner.nuon` and the
+Channel's `channel/`. The host makes them rather than reading directories from
+the environment, so it works on any machine whatever its environment's
+conventions. The split follows the XDG Base Directory spec, which keeps larger
+files out of `XDG_RUNTIME_DIR`, since it may sit in memory that cannot be
+swapped out. The tree is named for the host's nom, which no other live host
+holds, so another process finds a host's files by a name it already has.
 
 ## const SCRATCH_PREFIX
-The sweep's match: a directory not carrying it is never a scratch directory, so
-the sweep cannot touch anything else in a shared base.
+The bulk directory's prefix and the sweep's match: a directory not carrying it
+is never a scratch directory, so the sweep cannot touch anything else in a
+shared base. The runtime base is swept by it too, for the transient
+directories hosts made there before the trees.
 
-## const CHANNEL_PREFIX
-Not the sweep's prefix: an inbox carries no owner marker and no sweep takes
-it, its name the host's nom, which no other live host holds, or a random
-suffix.
-
-## static CHANNEL_DIRS
-Every inbox the process made, not only the Channel's current one: a teardown
-other than a deliberate close leaves its inbox for the agent to read, and the
-next open makes another, so the end removes each.
+## const HOST_TREES
+Every entry of `grammar/` is a host's tree, so its sweep takes no prefix.
 
 ## const SCRATCH_MODE
-Asked of `tempfile` outright: its directories default to 0777 less the umask,
-which left one 0755 under a 022 umask. The umask can only narrow the mode asked
-for, never widen it. Unix alone: Windows keeps no mode bits, and a scratch
-directory or an inbox made there takes the ACL its parent passes down.
+Asked of `tempfile` and `DirBuilder` outright: `tempfile`'s directories default
+to 0777 less the umask, which left one 0755 under a 022 umask. The umask can
+only narrow the mode asked for, never widen it. Unix alone: Windows keeps no
+mode bits, and a directory made there takes the ACL its parent passes down.
 
 ## struct ScratchDirs
-The bulk directory beside the transient one. Both always exist, so a definition
-reads either without asking which the host could make.
+The bulk directory beside the tree. Both always exist, so a definition reads
+either without asking which the host could make.
 
 ## fn make_scratch_dirs
-The bulk directory goes in the temporary directory, `UENV_USR_TMP`, `TMPDIR`,
-or the platform's own; the transient one in the runtime directory, `UENV_USR_TRANSIENT` or
-`XDG_RUNTIME_DIR`, or, where neither names one, beside the bulk one with a
-warning, the fallback the XDG spec asks for. Both are read as every home is
-(`home.rs`). Each base is swept first, so a host's start is what cleans after a
-host killed outright, which runs no exit hook; a base the two share is swept
-once. A base that does not exist fails the start: a platform's directory is
-checked, never made.
+The nom is the engine's identity's, drawn by `init_engine` before the engine
+starts (`server/host.rs`), since the tree is made before the engine mints
+anything. The bulk directory goes in the temporary directory, `UENV_USR_TMP`,
+`TMPDIR`, or the platform's own; the tree in the runtime directory,
+`UENV_USR_TRANSIENT` or `XDG_RUNTIME_DIR`, or, where neither names one, beside
+the bulk one with a warning, the fallback the XDG spec asks for. Both are read
+as every home is (`home.rs`). Each base is swept first, so a host's start is
+what cleans after a host killed outright, which runs no exit hook; a base the
+two share is swept once, and `grammar/` is swept whole once it is checked, a
+dead owner's tree going with its Channel's files. A base that does not exist
+fails the start: a platform's directory is checked, never made.
 
-A transient directory that cannot be made takes the bulk one with it, so a
-failed start leaves neither.
+A tree that cannot be made takes the bulk directory with it, so a failed start
+leaves neither.
 
 Once a process: a second call returns the first directories, so a second start,
 which the engine refuses, leaves none behind.
@@ -57,25 +54,27 @@ which the engine refuses, leaves none behind.
 directory.
 
 ## fn make_channel_dir
-The base is the transient directory's own, so an inbox follows the same order,
-`UENV_USR_TRANSIENT`, `XDG_RUNTIME_DIR`, then beside the bulk one. The nom's
-name is made with `create`, which fails on a name already there, so an inbox
-left by an earlier open or a directory of anyone else's is never reused; the
-fallback is `mkdtemp`'s, under the same prefix, through `private_tempdir`. Both
-are made at `SCRATCH_MODE` from creation on Unix; on Windows both take the ACL
-the base passes down.
+One `channel/` a host, in its own tree: a teardown other than a deliberate
+close leaves it for the agent to read, and the next open takes it as it stands,
+each packet's id keeping its files apart from the last open's. A link in its
+place is refused, since only a directory itself passes.
 
 ## fn remove_channel_dir
-A deliberate close's and a failed start's removal, the path forgotten first: an
-inbox the process removed is no longer its own, and a directory that takes its
-name later is someone else's, which the end must leave.
+A deliberate close's removal, `.incoming/` with it.
 
 ## fn remove_scratch_dirs
 Every ordinary end calls it, the client's, the test driver's, the one-shot's, a
-failed start's, and a signal's (`run.rs`, `server/channel/face.rs`). The
-inboxes go first, each one the process made; a directory already gone, an inbox
-a deliberate close removed among them, is no error. A host killed outright
-leaves its inbox, which nothing sweeps.
+failed start's, and a signal's (`run.rs`, `server/channel/face.rs`). The tree
+goes whole, the Channel's files in it; a directory already gone is no error. A
+host killed outright leaves its tree for the next start's sweep.
+
+## fn make_trees / fn check_trees
+`grammar/` is a fixed name, which a shared base such as `/tmp`, the fallback's,
+lets anyone make first. One already there is taken only as a directory itself,
+on Unix this user's and closed to others' writes: whoever may write it may
+rename a host's tree and put a link in its place, and the host would then write
+its files wherever the link points. Anything else fails the start, naming the
+directory. On Windows it takes the ACL its base passes down.
 
 ## fn make_dir
 The shared guard's owned directory: the name unguessable, so no other process
@@ -86,11 +85,15 @@ namespace a sweep judges the owner under. Where this process's start can't be
 read no marker is written, as on a platform with no process table, and a sweep
 keeps the directory unmarked.
 
+## fn make_tree
+The guard's named directory, its marker as `make_dir`'s; a nom's name already
+taken is refused rather than reused. Unmarked where this process's start can't
+be read, as `make_dir`'s.
+
 ## fn private_tempdir
-Every randomly named directory the host makes outside the guard comes from
-here: an unmarked scratch directory and an inbox whose nom's name is taken.
-`keep` hands the directory over, since a `TempDir` removes its directory on
-drop and these live until the process's end or the Channel's close.
+An unmarked bulk directory's, where the guard can't mark one. `keep` hands the
+directory over, since a `TempDir` removes its directory on drop and this one
+lives until the process's end.
 
 ## fn sweep_stale
 The shared guard's sweep (`sourcetrait_grammar_scratch`), grammar-ssh's own: a

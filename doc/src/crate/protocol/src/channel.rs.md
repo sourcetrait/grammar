@@ -30,8 +30,17 @@ silence.
 
 ## const NOTIFICATION_CAP
 The client's task-notification cap, the one coupling point to the client: a
-client-cap change is a one-line edit. A rendered event over it spills to a file,
-its pointer `{spilled_event_path, event_bytes}` riding in its place.
+client-cap change is a one-line edit. A rendered event over it spills: its own
+file's size, `{size}`, rides in its place, the event already written as
+`<id>.nuon`.
+
+## const EVENT_SIZE_KEY
+The spill's one key, a filesize, so the agent knows how much it is about to read
+without the wire naming any path.
+
+## const EVENT_SPILL_DEST
+A dotted name, so it sorts apart from the sender's own files in the staging
+directory and the relay leaves it out of the packet's `attached`.
 
 ## enum ChannelPhase
 Read at send time, never captured. A job outliving its eval keeps its decl and

@@ -43,17 +43,19 @@ pub(crate) fn make_scratch_dirs(nom: &str) -> Result<ScratchDirs, String> {
         );
         tmp_base.clone()
     });
-    let trees = transient_base.join(HOST_TREES);
     sweep_stale(&tmp_base, SCRATCH_PREFIX);
     if transient_base != tmp_base {
         sweep_stale(&transient_base, SCRATCH_PREFIX);
     }
-    make_private(&trees).map_err(|e| format!("make {}: {e}", trees.display()))?;
-    sweep_stale(&trees, "");
     let tmp = make_dir(&tmp_base)?;
-    let transient = make_tree(&trees, nom).inspect_err(|_| {
-        let _ = fs::remove_dir_all(&tmp);
-    })?;
+    let transient = make_trees(&transient_base)
+        .and_then(|trees| {
+            sweep_stale(&trees, "");
+            make_tree(&trees, nom)
+        })
+        .inspect_err(|_| {
+            let _ = fs::remove_dir_all(&tmp);
+        })?;
     Ok(SCRATCH.get_or_init(|| ScratchDirs { tmp, transient }).clone())
 }
 
@@ -124,14 +126,44 @@ fn runtime_base() -> Option<PathBuf> {
     home_var("UENV_USR_TRANSIENT")
 }
 
-/// `dir` and any parent it lacks, each made private.
-fn make_private(dir: &Path) -> io::Result<()> {
+/// The hosts' trees' parent, `base/grammar/`, made private where absent.
+///
+/// The base is never made; one already there must be this user's alone.
+fn make_trees(base: &Path) -> Result<PathBuf, String> {
+    let trees = base.join(HOST_TREES);
     #[cfg_attr(not(unix), allow(unused_mut))]
     let mut builder = fs::DirBuilder::new();
-    builder.recursive(true);
     #[cfg(unix)]
     builder.mode(SCRATCH_MODE);
-    builder.create(dir)
+    match builder.create(&trees) {
+        Ok(()) => Ok(trees),
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => check_trees(&trees).map(|()| trees),
+        Err(e) => Err(format!("make {}: {e}", trees.display())),
+    }
+}
+
+/// An existing trees' parent: a directory itself, on Unix this user's alone to write.
+fn check_trees(trees: &Path) -> Result<(), String> {
+    let meta = fs::symlink_metadata(trees).map_err(|e| format!("read {}: {e}", trees.display()))?;
+    if !meta.is_dir() {
+        return Err(format!("{} is not a directory", trees.display()));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let uid = sourcetrait_grammar_scratch::current_uid();
+        if meta.uid() != uid {
+            return Err(format!("{} is UID {}'s, not this user's", trees.display(), meta.uid()));
+        }
+        if meta.mode() & 0o022 != 0 {
+            return Err(format!(
+                "{} is open to others' writes, its mode {:o}",
+                trees.display(),
+                meta.mode() & 0o777,
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// One bulk directory in `base` under the sweep's prefix, its owner marked.
