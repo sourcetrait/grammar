@@ -16,9 +16,7 @@ Tested with:
 Building
 --------------------------------------------------------------------------------
 `nu build.nu` builds the release, a signed OptZst in `target/pkg/` carrying the
-MCP, nushell, their plugins, and the grammar and gram equips, with an install
-script for each OS to place it: `install.bash` for Linux, `install.zsh` for
-macOS, and `install.ps1` for Windows.
+MCP, nushell, their plugins, and the grammar and gram equips.
 
 It requires gram's repository cloned beside this one, as `gram`: `ext/gram`
 links to it, and the package carries its equip. It packs with `optzst`, OptZst's
@@ -27,40 +25,21 @@ repository's git config names as `optzst.key`.
 
 Installing
 --------------------------------------------------------------------------------
-A package is `grammar_<version>_<os>_<arch>.opt.tar.zst`. `optzst` checks and places
-it, on any OS, given a key you trust:
+A package is `grammar_<version>_<os>_<arch>.opt.tar.zst`. `optzst`, a static command
+on every platform, checks it and places it, given a key you trust:
 
 ```bash
 optzst install --place uenv-usr-local --keyring <key> grammar_<version>_<os>_<arch>.opt.tar.zst
 ```
 
-Without `optzst`, unpack it, check both signatures with a key you trust, and run its
-install script beside the unpacked files:
-
-```bash
-tar -xf grammar_<version>_<os>_<arch>.opt.tar.zst
-gpgv --keyring <key> grammar.tar.gpg.sig grammar.tar
-gpgv --keyring <key> package-grammar.tar.gpg.sig package-grammar.tar
-tar -xf package-grammar.tar
-bash install.bash --place uenv-usr-local
-```
-
 `--place uenv-usr-local` and `--place uenv-usr-adhoc` install into
 `$UENV_USR_LOCAL/opt/grammar` or `$UENV_USR_ADHOC/opt/grammar` and link each of
 its `bin/` entries from that home's `bin/`; `--place dir --dir <path>` installs
-into a directory of your own and links nothing. The script checks `grammar.tar`
-against its record first.
+into a directory of your own and links nothing.
 
-- Linux: `install.bash` under bash 5 or later, and a tar that reads zstd, with
-  `zstd` installed. A musl system takes the `linux-musl` package. Alpine needs
-  `apk add bash zstd`, and its BusyBox tar reads no zstd, so the package unpacks
-  by `zstd -dc <package> | tar -xf -`.
-- macOS: `install.zsh` under the zsh macOS ships, as `zsh -f install.zsh`, so
-  your startup files leave its environment alone. macOS's tar reads zstd only
-  through the `zstd` program, so the unpack takes one on `PATH`, Homebrew's
-  among them.
-- Windows: `install.ps1` under PowerShell 7, in an elevated session for a UENV
-  place, its links being symlinks. grammar's binaries need the
+- Linux: a musl system takes the `linux-musl` package.
+- Windows: an elevated session for a UENV place, its links being symlinks.
+  grammar's binaries need the
   [latest supported Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-supported-redistributable-version)
   installed first.
 

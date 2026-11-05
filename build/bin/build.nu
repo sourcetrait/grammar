@@ -27,7 +27,7 @@ use $BUNDLE
 # The repository's root, from this script's real path.
 const ROOT = (path self | path expand | path dirname | path dirname | path dirname)
 
-# The package's own part: its record, whose name is its home's, and its scripts.
+# The package's own part: its record, whose name is its home's.
 const INSTALL = ($ROOT | path join 'build' 'install')
 
 # The record `--tree` writes beside its tree, which `--pack` reads.

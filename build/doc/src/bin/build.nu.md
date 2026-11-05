@@ -18,9 +18,7 @@ lives in from any working directory.
 ## const INSTALL
 The package's own part, `build/install/`: `package.nuon`, the one source of its
 name, which the build's message, the tree's record, and the package's file name
-all take, and the install scripts. `optzst` needs those only for a package's own
-install, which this isn't; grammar's package keeps them for what unpacks it by
-hand.
+all take. grammar's install is the standard one, so it carries no scripts.
 
 ## const BUILD_RECORD
 What `--pack` needs of the build, its name, semver, os, and arch, written
