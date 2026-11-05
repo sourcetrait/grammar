@@ -16,7 +16,7 @@ impl fmt::Debug for EngineIdentity {
 
 impl EngineIdentity {
     /// A fresh identity: its generator, and the nom drawn first from it.
-    pub(crate) fn draw() -> Self {
+    pub fn draw() -> Self {
         let nonce_gen = Arc::new(datum::NonceGenerator::new());
         let nom = datum::Nom::generate(&nonce_gen).into_pair();
         Self { nonce_gen, nom }

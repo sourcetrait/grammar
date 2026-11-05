@@ -37,6 +37,41 @@ impl OwnedDir {
         Ok(Self { path, nonce })
     }
 
+    /// A directory made at `base/name`, private from creation, and marked.
+    ///
+    /// `name` is one plain component, and a name already taken is refused.
+    pub fn create_named(
+        base: &Path,
+        name: &str,
+        owner: &Owner,
+    ) -> io::Result<Self> {
+        let nonce = owner
+            .nonce
+            .clone()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "an owner without a nonce"))?;
+        let mut components = Path::new(name).components();
+        if !matches!((components.next(), components.next()), (Some(std::path::Component::Normal(_)), None)) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("`{name}` names no single directory"),
+            ));
+        }
+        let path = base.join(name);
+        #[cfg_attr(not(unix), allow(unused_mut))]
+        let mut builder = fs::DirBuilder::new();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+            builder.mode(DIR_MODE);
+        }
+        builder.create(&path)?;
+        if let Err(e) = owner.write(&path) {
+            let _ = fs::remove_dir_all(&path);
+            return Err(e);
+        }
+        Ok(Self { path, nonce })
+    }
+
     /// The directory's path.
     pub fn path(&self) -> &Path {
         &self.path

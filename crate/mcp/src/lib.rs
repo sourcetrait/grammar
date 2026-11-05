@@ -140,7 +140,8 @@ pub(crate) use sourcetrait_grammar_client::{
 };
 
 pub(crate) use sourcetrait_grammar_engine::{
-    self as engine, EVAL_STACK_SIZE, EngineHandle, EngineParams, EngineSystem, FromEngine,
+    self as engine, EVAL_STACK_SIZE, EngineHandle, EngineIdentity, EngineParams, EngineSystem,
+    FromEngine,
     GRMR, GRMR_COMMANDS, HostAnswer, HostAsk, HostStop, KIND_BED, LintEngine, NU_VERSION,
     NamepathPattern,
     NamepathStr, PURVIEW_ALL, PURVIEW_DEFAULT, ParseEngine, PinAsk, PluginInfo,

@@ -1,9 +1,10 @@
 //! The engine's start, and the engine's host asks routed by mcp's controller.
 use crate::*;
 
-/// Start the engine on the config's id, namespace, and homes.
+/// Start the engine on the config's id, namespace, and homes, its nom drawn first.
 pub(crate) fn init_engine(config: &Config) -> Result<(), String> {
-    let scratch = make_scratch_dirs()?;
+    let identity = EngineIdentity::draw();
+    let scratch = make_scratch_dirs(identity.nom().as_str())?;
     let params = EngineParams {
         id: config.id.clone(),
         namespace: config.namespace.clone(),
@@ -12,6 +13,7 @@ pub(crate) fn init_engine(config: &Config) -> Result<(), String> {
         transient_dir: scratch.transient,
         data_home: config.data_home(),
         cache_home: config.cache_home(),
+        identity,
     };
     engine::init(params).map_err(|e| e.to_string())
 }

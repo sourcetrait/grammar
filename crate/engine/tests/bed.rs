@@ -7,7 +7,8 @@ use std::path::Path;
 
 use sourcetrait_common::testing::prelude::*;
 use sourcetrait_grammar_engine::{
-    EngineParams, GRMR_COMMANDS, KIND_BED, ParseEngine, analyze_bed, grmr_signatures, init,
+    EngineIdentity, EngineParams, GRMR_COMMANDS, KIND_BED, ParseEngine, analyze_bed,
+    grmr_signatures, init,
 };
 
 static TESTING: testing::ModuleWith<ParseEngine> = testing::module_with!(Integration, {
@@ -25,6 +26,7 @@ fn parse_engine(root: &Path) -> ParseEngine {
         transient_dir: root.join("transient"),
         data_home: root.join("data"),
         cache_home: root.join("cache"),
+        identity: EngineIdentity::draw(),
     };
     for dir in [
         &params.work_dir,

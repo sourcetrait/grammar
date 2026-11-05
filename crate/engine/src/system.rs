@@ -254,9 +254,9 @@ pub struct EngineHandle {
 }
 
 impl EngineHandle {
-    /// Starts an engine instance, its identity drawn, `handler` its controller's.
+    /// Starts an engine instance on its host's identity, `handler` its controller's.
     pub async fn start(handler: impl subsys::Handler<EngineSystem>) -> EngineResult<Self> {
-        let identity = EngineIdentity::draw();
+        let identity = started().identity.clone();
         let params = EngineSysParams {
             nom: identity.nom().as_str().to_string(),
         };

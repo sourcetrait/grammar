@@ -1,35 +1,36 @@
-//! The host's own scratch directories: one for bulk, one transient, a process.
+//! The host's own scratch: its bulk directory, and its tree under the runtime one.
 use crate::*;
 #[cfg(unix)]
 use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 
-/// A scratch directory's name prefix, which the sweep matches.
+/// A bulk scratch directory's name prefix, which the sweep matches.
 const SCRATCH_PREFIX: &str = "grammar-mcp.";
 
-/// A Channel inbox's name prefix, the host's nom or a random suffix after it.
-const CHANNEL_PREFIX: &str = "grammar.channel.";
+/// The directory under the runtime one holding each host's tree, named for its nom.
+const HOST_TREES: &str = "grammar";
+
+/// The Channel's directory in the host's tree.
+const CHANNEL_DIR: &str = "channel";
 
 /// A scratch directory's mode on Unix, its owner's alone.
 #[cfg(unix)]
 const SCRATCH_MODE: u32 = 0o700;
 
-/// This process's scratch directories, made once at startup.
+/// This process's scratch, made once at startup.
 static SCRATCH: OnceLock<ScratchDirs> = OnceLock::new();
 
-/// Every Channel inbox this process made, removed at its ordinary end.
-static CHANNEL_DIRS: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
-
-/// A process's two scratch directories.
+/// A process's bulk directory and its tree.
 #[derive(Debug, Clone)]
 pub(crate) struct ScratchDirs {
     /// Bulk, under the temporary directory: a definition's `$env.EQUIP_TMP`.
     pub(crate) tmp: PathBuf,
-    /// Small runtime files, under the runtime directory: `$env.EQUIP_TRANSIENT`.
+    /// The host's tree, `grammar/<nom>/` under the runtime directory:
+    /// `$env.EQUIP_TRANSIENT`, the Channel's `channel/` within it.
     pub(crate) transient: PathBuf,
 }
 
-/// Make this process's scratch directories, a dead process's swept first.
-pub(crate) fn make_scratch_dirs() -> Result<ScratchDirs, String> {
+/// Make this process's scratch, its tree named for `nom`, dead hosts' swept first.
+pub(crate) fn make_scratch_dirs(nom: &str) -> Result<ScratchDirs, String> {
     if let Some(dirs) = SCRATCH.get() {
         return Ok(dirs.clone());
     }
@@ -42,12 +43,15 @@ pub(crate) fn make_scratch_dirs() -> Result<ScratchDirs, String> {
         );
         tmp_base.clone()
     });
-    sweep_stale(&tmp_base);
+    let trees = transient_base.join(HOST_TREES);
+    sweep_stale(&tmp_base, SCRATCH_PREFIX);
     if transient_base != tmp_base {
-        sweep_stale(&transient_base);
+        sweep_stale(&transient_base, SCRATCH_PREFIX);
     }
+    make_private(&trees).map_err(|e| format!("make {}: {e}", trees.display()))?;
+    sweep_stale(&trees, "");
     let tmp = make_dir(&tmp_base)?;
-    let transient = make_dir(&transient_base).inspect_err(|_| {
+    let transient = make_tree(&trees, nom).inspect_err(|_| {
         let _ = fs::remove_dir_all(&tmp);
     })?;
     Ok(SCRATCH.get_or_init(|| ScratchDirs { tmp, transient }).clone())
@@ -58,43 +62,36 @@ pub(crate) fn tmp_dir() -> Option<&'static Path> {
     SCRATCH.get().map(|dirs| dirs.tmp.as_path())
 }
 
-/// This process's transient scratch directory, once made.
+/// This process's tree, once made.
 pub(crate) fn transient_dir() -> Option<&'static Path> {
     SCRATCH.get().map(|dirs| dirs.transient.as_path())
 }
 
-/// Make a Channel inbox beside the transient directory, named for `nom`.
-pub(crate) fn make_channel_dir(nom: &str) -> Result<PathBuf, String> {
-    let base = transient_dir()
-        .and_then(Path::parent)
-        .ok_or_else(|| "the host has no scratch directory".to_string())?;
-    let named = base.join(format!("{CHANNEL_PREFIX}{nom}"));
+/// The Channel's directory in the host's tree, made private where absent.
+///
+/// One left by an earlier open's teardown is taken as it stands, the packets'
+/// ids keeping its files apart.
+pub(crate) fn make_channel_dir() -> Result<PathBuf, String> {
+    let tree = transient_dir().ok_or_else(|| "the host has no scratch directory".to_string())?;
+    let dir = tree.join(CHANNEL_DIR);
     #[cfg_attr(not(unix), allow(unused_mut))]
     let mut builder = fs::DirBuilder::new();
     #[cfg(unix)]
     builder.mode(SCRATCH_MODE);
-    let dir = match builder.create(&named) {
-        Ok(()) => named,
-        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => private_tempdir(base, CHANNEL_PREFIX)
-            .map_err(|e| format!("make a Channel inbox in {}: {e}", base.display()))?,
-        Err(e) => return Err(format!("make {}: {e}", named.display())),
-    };
-    CHANNEL_DIRS.lock().unwrap_or_else(|e| e.into_inner()).push(dir.clone());
-    Ok(dir)
+    match builder.create(&dir) {
+        Ok(()) => Ok(dir),
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists && is_dir(&dir) => Ok(dir),
+        Err(e) => Err(format!("make {}: {e}", dir.display())),
+    }
 }
 
-/// Remove a Channel inbox `make_channel_dir` made, and forget it.
+/// Remove the Channel's directory, a deliberate close's.
 pub(crate) fn remove_channel_dir(dir: &Path) {
-    CHANNEL_DIRS.lock().unwrap_or_else(|e| e.into_inner()).retain(|made| made != dir);
     remove_dir(dir);
 }
 
-/// Remove this process's scratch directories and Channel inboxes at its end.
+/// Remove this process's scratch at its end, its tree with the Channel's in it.
 pub(crate) fn remove_scratch_dirs() {
-    let inboxes = std::mem::take(&mut *CHANNEL_DIRS.lock().unwrap_or_else(|e| e.into_inner()));
-    for dir in &inboxes {
-        remove_dir(dir);
-    }
     let Some(dirs) = SCRATCH.get() else {
         return;
     };
@@ -112,6 +109,11 @@ fn remove_dir(dir: &Path) {
     }
 }
 
+/// Whether `path` is a directory itself, a link to one not counting.
+fn is_dir(path: &Path) -> bool {
+    fs::symlink_metadata(path).is_ok_and(|meta| meta.is_dir())
+}
+
 /// The temporary directory: `UENV_USR_TMP`, else `TMPDIR`, else the platform's.
 fn tmp_base() -> PathBuf {
     home_var("UENV_USR_TMP").unwrap_or_else(tmp_default)
@@ -122,7 +124,17 @@ fn runtime_base() -> Option<PathBuf> {
     home_var("UENV_USR_TRANSIENT")
 }
 
-/// One scratch directory in `base` under the sweep's prefix, its owner marked.
+/// `dir` and any parent it lacks, each made private.
+fn make_private(dir: &Path) -> io::Result<()> {
+    #[cfg_attr(not(unix), allow(unused_mut))]
+    let mut builder = fs::DirBuilder::new();
+    builder.recursive(true);
+    #[cfg(unix)]
+    builder.mode(SCRATCH_MODE);
+    builder.create(dir)
+}
+
+/// One bulk directory in `base` under the sweep's prefix, its owner marked.
 fn make_dir(base: &Path) -> Result<PathBuf, String> {
     let made = match sourcetrait_grammar_scratch::Owner::current() {
         Ok(owner) => {
@@ -131,6 +143,28 @@ fn make_dir(base: &Path) -> Result<PathBuf, String> {
         Err(_) => private_tempdir(base, SCRATCH_PREFIX),
     };
     made.map_err(|e| format!("make a scratch directory in {}: {e}", base.display()))
+}
+
+/// The host's tree, `trees/<nom>/`, private from creation and its owner marked.
+fn make_tree(trees: &Path, nom: &str) -> Result<PathBuf, String> {
+    let made = match sourcetrait_grammar_scratch::Owner::current() {
+        Ok(owner) => {
+            sourcetrait_grammar_scratch::OwnedDir::create_named(trees, nom, &owner).map(|dir| dir.path().to_path_buf())
+        }
+        Err(_) => make_named(trees, nom),
+    };
+    made.map_err(|e| format!("make the host's tree {}: {e}", trees.join(nom).display()))
+}
+
+/// A private directory at `base/name`, refused where the name is taken.
+fn make_named(base: &Path, name: &str) -> io::Result<PathBuf> {
+    let path = base.join(name);
+    #[cfg_attr(not(unix), allow(unused_mut))]
+    let mut builder = fs::DirBuilder::new();
+    #[cfg(unix)]
+    builder.mode(SCRATCH_MODE);
+    builder.create(&path)?;
+    Ok(path)
 }
 
 /// A kept directory in `base` named `prefix` and a random suffix.
@@ -142,11 +176,11 @@ fn private_tempdir(base: &Path, prefix: &str) -> io::Result<PathBuf> {
     builder.tempdir_in(base).map(|dir| dir.keep())
 }
 
-/// Sweep `base` of scratch whose owner is proven gone, reporting what it keeps.
-fn sweep_stale(base: &Path) {
+/// Sweep `base` of `prefix`'s scratch whose owner is proven gone, reporting what it keeps.
+fn sweep_stale(base: &Path, prefix: &str) {
     let report = sourcetrait_grammar_scratch::sweep(
         base,
-        SCRATCH_PREFIX,
+        prefix,
         sourcetrait_grammar_scratch::current_uid(),
         &sourcetrait_grammar_scratch::HostProbe,
     );

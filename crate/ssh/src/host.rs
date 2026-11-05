@@ -14,6 +14,7 @@ pub(crate) fn init_engine(
         transient_dir: scratch.transient().to_path_buf(),
         data_home: config.data_home(),
         cache_home: config.cache_home(),
+        identity: engine::EngineIdentity::draw(),
     })
     .map_err(|e| GrammarSshError::EngineInit { reason: e.to_string() })
 }

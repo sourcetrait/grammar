@@ -17,6 +17,8 @@ pub struct EngineParams {
     pub data_home: PathBuf,
     /// The namespace's cache home: the call logs and the cached definitions.
     pub cache_home: PathBuf,
+    /// The host's identity, drawn before its scratch, which every engine takes.
+    pub identity: EngineIdentity,
 }
 
 /// The parameters `init` set, once.

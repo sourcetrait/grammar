@@ -12,7 +12,8 @@ use sourcetrait_common::testing::prelude::*;
 use sourcetrait_common::{datum, subsys};
 use sourcetrait_grammar_engine::{
     CallRequest, ControlAnswer, ControlRequest, EVAL_STACK_SIZE, EngineCommand, EngineError,
-    EngineHandle, EngineParams, EngineSystem, ExecuteRequest, FromEngine, Host, HostAnswer,
+    EngineHandle, EngineIdentity, EngineParams, EngineSystem, ExecuteRequest, FromEngine, Host,
+    HostAnswer,
     HostAsk, ProcessRow, RerunRequest, ToEngine, ValueAnswer, ensure_equip_store, init,
 };
 
@@ -71,6 +72,7 @@ impl TestEngine {
             transient_dir: root.join("transient"),
             data_home: root.join("data"),
             cache_home: root.join("cache"),
+            identity: EngineIdentity::draw(),
         };
         for dir in [
             &params.work_dir,

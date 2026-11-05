@@ -75,8 +75,7 @@ impl ChannelFace {
     ) -> Result<OpenedChannel, GrammarMcpError> {
         let status = self.status().await?;
         if matches!(status.state.phase, ChannelPhase::Closed) {
-            let inbox = make_channel_dir(self.mcp_nom.as_str())
-                .map_err(|reason| GrammarMcpError::ChannelStart { reason })?;
+            let inbox = make_channel_dir().map_err(|reason| GrammarMcpError::ChannelStart { reason })?;
             let epoch = self.hub.next_epoch();
             return match self.start_open(epoch, mode, &inbox).await {
                 Ok(wss) => Ok((STATUS_NEW, epoch, wss, inbox)),
