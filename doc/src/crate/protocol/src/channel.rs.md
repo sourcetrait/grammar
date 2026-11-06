@@ -67,9 +67,10 @@ which is why `Closed` is an ordinary state and an emit there is a plain
 catchable error rather than a fault.
 
 ## enum ChannelMode
-User's two modes, both required to be named at the open with no default:
-`async` for a harness whose agent holds a Monitor on a websocket, `sync` for one
-with no such mechanism, its agent taking the packets by calling `interface
+User's two modes, which the open chooses for the caller's harness, never the
+agent: `async` for a harness that takes packets as they come, a Monitor on the
+hub's websocket or Codex's thread, `sync` for one with no such mechanism or one
+the host doesn't detect, its agent taking the packets by calling `interface
 channel sync`. The phases, the handshake, the gate, and the refusals are the
 same in both; only where a packet waits differs.
 

@@ -27,7 +27,7 @@ pub enum ChatCommand {
 /// The Channel's five commands, the Channel's system's.
 #[derive(Debug)]
 pub enum ChannelCommand {
-    Open(ChannelOpenParams),
+    Open,
     Sync,
     Ready,
     Close,
@@ -354,16 +354,6 @@ fn page(literals: &mut Literals) -> Result<u64, Refusal> {
     }
 }
 
-/// The Channel's mode, `sync` or `async`; any other value refused at its position.
-fn mode(literals: &mut Literals) -> Result<ChannelMode, Refusal> {
-    match literals.remove("mode") {
-        Some((Literal::Text(text), span)) => ChannelMode::from_name(&text)
-            .ok_or_else(|| (Some(span), format!("`mode` is `sync` or `async`, not `{text}`"))),
-        Some((_, span)) => Err((Some(span), "`mode` takes a string".to_string())),
-        None => Err((None, "`mode` is required: `sync` or `async`".to_string())),
-    }
-}
-
 /// The command a spec names, its parameters from the literals.
 fn command(
     kind: CommandKind,
@@ -400,9 +390,7 @@ fn command(
             purview: text(literals, "purview"),
             namepaths: texts(literals, "namepaths"),
         })),
-        CommandKind::ChannelOpen => channel(ChannelCommand::Open(ChannelOpenParams {
-            mode: mode(literals)?,
-        })),
+        CommandKind::ChannelOpen => channel(ChannelCommand::Open),
         CommandKind::ChannelSync => channel(ChannelCommand::Sync),
         CommandKind::ChannelReady => channel(ChannelCommand::Ready),
         CommandKind::ChannelClose => channel(ChannelCommand::Close),

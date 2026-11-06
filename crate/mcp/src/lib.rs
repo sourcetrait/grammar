@@ -169,7 +169,7 @@ pub(crate) use sourcetrait_grammar_channel::{
 };
 
 pub(crate) use sourcetrait_grammar_interface::{
-    ChannelCommand, ChannelOpenParams, ChatCommand, ChatReadParams, ChatSendParams, CommitParams,
+    ChannelCommand, ChatCommand, ChatReadParams, ChatSendParams, CommitParams,
     ConfigChannelParams, EngineInterfaceCommand,
     EquipParams, InspectParams, InterfaceCommand, KillParams, NewParams, PeerCommand,
     PurviewConfigureParams, PurviewExtendParams, PurviewParams, RemoteAliasParams,

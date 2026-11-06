@@ -19,14 +19,12 @@ The Codex face delivers into a thread, and only `interface info` names one, so
 an open before it has nowhere to send its greeting; it is refused before the
 Channel opens, leaving nothing to undo.
 
-## const CODEX_NEEDS_UNIX
-Codex's app-server listens on a Unix socket alone, and the vendor crate's client
-is Unix's, so a Codex client elsewhere is told to open sync rather than handed a
-wss hub it can't read.
-
 ## enum OpenFace
-The face an async open takes, decided by the caller before anything opens: the
-wss hub for Claude Code and every client not named, the Codex face for Codex.
+The face an open takes, decided by the caller's harness before anything opens:
+the wss hub for Claude Code, the Codex face for Codex, and none, a sync Channel,
+for any client the host doesn't know. The open takes no mode, so the agent never
+needs to know its harness to pick one (User); an integration that ever must
+choose would do it by an MCP argument, never the agent.
 
 ## type CodexStart
 What the Codex face's start leaves to run once its hub is installed, and
@@ -37,7 +35,14 @@ on every platform.
 The caller's `clientInfo` name decides, through the vendor crate's `Harness`,
 so no harness argument is passed and nothing here names a client; the name is
 the request's own where the client sends one per request, else `initialize`'s
-(`interface.rs`'s `Caller`).
+(`interface.rs`'s `Caller`). An undetected harness takes sync: it may have no
+way to watch a stream, and pulling serves any agent. Once the MCP supports
+pubsub, `notifications/listen`, that becomes the undetected harness's face
+instead (User).
+
+Codex's app-server listens on a Unix socket alone, and the vendor crate's client
+is Unix's, so a Codex client elsewhere takes a sync Channel rather than a wss
+hub it can't read (`codex_face`).
 
 ## fn serve_codex
 The Codex face's claim waits for the install: its greeting goes through the
@@ -63,7 +68,8 @@ The Channel opens before the hub binds, so the hub's claim can never reach the
 system ahead of the open it belongs to. A hub that fails to start closes the
 open again, the Channel and the peer links letting the directory go, its files
 left where they are. The face decides the hub: the wss hub binds and waits for
-a Monitor, and the Codex face connects to the app-server and claims at once.
+a Monitor, the Codex face connects to the app-server and claims at once, and a
+sync Channel starts none, its first sync claiming it.
 
 A close can land while the hub starts, the agent's own `interface channel
 close` or an early send's teardown, neither of which takes the open's lock.
@@ -83,8 +89,17 @@ hub's failed start as a deliberate close. It waits for the links' answer, so
 what follows runs on the inbox they hold.
 
 ## struct ChannelOpenResult
-`wss` is null for a sync channel rather than absent, so the result keeps one
-shape in both modes and `mode` says which it is.
+User's shape: `status`, `inbox`, and `mode`, a record of its `kind` and, where
+the face has a stream a Monitor reads, its `uri`. The agent reads its course
+from `mode` alone: a `uri` to arm a Monitor on, `async` without one for Codex's
+deliveries into the thread, `sync` for `interface channel sync`.
+
+## struct OpenMode
+`uri` is absent rather than null where there is no stream, a nushell record
+type having no optional field: its type is the `oneof` of the two records, and
+the key's presence is the whole signal. `uri` names an address rather than a
+transport, so its absence reads as nothing to attach to, which holds for the
+Codex face too, whose own transport is the MCP's connection to the app-server.
 
 ## fn channel_open
 The decide-then-start sequence spans an await, so it runs under one guard: two
@@ -96,14 +111,10 @@ takes the one an earlier teardown left (`scratch.rs`'s `make_channel_dir`), and
 hands the path to the channel, so every path that emits writes its files
 without composing it again; the result reports it as `inbox`, so the agent
 learns where every packet's files land from the same call that gave it the
-endpoint. A start that fails leaves the directory as it stands: it may hold an
+mode. A start that fails leaves the directory as it stands: it may hold an
 earlier open's packets, which only a deliberate close takes, and the host's end
 removes it with the tree. An `existing` open answers the directory its Channel
-opened with.
-
-A mode is never switched under a live channel: an open in the other mode is
-refused `channel::wrong_mode`, naming the open one, since switching would strand
-the packets queued for the first. The agent closes and opens again.
+opened with, and the open Channel's own `mode`, its face's `uri` among it.
 
 `existing` is the normal case, not a fault, and reading it as one is expensive.
 The host outlives an agent's context - it keeps running across a `/clear`, and

@@ -1,8 +1,9 @@
 //! A sync Channel through the interface: its handshake, a body's send read by
 //! `interface channel sync`, and its refusals.
 //!
-//! A binary of its own, its cases one Stepper sequence: the Channel is the
-//! process's one, so every case reads or changes the same state.
+//! The in-process harness names no client, a harness the host doesn't detect, so
+//! its Channel opens sync. A binary of its own, its cases one Stepper sequence:
+//! the Channel is the process's one, so every case reads or changes the same state.
 
 use sourcetrait_common::testing::prelude::*;
 use sourcetrait_grammar_mcp::guts::{NuVal, TestServer, error_kind, error_messages, has_error, nuon};
@@ -30,11 +31,11 @@ fn a_closed_channel_refuses_a_sync() {
 
 fn a_sync_open_binds_no_endpoint() {
     let s = TESTING.harness();
-    let env = s.interface("interface channel open sync");
+    let env = s.interface("interface channel open");
     assert!(!has_error(&env), "{env}");
     assert_eq!(env["result"]["status"], "new", "{env}");
-    assert_eq!(env["result"]["mode"], "sync", "{env}");
-    assert!(env["result"]["wss"].is_nothing(), "{env}");
+    assert_eq!(env["result"]["mode"]["kind"], "sync", "{env}");
+    assert!(env["result"]["mode"]["uri"].is_nothing(), "{env}");
     assert!(env["result"]["inbox"].as_str().is_some(), "{env}");
 }
 
@@ -76,25 +77,12 @@ fn a_body_send_waits_for_the_next_sync() {
     assert_eq!(again["result"]["packets"], nuon("[]"), "the sync emptied the queue; {again}");
 }
 
-fn the_other_mode_is_refused_while_open() {
-    let s = TESTING.harness();
-    let env = s.interface("interface channel open async");
-    assert_eq!(error_kind(&env), Some("channel::wrong_mode"), "{env}");
-    assert_eq!(
-        error_messages(&env),
-        vec![
-            "the channel is open in `sync` mode, not `async`; close it with \
-             `interface channel close` to open it in `async`"
-                .to_string()
-        ],
-    );
-}
-
 fn reopening_reports_it_and_greets_again() {
     let s = TESTING.harness();
-    let env = s.interface("interface channel open sync");
+    let env = s.interface("interface channel open");
     assert_eq!(env["result"]["status"], "existing", "{env}");
-    assert!(env["result"]["wss"].is_nothing(), "{env}");
+    assert_eq!(env["result"]["mode"]["kind"], "sync", "{env}");
+    assert!(env["result"]["mode"]["uri"].is_nothing(), "{env}");
     let synced = s.interface("interface channel sync");
     assert_eq!(one_packet(&synced)["model"], "mcp/channel/Open", "{synced}");
 }
@@ -129,10 +117,6 @@ fn the_sync_channel_is_sequenced() {
         })
         .step("a_body_send_waits_for_the_next_sync", |_t, s, p| {
             a_body_send_waits_for_the_next_sync();
-            testing::StepState(s, p)
-        })
-        .step("the_other_mode_is_refused_while_open", |_t, s, p| {
-            the_other_mode_is_refused_while_open();
             testing::StepState(s, p)
         })
         .step("reopening_reports_it_and_greets_again", |_t, s, p| {

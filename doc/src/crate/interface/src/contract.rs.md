@@ -75,8 +75,3 @@ check and is refused there rather than read as absent.
 A positional's own `count`, its refusal naming the positional rather than a
 flag; nushell reads a bare negative literal as a flag, so a negative page is
 refused by the parse before it reaches here.
-
-## fn mode
-The parse can hold a string only as a string, so the two modes are held here, an
-unknown one refused at its position as any argument's refusal is, naming the
-two; nothing reaches the channel but a mode it knows.

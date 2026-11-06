@@ -104,11 +104,12 @@ An action no command has goes to the parse, so a test of an unknown action meets
 the refusal an agent would.
 
 ### fn channel_verified
-There is deliberately no channel-open helper on this harness. `interface channel
-open async` binds a real socket and presents a CA-issued leaf, so an in-process
-test would be asserting the machine's certificate installation rather than
-anything in this crate; it is exercised live on the test channel instead. A sync
-open binds nothing, so a test drives one through `interface` itself.
+There is deliberately no channel-open helper on this harness. A wss open binds a
+real socket and presents a CA-issued leaf, so an in-process test would be
+asserting the machine's certificate installation rather than anything in this
+crate; it is exercised live on the test channel instead. This harness names no
+client, so its open is sync and binds nothing, and a test drives one through
+`interface` itself.
 
 ### fn tools
 The router's own listing, each tool serialized as `tools/list` carries it, so a

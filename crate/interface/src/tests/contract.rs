@@ -30,15 +30,14 @@ fn refusal(text: &str) -> String {
     rows.first().map(|(_, message)| message.clone()).unwrap_or_default()
 }
 
-/// A spec's smallest command: each required positional a sample, a mode its value.
+/// A spec's smallest command: each required positional a sample.
 fn sample(spec: &CommandSpec) -> String {
     let mut text = spec.name.to_string();
     for arg in spec.positionals.iter().filter(|arg| !arg.optional) {
-        text.push_str(match (arg.name, arg.shape) {
-            ("mode", _) => " 'sync'",
-            (_, ArgShape::String) => " 'x'",
-            (_, ArgShape::Strings) => " ['x']",
-            (_, ArgShape::Int) => " 1",
+        text.push_str(match arg.shape {
+            ArgShape::String => " 'x'",
+            ArgShape::Strings => " ['x']",
+            ArgShape::Int => " 1",
         });
     }
     text
@@ -65,7 +64,7 @@ fn kind_of(command: &InterfaceCommand) -> CommandKind {
             E::EquipCommit(_) => CommandKind::EquipCommit,
         },
         InterfaceCommand::Channel(command) => match command {
-            ChannelCommand::Open(_) => CommandKind::ChannelOpen,
+            ChannelCommand::Open => CommandKind::ChannelOpen,
             ChannelCommand::Sync => CommandKind::ChannelSync,
             ChannelCommand::Ready => CommandKind::ChannelReady,
             ChannelCommand::Close => CommandKind::ChannelClose,
@@ -331,28 +330,20 @@ fn a_missing_or_mistyped_argument_is_refused_at_its_position() {
     }
 }
 
-/// The Channel opens in the mode it names, which is required.
+/// The Channel opens with no mode, the host choosing one for the caller's harness.
 #[test]
-fn the_channel_opens_in_a_mode_it_names() {
-    for (text, mode) in [
-        ("interface channel open sync", ChannelMode::Sync),
-        ("interface channel open 'async'", ChannelMode::Async),
-    ] {
-        match parse(text) {
-            Ok(InterfaceCommand::Channel(ChannelCommand::Open(p))) => {
-                assert_eq!(p.mode, mode, "`{text}`");
-            }
-            other => panic!("`{text}`: got {other:?}"),
-        }
+fn the_channel_opens_with_no_mode() {
+    match parse("interface channel open") {
+        Ok(InterfaceCommand::Channel(ChannelCommand::Open)) => {}
+        other => panic!("got {other:?}"),
     }
-    let rows = parse("interface channel open both").expect_err("a mode is sync or async");
-    assert_eq!(rows[0].kind, KIND_INTERFACE);
-    assert_eq!(rows[0].message, "`mode` is `sync` or `async`, not `both`");
-    assert_eq!(rows[0].source.as_ref().expect("a source").position, [1, 24]);
-    assert!(
-        refusal("interface channel open").contains("missing mode"),
-        "the mode is required, with no default",
-    );
+    for text in ["interface channel open sync", "interface channel open 'async'"] {
+        let rows = refused(text);
+        assert!(
+            rows.iter().all(|(kind, _)| kind == KIND_INTERFACE),
+            "`{text}`: a mode is no argument; got {rows:?}",
+        );
+    }
 }
 
 /// A flag is checked for its range, and an unknown one refused.

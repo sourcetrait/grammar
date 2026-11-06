@@ -82,16 +82,15 @@ first call or a connect.
 
 ## SEQUENCE: OpenGrammarChannel
 1. To begin, `interface info` must have already been ran for the session.
-2. Conditionally, per mode of operation:
-   - async: `interface channel open async`. The MCP selects the transport
-     based on the harness, filling the `wss` field if it uses it. With a
-     `wss`: on `new`, a Monitor on it; on `existing`, the running Monitor.
-     With none: no Monitor, each packet arriving in the thread as a
-     `grammar.channel` tool output. Either way the `mcp/channel/Open`
-     packet comes first.
-   - sync: `interface channel open sync`. The first `interface channel sync`
-     takes the `mcp/channel/Open` packet, and each later sync takes what
-     queued since the last.
+2. `interface channel open`. The MCP selects the mode and its transport
+   based on the harness, and the answer's `mode` names them. Conditionally,
+   per mode of operation:
+   - async: with a `uri`: on `new`, a Monitor on it; on `existing`, the
+     running Monitor. With none: no Monitor, each packet arriving in the
+     thread as a `grammar.channel` tool output. Either way the
+     `mcp/channel/Open` packet comes first.
+   - sync: the first `interface channel sync` takes the `mcp/channel/Open`
+     packet, and each later sync takes what queued since the last.
 3. `interface channel ready`, nothing sent before it.
 4. In async mode, on `channel::peer_gone`: `interface channel close`, then
    step 2.
@@ -152,7 +151,7 @@ Set a purview's namepath patterns; an empty list deletes it.
 `purview configure [purview: string, namepaths: list<string>]: nothing -> record`
 ### Channel
 Opens the Channel
-`channel open [mode: string]: nothing -> record`
+`channel open []: nothing -> record`
 Takes the packets a sync Channel queued since the last sync.
 `channel sync []: nothing -> record`
 Verifies Channel activation and begins normal use.

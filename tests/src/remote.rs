@@ -246,19 +246,20 @@ pub struct Consumer {
 impl Consumer {
     /// The claude-code handshake: the open, a real WSS client on it, then the verify.
     ///
-    /// The client trusts `ca_pem` and sees the `mcp/channel/Open` packet before the
+    /// The host's client is Claude Code's, as `Host::spawn_claude_in` makes it; the
+    /// client trusts `ca_pem` and sees the `mcp/channel/Open` packet before the
     /// verify.
     pub fn attach(mut host: Host, ca_pem: &Path) -> Self {
-        let open = host.interface("interface channel open async");
+        let open = host.interface("interface channel open");
         let result = &envelope(&open)["result"];
-        let wss = result["wss"]
+        let wss = result["mode"]["uri"]
             .as_str()
-            .expect("`interface channel open async` returns a wss url")
+            .unwrap_or_else(|| panic!("a Claude Code client's open names its stream's uri; got {open}"))
             .to_string();
         let inbox = PathBuf::from(
             result["inbox"]
                 .as_str()
-                .expect("`interface channel open async` returns its inbox"),
+                .expect("`interface channel open` returns its inbox"),
         );
         let (tx, rx) = mpsc::channel();
         let reader = spawn_ws_reader(wss, ca_pem.to_path_buf(), tx);

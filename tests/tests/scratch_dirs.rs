@@ -82,9 +82,11 @@ fn scratch_in(base: &Path) -> usize {
         .count()
 }
 
-/// The inbox a sync Channel opens on, as the open answers it.
+/// The inbox a Channel opens on, as the open answers it.
+///
+/// The harness's client is one the host doesn't detect, so the Channel is sync.
 fn open_inbox(host: &mut Host) -> PathBuf {
-    let resp = host.interface("interface channel open sync");
+    let resp = host.interface("interface channel open");
     PathBuf::from(
         envelope(&resp)["result"]["inbox"]
             .as_str()
@@ -384,9 +386,8 @@ fn each_open_makes_the_channel_inbox_in_the_transient_base() {
 
 /// A teardown other than a deliberate close leaves the Channel's files.
 ///
-/// A send before `ready` tears the Channel down, leaving the greeting's event;
-/// an open that fails to start, here for want of an `[identity]`, leaves it
-/// too, and the next open takes the directory as it stands.
+/// A send before `ready` tears the Channel down, leaving the greeting's event,
+/// and the next open takes the directory as it stands.
 #[tested]
 fn a_teardown_leaves_the_channels_files_for_the_next_open() {
     let t = testing::test!({ .using_temp_dir() });
@@ -415,12 +416,34 @@ fn a_teardown_leaves_the_channels_files_for_the_next_open() {
     assert!(has_error_path(&early), "a send before ready is refused; got {early}");
     assert_eq!(events(), greeting, "the teardown leaves the greeting's event");
 
-    let failed = host.interface("interface channel open async");
-    assert!(has_error_path(&failed), "an open with no [identity] fails to start; got {failed}");
-    assert_eq!(events(), greeting, "and so does the failed start");
-
     assert_eq!(open_inbox(&mut host), inbox, "the next open takes the directory as it stands");
     assert!(greeting.iter().all(|event| event.is_file()), "the greeting's event is still in it");
+}
+
+/// An open that fails to start leaves the Channel's directory as it stands.
+///
+/// A Claude Code client's open starts the wss hub, which fails for want of an
+/// `[identity]`; a file an earlier Channel left in the directory stays.
+#[tested]
+fn a_failed_start_leaves_the_channels_files() {
+    let t = testing::test!({ .using_temp_dir() });
+    let cwd = t.temp_dir().join("bare");
+    std::fs::create_dir_all(&cwd).expect("a start directory with no config");
+    let mut host = Host::spawn_claude_in(&t.temp_dir().join("host"), &["--id", "scratchfail"], &cwd);
+    let info = host.interface("interface info");
+    let tree = PathBuf::from(
+        envelope(&info)["result"]["transient"]["grammar"]
+            .as_str()
+            .unwrap_or_else(|| panic!("`interface info` names the host's tree; got {info}")),
+    );
+    let channel = tree.join("channel");
+    std::fs::create_dir(&channel).expect("the Channel's directory, as an earlier open left it");
+    let left = channel.join("left.nuon");
+    std::fs::write(&left, "{id: left}").expect("an earlier Channel's file");
+
+    let failed = host.interface("interface channel open");
+    assert!(has_error_path(&failed), "an open with no [identity] fails to start; got {failed}");
+    assert!(left.is_file(), "the failed start leaves {}", left.display());
 }
 
 /// A dead host's directories go at the next start.

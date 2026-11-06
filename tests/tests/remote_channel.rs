@@ -30,7 +30,7 @@ fn consumer_connects_verifies_and_receives_a_packet() {
 
     let ch = generate_keys("grammar", &root.join("channel"));
     write_host_config(&root.join("host"), &ch, "");
-    let host = Host::spawn_in(
+    let host = Host::spawn_claude_in(
         &root.join("scratch"),
         &["--id", "chan", "--namespace", "default"],
         &root.join("host"),
@@ -76,12 +76,12 @@ fn a_channel_without_an_identity_is_refused() {
     let root = t.temp_dir();
     let cwd = root.join("bare");
     std::fs::create_dir_all(&cwd).expect("mkdir the start directory");
-    let mut host = Host::spawn_in(
+    let mut host = Host::spawn_claude_in(
         &root.join("scratch"),
         &["--id", "bare", "--namespace", "default"],
         &cwd,
     );
-    let open = host.interface("interface channel open async");
+    let open = host.interface("interface channel open");
     assert!(has_error_path(&open), "the Channel presents an identity it lacks; got {open}");
     assert_eq!(err_kind(&open), "channel::start", "the refusal's kind; got {open}");
     assert!(
@@ -102,7 +102,7 @@ fn the_config_flag_replaces_the_start_directorys_file() {
     std::fs::create_dir_all(cwd.join(".grammar")).expect("mkdir .grammar");
     std::fs::write(cwd.join(".grammar").join("config.toml"), "not [toml")
         .expect("write a broken config");
-    let host = Host::spawn_in(
+    let host = Host::spawn_claude_in(
         &root.join("scratch"),
         &["--id", "flag", "--namespace", "default", "--config", named.to_str().unwrap()],
         &cwd,
@@ -117,7 +117,7 @@ fn the_config_flag_replaces_the_start_directorys_file() {
 fn remote_loopback_echo() {
     let t = testing::test!({ .using_temp_dir() });
     let root = t.temp_dir();
-    let (mut a, mut b, nom_a, nom_b) = spawn_two_hosts(root, Host::spawn_in);
+    let (mut a, mut b, nom_a, nom_b) = spawn_two_hosts(root, Host::spawn_claude_in);
 
     // The listener (B) opens - blocks on bind, returns synchronously once bound.
     // The connector (A) then opens - blocks on connect (B is already bound),
@@ -184,7 +184,7 @@ fn a_refused_connect_fails_synchronously() {
     let dead = format!("127.0.0.1:{}", free_port());
     let host_dir = root.join("host");
     write_host_config(&host_dir, &cert_a, &remote_connector(&dead, &cert_dead.public_key));
-    let host = Host::spawn_in(
+    let host = Host::spawn_claude_in(
         &root.join("scratch"),
         &["--id", "dc", "--namespace", "default"],
         &host_dir,
@@ -212,7 +212,7 @@ fn a_second_listen_is_refused() {
     let listen = format!("127.0.0.1:{}", free_port());
     let host_dir = root.join("host");
     write_host_config(&host_dir, &cert_b, &remote_listener(&listen, &cert_peer.public_key));
-    let host = Host::spawn_in(
+    let host = Host::spawn_claude_in(
         &root.join("scratch"),
         &["--id", "dl", "--namespace", "default"],
         &host_dir,
@@ -232,7 +232,7 @@ fn a_second_listen_is_refused() {
 fn remote_list_shows_each_remotes_state() {
     let t = testing::test!({ .using_temp_dir() });
     let root = t.temp_dir();
-    let (mut a, mut b, nom_a, nom_b) = spawn_two_hosts(root, Host::spawn_in);
+    let (mut a, mut b, nom_a, nom_b) = spawn_two_hosts(root, Host::spawn_claude_in);
 
     let closed = remote_row(&mut b, "peer");
     assert_eq!(closed["state"], "closed", "got {closed}");
@@ -273,7 +273,7 @@ fn remote_entries_are_set_read_and_unset_live() {
     let peer = generate_keys("peer", &root.join("cert_peer"));
     let host_dir = root.join("host");
     write_host_config(&host_dir, &keys, "");
-    let mut host = Host::spawn_in(
+    let mut host = Host::spawn_claude_in(
         &root.join("scratch"),
         &["--id", "live", "--namespace", "default"],
         &host_dir,
@@ -376,7 +376,7 @@ fn a_taken_port_fails_and_its_ip_alone_listens_on_a_random_one() {
     let host_dir = root.join("host");
     let listen = format!("127.0.0.1:{port}");
     write_host_config(&host_dir, &cert_b, &remote_listener(&listen, &cert_peer.public_key));
-    let host = Host::spawn_in(
+    let host = Host::spawn_claude_in(
         &root.join("scratch"),
         &["--id", "taken", "--namespace", "default"],
         &host_dir,
@@ -407,7 +407,7 @@ fn channel_send_spills_oversized_event() {
 
     let ch = generate_keys("grammar", &root.join("channel"));
     write_host_config(&root.join("host"), &ch, "");
-    let host = Host::spawn_in(
+    let host = Host::spawn_claude_in(
         &root.join("scratch"),
         &["--id", "spill", "--namespace", "default"],
         &root.join("host"),
@@ -451,7 +451,7 @@ fn channel_send_spills_oversized_event() {
 fn remote_send_spills_oversized_event() {
     let t = testing::test!({ .using_temp_dir() });
     let root = t.temp_dir();
-    let (mut a, mut b, nom_a, nom_b) = spawn_two_hosts(root, Host::spawn_in);
+    let (mut a, mut b, nom_a, nom_b) = spawn_two_hosts(root, Host::spawn_claude_in);
     pair(&mut a, &mut b, &nom_a);
 
     let big = "marker: \"REMOTE_SPILL_99\", blob: (1..3000 | each { \"x\" } | str join)";
@@ -492,7 +492,7 @@ fn remote_send_spills_oversized_event() {
 fn remote_send_with_returns_its_event_id() {
     let t = testing::test!({ .using_temp_dir() });
     let root = t.temp_dir();
-    let (mut a, mut b, nom_a, nom_b) = spawn_two_hosts(root, Host::spawn_in);
+    let (mut a, mut b, nom_a, nom_b) = spawn_two_hosts(root, Host::spawn_claude_in);
     pair(&mut a, &mut b, &nom_a);
 
     let src = root.join("note.txt");
@@ -542,7 +542,7 @@ fn remote_send_with_returns_its_event_id() {
 fn a_chat_carries_its_summary_inline_and_a_long_message_by_its_size() {
     let t = testing::test!({ .using_temp_dir() });
     let root = t.temp_dir();
-    let (mut a, mut b, nom_a, nom_b) = spawn_two_hosts(root, Host::spawn_in);
+    let (mut a, mut b, nom_a, nom_b) = spawn_two_hosts(root, Host::spawn_claude_in);
     pair(&mut a, &mut b, &nom_a);
     let from_a = format!("remote/channel/{nom_a}");
 
@@ -601,7 +601,7 @@ fn a_host_holds_two_links_at_once() {
     let remotes = remote_listener_as("peer_a", &listen_a, &cert_a.public_key)
         + &remote_listener_as("peer_c", &listen_c, &cert_c.public_key);
     write_host_config(&hub_dir, &cert_hub, &remotes);
-    let host_hub = Host::spawn_in(
+    let host_hub = Host::spawn_claude_in(
         &root.join("scratch_hub"),
         &["--id", "link_hub", "--namespace", "default"],
         &hub_dir,
@@ -613,7 +613,7 @@ fn a_host_holds_two_links_at_once() {
     for (name, keys, listen) in [("a", &cert_a, &listen_a), ("c", &cert_c, &listen_c)] {
         let dir = root.join(format!("host_{name}"));
         write_host_config(&dir, keys, &remote_connector(listen, &cert_hub.public_key));
-        let host = Host::spawn_in(
+        let host = Host::spawn_claude_in(
             &root.join(format!("scratch_{name}")),
             &["--id", &format!("link_{name}"), "--namespace", "default"],
             &dir,
@@ -719,7 +719,7 @@ fn remote_row_of(host: &mut Host, alias: &str) -> NuVal {
 fn attach_bare(root: &Path, name: &str, keys: &GeneratedKeys) -> Consumer {
     let dir = root.join(format!("host_{name}"));
     write_host_config(&dir, keys, "");
-    let host = Host::spawn_in(
+    let host = Host::spawn_claude_in(
         &root.join(format!("scratch_{name}")),
         &["--id", &format!("bare_{name}"), "--namespace", "default"],
         &dir,

@@ -36,7 +36,14 @@ pub mod sshd;
 pub use sshd::*;
 
 /// The `clientInfo` name the harness's client gives unless a test names one.
+///
+/// A harness the host doesn't detect, so its Channel opens sync.
 pub const TEST_CLIENT: &str = "grammar-system-tests";
+
+/// The name Claude Code's MCP client gives itself in `clientInfo`.
+///
+/// Its Channel opens the wss hub, which a test's `Consumer` reads.
+pub const CLAUDE_CLIENT: &str = "claude-code";
 
 /// The `grammar-mcp` host binary, beside the running test binary's `deps/`.
 ///
@@ -179,6 +186,11 @@ impl Host {
     /// must resolve.
     pub fn spawn_in(scratch: &Path, args: &[&str], cwd: &Path) -> Self {
         Self::spawn_core(scratch, args, &[], Some(cwd), None)
+    }
+
+    /// `spawn_in` for a Claude Code client, whose Channel is the wss hub.
+    pub fn spawn_claude_in(scratch: &Path, args: &[&str], cwd: &Path) -> Self {
+        Self::spawn_as(scratch, CLAUDE_CLIENT, args, &[], Some(cwd))
     }
 
     /// A host with its stderr in `stderr_log` and nothing sent.

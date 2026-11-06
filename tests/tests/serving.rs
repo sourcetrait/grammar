@@ -87,7 +87,7 @@ fn the_channel_handshake_completes() {
     let root = t.temp_dir();
     let keys = generate_keys("host", &root.join("channel"));
     write_host_config(&root.join("host"), &keys, "");
-    let host = Host::spawn_in(&root.join("scratch"), &[], &root.join("host"));
+    let host = Host::spawn_claude_in(&root.join("scratch"), &[], &root.join("host"));
     let mut consumer = Consumer::attach(host, &keys.ca);
     let closed = consumer.host.interface("interface channel close");
     assert!(!has_error_path(&closed), "the host closes its Channel; got {closed}");
@@ -95,12 +95,16 @@ fn the_channel_handshake_completes() {
 
 /// A sync Channel completes on the host: the first sync takes the greeting,
 /// which claims the Channel, and `ready` verifies it.
+///
+/// The harness's client is one the host doesn't detect, whose Channel opens sync.
 #[tested]
 fn a_sync_channel_completes() {
     let t = testing::test!({ .using_temp_dir() });
     let mut host = Host::spawn(t.temp_dir());
-    let opened = host.interface("interface channel open sync");
+    let opened = host.interface("interface channel open");
     assert_eq!(envelope(&opened)["result"]["status"], "new", "got {opened}");
+    assert_eq!(envelope(&opened)["result"]["mode"]["kind"], "sync", "an undetected harness's mode; got {opened}");
+    assert!(envelope(&opened)["result"]["mode"]["uri"].is_nothing(), "a sync Channel names no stream; got {opened}");
     let synced = host.interface("interface channel sync");
     let packets = envelope(&synced)["result"]["packets"].clone();
     assert_eq!(

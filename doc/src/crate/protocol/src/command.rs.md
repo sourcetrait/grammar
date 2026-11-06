@@ -46,9 +46,9 @@ The ssh configuration's host and the file it lives in, each defaulting as
 ## const COMMANDS
 Ordered as the description lists them, grouped by topic. A topic's commands sit
 together because `render_signatures` opens a heading when the topic changes.
-`channel sync`, and `channel open`'s `mode`, are User's additions beyond the
-tools converted; `sync` sits after `open`, in the order of the handshake it
-serves. The remote engine commands, User's, sit under the Remote topic after
+`channel sync` is User's addition beyond the tools converted; `sync` sits after
+`open`, in the order of the handshake it serves. `channel open` takes no
+argument: the host chooses its mode for the caller's harness (User). The remote engine commands, User's, sit under the Remote topic after
 the remote channels', the same six verbs and `import`. The chat's two, User's,
 take a topic of their own after Remote; `chat read`'s `page` is the catalog's
 one optional positional, 0 when absent.

@@ -30,7 +30,7 @@ pub enum Harness {
     Claude,
     /// Codex, its Channel delivered into a thread through its app-server.
     Codex,
-    /// Any other client, which takes the wss stream as Claude Code does.
+    /// Any other client, its Channel the sync one `interface channel sync` reads.
     Other(String),
 }
 

@@ -20,9 +20,6 @@ use crate::{Host, Packet, has_error_path, parse_line};
 /// The name Codex's MCP client gives itself in `clientInfo`.
 pub const CODEX_CLIENT: &str = "codex-mcp-client";
 
-/// The name Claude Code's MCP client gives itself in `clientInfo`.
-pub const CLAUDE_CLIENT: &str = "claude-code";
-
 /// How the fake app-server answers each `turn/start`.
 #[derive(Debug, Clone, Copy)]
 pub enum TurnAnswers {
@@ -181,10 +178,11 @@ impl CodexConsumer {
     pub fn attach(mut host: Host, server: FakeAppServer, thread: &str) -> Self {
         let info = host.interface_with_meta("interface info", json!({"threadId": thread}));
         assert!(!has_error_path(&info), "`interface info` holds; got {info}");
-        let open = host.interface("interface channel open async");
-        assert!(!has_error_path(&open), "a Codex client's async open holds; got {open}");
+        let open = host.interface("interface channel open");
+        assert!(!has_error_path(&open), "a Codex client's open holds; got {open}");
         let result = &crate::envelope(&open)["result"];
-        assert!(result["wss"].is_nothing(), "the Codex face has no endpoint; got {open}");
+        assert_eq!(result["mode"]["kind"], "async", "the Codex face is async; got {open}");
+        assert!(result["mode"]["uri"].is_nothing(), "the Codex face has no stream to read; got {open}");
         let inbox = PathBuf::from(result["inbox"].as_str().expect("the open names its inbox"));
         let initialize = server
             .await_message(|m| m["method"] == "initialize", Duration::from_secs(10))

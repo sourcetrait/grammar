@@ -75,27 +75,18 @@ pub enum ChannelPhase {
 #[cereal::derived(Data, Copy, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ChannelMode {
-    /// A Monitor reads them from the hub's loopback WSS stream as they come.
+    /// They reach the peer as they come, by the face the open chose.
     Async,
     /// They queue until the agent takes them by `interface channel sync`.
     Sync,
 }
 
 impl ChannelMode {
-    /// The mode's name, as `interface channel open` takes it.
+    /// The mode's name, as `interface channel open` answers it.
     pub fn name(self) -> &'static str {
         match self {
             Self::Async => "async",
             Self::Sync => "sync",
-        }
-    }
-
-    /// The mode a name names, if any.
-    pub fn from_name(name: &str) -> Option<Self> {
-        match name {
-            "async" => Some(Self::Async),
-            "sync" => Some(Self::Sync),
-            _ => None,
         }
     }
 }

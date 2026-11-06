@@ -42,8 +42,8 @@ headers, no client cert and no auth hook.
 The config is the face's, the process's own, which names the port and the
 identity the hub presents.
 
-Ephemeral port by default. The agent always learns the endpoint from
-`interface channel open`'s return, so a fixed port buys nothing and costs a
+Ephemeral port by default. The agent always learns the endpoint from the `uri`
+of `interface channel open`'s `mode`, so a fixed port buys nothing and costs a
 squatting failure mode - a stale host or an escaped child holding it makes the
 next open fail with a raw `Address already in use`.
 

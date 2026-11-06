@@ -37,13 +37,6 @@ pub struct PurviewConfigureParams {
     pub namepaths: Vec<String>,
 }
 
-/// Parameters for `interface channel open`.
-#[derive(Debug, ser::Serialize)]
-pub struct ChannelOpenParams {
-    /// `sync` or `async`: how the Channel's packets reach the agent.
-    pub mode: ChannelMode,
-}
-
 /// Parameters for `interface channel config`, a partial update.
 #[derive(Debug, ser::Deserialize, ser::Serialize)]
 pub struct ConfigChannelParams {

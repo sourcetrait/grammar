@@ -25,7 +25,7 @@ fn execute_on(host: &mut Host, on: &str, definition: &str) -> Value {
     host.read_id_within(id, FIRST_CALL)
 }
 
-/// A host started in `root`'s agent directory, its config `identity`, its remotes file `engines`.
+/// A Claude Code client's host in `root`'s agent directory, its identity and engines.
 fn host_with(root: &Path, identity: Option<&GeneratedKeys>, engines: &[Endpoint]) -> Host {
     let agent = root.join("agent");
     let identity = identity
@@ -33,7 +33,7 @@ fn host_with(root: &Path, identity: Option<&GeneratedKeys>, engines: &[Endpoint]
         .unwrap_or_default();
     write_source(&agent, ".grammar/config.toml", &identity);
     write_source(&agent, ".grammar/remotes.toml", &engines.iter().map(engine_toml).collect::<String>());
-    Host::spawn_in(&root.join("scratch"), &[], &agent)
+    Host::spawn_claude_in(&root.join("scratch"), &[], &agent)
 }
 
 #[test]

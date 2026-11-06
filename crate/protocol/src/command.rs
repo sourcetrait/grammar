@@ -156,13 +156,6 @@ const CONFIGURE_ARGS: &[ArgSpec] = &[
     },
 ];
 
-const CHANNEL_MODE_ARGS: &[ArgSpec] = &[ArgSpec {
-    name: "mode",
-    shape: ArgShape::String,
-    optional: false,
-    summary: "`async` for a Monitor's wss stream, or `sync` for `interface channel sync`.",
-}];
-
 const CONFIG_FLAGS: &[ArgSpec] = &[
     ArgSpec {
         name: "spam-warn-window-secs",
@@ -465,7 +458,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         kind: CommandKind::ChannelOpen,
         name: "interface channel open",
         topic: "Channel",
-        positionals: CHANNEL_MODE_ARGS,
+        positionals: NO_ARGS,
         flags: NO_ARGS,
         result: "record",
         summary: "Opens the Channel",

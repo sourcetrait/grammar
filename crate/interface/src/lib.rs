@@ -11,7 +11,7 @@ pub(crate) use std::collections::HashMap;
 pub(crate) use nuval::wide;
 
 pub(crate) use sourcetrait_grammar_protocol::{
-    ArgShape, ArgSpec, COMMANDS, ChannelMode, CommandKind, CommandSpec, Diagnostic, INTERFACE,
+    ArgShape, ArgSpec, COMMANDS, CommandKind, CommandSpec, Diagnostic, INTERFACE,
     LINT_VIOLATION_CAP, Source, command_spec, span_to_line_col, with_head,
 };
 
@@ -36,7 +36,7 @@ pub use crate::{
     },
     grammar::interface_engine,
     params::{
-        ChannelOpenParams, ChatReadParams, ChatSendParams, CommitParams, ConfigChannelParams,
+        ChatReadParams, ChatSendParams, CommitParams, ConfigChannelParams,
         EquipParams, InspectParams,
         KillParams, NewParams, PurviewConfigureParams, PurviewExtendParams, PurviewParams,
         RemoteAliasParams, RemoteChannelCloseParams, RemoteConnectParams, RemoteEngineImportParams,

@@ -6,8 +6,9 @@ the agent calls it when it chooses and takes every packet queued since its last 
 oldest first, with `dropped`, the packets the cap pushed out meanwhile. The first call
 also claims the channel (`take_sync`, crate/channel's `state.rs`).
 
-An async channel refuses it as `channel::wrong_mode`, its packets going to its Monitor,
-and a closed one as `channel::not_open`, as a send would be.
+An async channel refuses it as `channel::wrong_mode`, its packets going by its face, a
+Monitor's stream or Codex's thread, and a closed one as `channel::not_open`, as a send
+would be.
 
 ## fn packet_record
 Each queued line is the rendered packet the wire would carry, read back by `from_nuon`

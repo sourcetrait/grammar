@@ -5,12 +5,20 @@ use crate::*;
 pub(crate) struct ChannelOpenResult {
     /// `new` when this call opened the channel, `existing` when one was open.
     pub status: String,
-    /// The mode the channel is open in.
-    pub mode: ChannelMode,
-    /// The endpoint to point a Monitor at, its port the bound one; null in sync.
-    pub wss: Option<String>,
-    /// The directory an attachment lands in.
+    /// The Channel's directory, where each packet and its files land.
     pub inbox: String,
+    /// The mode the host chose for the caller's harness.
+    pub mode: OpenMode,
+}
+
+/// An open Channel's mode, with the address of its stream where it has one.
+#[derive(Debug, ser::Serialize)]
+pub(crate) struct OpenMode {
+    /// `async` or `sync`.
+    pub kind: ChannelMode,
+    /// The stream a Monitor reads, `wss://127.0.0.1:<port>`; absent with none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uri: Option<String>,
 }
 
 const STATUS_NEW: &str = "new";
@@ -30,24 +38,31 @@ const UNSTARTED_REASON: &str = "the channel hub did not start";
 /// An open whose Channel was closed while its hub started, the hub dropped unused.
 const CLOSED_DURING_START: &str = "the channel was closed while its hub started";
 
-/// A Codex client's async open before any `interface info` named its thread.
+/// A Codex client's open before any `interface info` named its thread.
 #[cfg(unix)]
 const CODEX_NO_THREAD: &str = "Codex's Channel delivers into the thread `interface info` names; \
                                run `interface info` first";
 
-/// A Codex client's async open on a platform its face can't reach Codex on.
-#[cfg(not(unix))]
-const CODEX_NEEDS_UNIX: &str = "Codex's Channel rides its app-server's Unix socket, which this \
-                                platform lacks; open the channel sync";
-
-/// The face an async open takes.
+/// The face an open takes for its caller's harness.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum OpenFace {
-    /// The wss hub a Monitor connects to.
+    /// The wss hub a Monitor connects to, Claude Code's.
     Wss,
     /// The Codex face, delivering into the caller's thread.
     #[cfg(unix)]
     Codex,
+    /// No face: a sync Channel, its packets taken by `interface channel sync`.
+    Sync,
+}
+
+impl OpenFace {
+    /// The mode a Channel with this face opens in.
+    fn mode(self) -> ChannelMode {
+        match self {
+            Self::Sync => ChannelMode::Sync,
+            _ => ChannelMode::Async,
+        }
+    }
 }
 
 /// What a started Codex face leaves to serve once its hub is installed.
@@ -67,19 +82,18 @@ fn greeting(
     })
 }
 
-/// What an open came to: its label, its epoch, its endpoint, and its inbox.
-type OpenedChannel = (&'static str, ChannelEpoch, Option<String>, PathBuf);
+/// What an open came to: its label, its epoch, its mode, its uri, and its inbox.
+type OpenedChannel = (&'static str, ChannelEpoch, ChannelMode, Option<String>, PathBuf);
 
 impl ChannelFace {
-    /// `interface channel open`: the Channel opened in its mode, its face the caller's.
+    /// `interface channel open`: the Channel opened for the caller's harness.
     pub(crate) async fn channel_open(
         &self,
         nonce: datum::Nonce,
-        p: ChannelOpenParams,
         caller: &Caller,
     ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
         let _opening = self.channel_open_lock.lock().await;
-        let (label, epoch, wss, inbox) = match self.open_or_report(p.mode, caller).await {
+        let (label, epoch, kind, uri, inbox) = match self.open_or_report(caller).await {
             Ok(opened) => opened,
             Err(error) => return error_to_call_result(error, nonce),
         };
@@ -88,39 +102,31 @@ impl ChannelFace {
             nonce,
             &ChannelOpenResult {
                 status: label.to_string(),
-                mode: p.mode,
-                wss,
                 inbox: inbox.display().to_string(),
+                mode: OpenMode { kind, uri },
             },
         )
     }
 
-    /// Open a closed channel in `mode` on a new inbox, or report the open one.
+    /// A closed channel opened for the caller's harness, or the open one reported.
     async fn open_or_report(
         &self,
-        mode: ChannelMode,
         caller: &Caller,
     ) -> Result<OpenedChannel, GrammarMcpError> {
         let status = self.status().await?;
         if matches!(status.state.phase, ChannelPhase::Closed) {
-            let face = match mode {
-                ChannelMode::Async => Some(self.open_face(caller)?),
-                ChannelMode::Sync => None,
-            };
+            let face = self.open_face(caller)?;
             let inbox = make_channel_dir().map_err(|reason| GrammarMcpError::ChannelStart { reason })?;
             let epoch = self.hub.next_epoch();
-            let wss = self.start_open(epoch, mode, &inbox, face).await?;
-            return Ok((STATUS_NEW, epoch, wss, inbox));
+            let uri = self.start_open(epoch, face, &inbox).await?;
+            return Ok((STATUS_NEW, epoch, face.mode(), uri, inbox));
         }
         let open = status.state.mode.ok_or_else(|| GrammarMcpError::Internal {
             phase: "channel_open::mode".to_string(),
             reason: "an open channel carries no mode".to_string(),
         })?;
-        if open != mode {
-            return Err(GrammarMcpError::ChannelWrongMode { open, asked: mode });
-        }
         let epoch = status.state.epoch;
-        let wss = match open {
+        let uri = match open {
             ChannelMode::Async => self
                 .hub
                 .face(epoch)
@@ -138,18 +144,19 @@ impl ChannelFace {
             phase: "channel_open::inbox".to_string(),
             reason: "an open channel carries no inbox".to_string(),
         })?;
-        Ok((STATUS_EXISTING, epoch, wss, inbox))
+        Ok((STATUS_EXISTING, epoch, open, uri, inbox))
     }
 
-    /// The async face for a caller: Codex's for a Codex client, else the wss hub.
+    /// A caller's face: Claude Code's the wss hub, Codex's its own, any other sync.
     fn open_face(
         &self,
         caller: &Caller,
     ) -> Result<OpenFace, GrammarMcpError> {
-        if !matches!(caller.client.as_deref().map(Harness::of), Some(Harness::Codex)) {
-            return Ok(OpenFace::Wss);
+        match caller.client.as_deref().map(Harness::of) {
+            Some(Harness::Claude) => Ok(OpenFace::Wss),
+            Some(Harness::Codex) => self.codex_face(),
+            _ => Ok(OpenFace::Sync),
         }
-        self.codex_face()
     }
 
     /// The Codex face, once `interface info` has named the thread it delivers to.
@@ -163,12 +170,10 @@ impl ChannelFace {
         Ok(OpenFace::Codex)
     }
 
-    /// No Codex face off Unix, its app-server's socket a Unix socket.
+    /// A sync Channel off Unix, where Codex's app-server socket is out of reach.
     #[cfg(not(unix))]
     fn codex_face(&self) -> Result<OpenFace, GrammarMcpError> {
-        Err(GrammarMcpError::ChannelStart {
-            reason: CODEX_NEEDS_UNIX.to_string(),
-        })
+        Ok(OpenFace::Sync)
     }
 
     /// A started Codex face's claim, greeting, and deliveries, its hub installed.
@@ -198,9 +203,8 @@ impl ChannelFace {
     async fn start_open(
         &self,
         epoch: ChannelEpoch,
-        mode: ChannelMode,
+        face: OpenFace,
         inbox: &Path,
-        face: Option<OpenFace>,
     ) -> Result<Option<String>, GrammarMcpError> {
         let inbox = inbox
             .to_str()
@@ -208,6 +212,7 @@ impl ChannelFace {
                 reason: format!("the inbox {} is not UTF-8", inbox.display()),
             })?
             .to_string();
+        let mode = face.mode();
         let greeting = match mode {
             ChannelMode::Sync => Some(greeting(&self.nonce_gen, &self.mcp_nom)?),
             ChannelMode::Async => None,
@@ -220,10 +225,8 @@ impl ChannelFace {
         };
         self.channel.request(open).await.map_err(channel_failed)?;
         self.tell_inbox(Some(inbox)).await;
-        let Some(face) = face else {
-            return Ok(None);
-        };
         let started: Result<(Hub, Option<CodexStart>), GrammarMcpError> = match face {
+            OpenFace::Sync => return Ok(None),
             OpenFace::Wss => start_channel_hub(
                 &self.config,
                 self.channel.clone(),

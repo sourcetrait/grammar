@@ -97,7 +97,7 @@ impl RuntimeError {
             Self::ChannelNotClaimed {
                 mode: ChannelMode::Async,
             } => "nothing has connected to the channel yet; start \
-                 a Monitor at the wss endpoint `interface channel open` returned, see the \
+                 a Monitor at the `uri` `interface channel open`'s `mode` named, see the \
                  channel/Open packet, then run `interface channel ready`"
                 .to_string(),
             Self::ChannelNotClaimed {
@@ -106,10 +106,9 @@ impl RuntimeError {
                  sync`, see the channel/Open packet, then run `interface channel ready`"
                 .to_string(),
             Self::ChannelWrongMode { open, asked } => format!(
-                "the channel is open in `{}` mode, not `{}`; close it with \
-                 `interface channel close` to open it in `{}`",
+                "the channel is open in `{}` mode, not `{}`; its packets come as the `mode` \
+                 `interface channel open` answered names",
                 open.name(),
-                asked.name(),
                 asked.name(),
             ),
             Self::ChannelPeerGone => "the channel's peer connection is gone; run \

@@ -76,7 +76,7 @@ impl ChannelFace {
         caller: &Caller,
     ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
         match command {
-            ChannelCommand::Open(p) => self.channel_open(nonce, p, caller).await,
+            ChannelCommand::Open => self.channel_open(nonce, caller).await,
             ChannelCommand::Sync => self.channel_sync(nonce).await,
             ChannelCommand::Ready => self.channel_ready(nonce).await,
             ChannelCommand::Close => self.channel_close(nonce).await,
