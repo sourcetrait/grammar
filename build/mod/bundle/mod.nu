@@ -21,6 +21,9 @@ const CORE_PLUGINS = [
 # The MCP's skills the package carries, from `agent/skill/`.
 const SKILLS = ['nu' 'grammar-mcp' 'grammar-mcp-dev']
 
+# The runtime cleanup a Linux package carries, from `build/sys/systemd/`.
+const SYSTEMD_FILES = ['grammar.conf' 'install.bash']
+
 # The builtins' equips the package carries: grammar's own, gram's through `ext/gram`.
 const EQUIPS = [
     [name source];
@@ -116,8 +119,10 @@ export def target []: nothing -> record<os: string, arch: string> {
 #
 # `bin/` holds the MCP and grammar-ssh, `nu/bin/` nushell, `plugin/core/`
 # nushell's core plugins from `nu_root`, the install nushell made,
-# `plugin/grammar/` the workspace's own, `equip/` the builtins' sources, and
-# `mcp/skill/` the MCP's skills. Each binary takes `os`'s executable suffix.
+# `plugin/grammar/` the workspace's own, `equip/` the builtins' sources,
+# `mcp/skill/` the MCP's skills, and a Linux tree's `sys/systemd/` the runtime
+# cleanup's rule and its install script. Each binary takes `os`'s executable
+# suffix.
 export def layout [root: path, profile: string, nu_root: path, os: string]: nothing -> path {
     let exe: string = (exe_suffix $os)
     let target: path = (target_dir $root)
@@ -153,6 +158,13 @@ export def layout [root: path, profile: string, nu_root: path, os: string]: noth
         let dest: path = ($tree | path join 'mcp' 'skill' $skill)
         mkdir $dest
         cp ($root | path join 'agent' 'skill' $skill 'SKILL.md') $dest
+    }
+    if ($os | str starts-with 'linux') {
+        let systemd: path = ($tree | path join 'sys' 'systemd')
+        mkdir $systemd
+        for file in $SYSTEMD_FILES {
+            cp ($root | path join 'build' 'sys' 'systemd' $file) ($systemd | path join $file)
+        }
     }
     if $os != 'windows' {
         ^chmod -R 'u=rwX,go=rX' $tree
