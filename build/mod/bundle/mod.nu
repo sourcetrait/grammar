@@ -21,8 +21,8 @@ const CORE_PLUGINS = [
 # The MCP's skills the package carries, from `agent/skill/`.
 const SKILLS = ['nu' 'grammar-mcp' 'grammar-mcp-dev']
 
-# The runtime cleanup's rule a Linux package carries, from `build/sys/systemd/`.
-const SYSTEMD_FILES = ['grammar.conf']
+# The runtime cleanup a Linux package carries, from `build/sys/systemd/user/`.
+const SYSTEMD_USER_FILES = ['grammar.conf' 'install.bash']
 
 # The builtins' equips the package carries: grammar's own, gram's through `ext/gram`.
 const EQUIPS = [
@@ -160,10 +160,10 @@ export def layout [root: path, profile: string, nu_root: path, os: string]: noth
         cp ($root | path join 'agent' 'skill' $skill 'SKILL.md') $dest
     }
     if ($os | str starts-with 'linux') {
-        let systemd: path = ($tree | path join 'sys' 'systemd')
+        let systemd: path = ($tree | path join 'sys' 'systemd' 'user')
         mkdir $systemd
-        for file in $SYSTEMD_FILES {
-            cp ($root | path join 'build' 'sys' 'systemd' $file) ($systemd | path join $file)
+        for file in $SYSTEMD_USER_FILES {
+            cp ($root | path join 'build' 'sys' 'systemd' 'user' $file) ($systemd | path join $file)
         }
     }
     if $os != 'windows' {
