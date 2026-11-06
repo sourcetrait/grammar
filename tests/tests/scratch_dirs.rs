@@ -327,8 +327,8 @@ fn sigterm_removes_both_directories() {
 
 /// Each open makes the Channel's directory, `channel/`, in the host's tree.
 ///
-/// It is private, a send's packet landing in it as `<id>.nuon` and its
-/// attachment in `<id>/`; a close removes it, a reopen makes it again, and the
+/// It is private, a send's attachment landing in it as `<id>.attached.nuon` and
+/// nothing else for it; a close removes it, a reopen makes it again, and the
 /// host's end removes its tree and nothing else. The mode and the signalled
 /// end on Unix alone.
 #[tested]
@@ -358,11 +358,12 @@ fn each_open_makes_the_channel_inbox_in_the_transient_base() {
         .as_str()
         .unwrap_or_else(|| panic!("the send answers its id; got {resp}"))
         .to_string();
-    assert!(inbox.join(format!("{id}.nuon")).is_file(), "the packet lands as {id}.nuon");
     assert!(
-        inbox.join(&id).join("attached.nuon").is_file(),
-        "the attachment lands in the packet's own {id}/",
+        inbox.join(format!("{id}.attached.nuon")).is_file(),
+        "the attachment lands as {id}.attached.nuon",
     );
+    assert!(!inbox.join(format!("{id}.nuon")).exists(), "the inbox keeps no record of the packet");
+    assert!(!inbox.join(&id).exists(), "a local send makes no {id}/");
 
     host.interface("interface channel close");
     assert!(!inbox.exists(), "a close removes {}", inbox.display());
@@ -386,8 +387,9 @@ fn each_open_makes_the_channel_inbox_in_the_transient_base() {
 
 /// A teardown other than a deliberate close leaves the Channel's files.
 ///
-/// A send before `ready` tears the Channel down, leaving the greeting's event,
-/// and the next open takes the directory as it stands.
+/// A send before `ready` tears the Channel down, leaving a packet's attachment in
+/// its directory, and the next open takes the directory as it stands. The open
+/// writes nothing of its own, its greeting spilling nothing.
 #[tested]
 fn a_teardown_leaves_the_channels_files_for_the_next_open() {
     let t = testing::test!({ .using_temp_dir() });
@@ -395,18 +397,14 @@ fn a_teardown_leaves_the_channels_files_for_the_next_open() {
     std::fs::create_dir_all(&cwd).expect("a start directory with no config");
     let mut host = Host::spawn_in(&t.temp_dir().join("host"), &["--id", "scratchkeep"], &cwd);
     let inbox = open_inbox(&mut host);
-    let events = || {
-        let mut events: Vec<PathBuf> = std::fs::read_dir(&inbox)
-            .expect("the Channel's directory reads")
-            .flatten()
-            .map(|entry| entry.path())
-            .filter(|path| path.extension().is_some_and(|ext| ext == "nuon"))
-            .collect();
-        events.sort();
-        events
-    };
-    let greeting = events();
-    assert_eq!(greeting.len(), 1, "the open writes its greeting's event; got {greeting:?}");
+    let written: Vec<PathBuf> = std::fs::read_dir(&inbox)
+        .expect("the Channel's directory reads")
+        .flatten()
+        .map(|entry| entry.path())
+        .collect();
+    assert!(written.is_empty(), "the open writes nothing, its greeting unspilled; got {written:?}");
+    let left = inbox.join("left.attached.nuon");
+    std::fs::write(&left, "{n: 1}").expect("a packet's attachment, as a send leaves it");
 
     let early = host.execute(
         "def execute [data: nothing]: nothing -> record<event_id: string> { \
@@ -414,10 +412,10 @@ fn a_teardown_leaves_the_channels_files_for_the_next_open() {
         "null",
     );
     assert!(has_error_path(&early), "a send before ready is refused; got {early}");
-    assert_eq!(events(), greeting, "the teardown leaves the greeting's event");
+    assert!(left.is_file(), "the teardown leaves {}", left.display());
 
     assert_eq!(open_inbox(&mut host), inbox, "the next open takes the directory as it stands");
-    assert!(greeting.iter().all(|event| event.is_file()), "the greeting's event is still in it");
+    assert!(left.is_file(), "{} is still in it", left.display());
 }
 
 /// An open that fails to start leaves the Channel's directory as it stands.

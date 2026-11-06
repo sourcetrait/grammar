@@ -87,10 +87,10 @@ pub struct ThresholdsRequest {
 /// A host packet rendered outside the Channel, past the verification gate.
 #[cereal::derived(Data)]
 pub struct HostRequest {
-    /// Its id, which names its file.
+    /// Its id, which names its files.
     pub id: String,
-    /// The whole packet's NUON, written as `<id>.nuon`.
-    pub packet_nuon: String,
+    /// Its spilled `data`, written as `<id>.data.nuon`.
+    pub data: Option<String>,
     pub line: String,
 }
 
@@ -106,20 +106,11 @@ pub struct AttachedFile {
 pub struct EmitRequest {
     pub from: String,
     pub model: String,
-    pub event: NuVal,
-    /// The files in the packet's `<id>/`, if any.
+    pub data: NuVal,
+    /// A relay's files in the packet's `<id>/`, if any.
     pub attached: Option<Vec<AttachedFile>>,
-    /// A relayed packet's files staged in the inbox, moved to `<id>/` once minted.
-    pub staged: Option<Staged>,
-}
-
-/// A relayed packet's files where they landed, and its spilled event among them.
-#[cereal::derived(Data)]
-pub struct Staged {
-    /// The inbox-relative directory they sit in.
-    pub dir: String,
-    /// The spilled event's file among them, which `<id>.nuon` takes in.
-    pub spill: Option<String>,
+    /// The inbox-relative directory a relay's files are staged in, moved to `<id>/`.
+    pub staged: Option<String>,
 }
 
 /// A body's send, its eval's stop held back on the sender's side.
@@ -180,8 +171,6 @@ pub enum EmitError {
     Render(String),
     /// The gate refused it.
     Refused(ChannelSendError),
-    /// The event its peer spilled to a file did not parse as NUON.
-    Unparseable(String),
     /// Its files could not be moved, read, or written.
     Write(String),
 }

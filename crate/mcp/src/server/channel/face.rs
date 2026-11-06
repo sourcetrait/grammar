@@ -136,7 +136,7 @@ impl subsys::Handler<PeerSystem> for PeerPump {
                     let emit = EmitRequest {
                         from: FROM_MCP.to_string(),
                         model: report.model().to_string(),
-                        event: report.event(),
+                        data: report.event(),
                         attached: None,
                         staged: None,
                     };
@@ -154,18 +154,10 @@ async fn relay_onto(
     channel: &ChannelHandle,
     relay: Relay,
 ) {
-    let staged = relay.staged().map(|dir| Staged {
-        dir,
-        spill: relay
-            .files
-            .iter()
-            .any(|landed| landed.name == EVENT_SPILL_DEST)
-            .then(|| EVENT_SPILL_DEST.to_string()),
-    });
+    let staged = relay.staged();
     let Relay { packet, files } = relay;
     let attached: Vec<AttachedFile> = files
         .into_iter()
-        .filter(|landed| landed.name != EVENT_SPILL_DEST)
         .map(|landed| AttachedFile {
             file: landed.name,
             size: landed.size,
@@ -175,7 +167,7 @@ async fn relay_onto(
     let emit = EmitRequest {
         from,
         model: packet.model,
-        event: packet.event,
+        data: packet.event,
         attached: (!attached.is_empty()).then_some(attached),
         staged,
     };
@@ -183,7 +175,6 @@ async fn relay_onto(
         Ok(Ok(_)) => return,
         Ok(Err(EmitError::Refused(e))) => ("channel", e.message().to_string()),
         Ok(Err(EmitError::Render(e))) => ("render", e),
-        Ok(Err(EmitError::Unparseable(e))) => ("event_unparseable", e),
         Ok(Err(EmitError::Write(e))) => ("write", e),
         Err(e) => ("channel", e),
     };

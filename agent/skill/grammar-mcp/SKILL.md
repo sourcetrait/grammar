@@ -55,10 +55,11 @@ Packets from a definition to you: small summaries, never payloads.
 - Opened by OpenGrammarChannel, async or sync; on a sync Channel each
   `interface channel sync` takes what queued since the last.
 - A send before `ready` is refused and closes the Channel.
-- A packet is `{id, from, model, event, attached?}`, `attached` a table of
-  `{file, size}` in `<inbox>/<id>/`; models under `mcp/`, `remote/`, and
-  `channel/` are the host's. Every packet is whole at `<inbox>/<id>.nuon`; a
-  line too long to show carries `event: {size}`, and the file is read.
+- A packet is `{id, from, model, data}`, or with `attached` where it attaches
+  anything: a relay's table of `{file, size}` in `<inbox>/<id>/`, or the size of
+  `<inbox>/<id>.attached.nuon`; models under `mcp/`, `remote/`, and `channel/`
+  are the host's. A line too long to show carries `attached`, then `data`, as a
+  filesize, `data`'s file `<inbox>/<id>.data.nuon`, and the file is read.
 - Sending too fast warns, then stops the sender.
 
 ## RemoteChannel

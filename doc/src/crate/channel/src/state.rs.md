@@ -28,9 +28,10 @@ Kept past a close until the next open, so a stale notice or expiry finds the
 open it concerns already ended.
 
 ### field inbox
-The host tree's `channel/` (`scratch.rs`'s `make_channel_dir`), flat: every
-packet whole as `<id>.nuon` and its files in `<id>/`, whoever sent it, so the
-agent reads any packet's files by its id alone. A remote link's files are staged
+The host tree's `channel/` (`scratch.rs`'s `make_channel_dir`), flat, holding
+only what a packet's line can't carry: its spilled data as `<id>.data.nuon`, its
+attachment as `<id>.attached.nuon`, and a relay's files in `<id>/`, so the agent
+reads any packet's files by its id alone. A remote link's files are staged
 under `.incoming/` and moved under the relayed packet's id, so a relayed
 packet's layout is a local one's. A deliberate `interface channel close` takes
 it and prunes it; every other teardown leaves it. The shutdown close, the
@@ -104,11 +105,10 @@ emergency (`stopped`).
 
 The id is minted before the files are named because their names derive from
 it, which is also why the hash covers the attached content rather than its
-path. The packet is written whole as `<id>.nuon` whatever its size, so every
-packet is on disk; a line past the cap goes out spilled, `{size}` alone, and
-the agent reads the packet by its id (`render.rs`). The attachment is
-`<id>/attached.nuon`, and the packet's `attached` table names it with its size:
-a big event and an attachment both survive, in separate files.
+path. The attachment is written as `<id>.attached.nuon` whatever the line, and
+the line carries its size; only a line past the cap writes its data, as
+`<id>.data.nuon`, its size in `data`'s place (`render.rs`). The inbox holds what
+the line can't, and no record of every packet.
 
 The plan stops at the files, which the system writes before it finishes the
 send (`system.rs`).
@@ -118,24 +118,15 @@ The gate is read again at the emit, as `emit` always reads it; nothing between
 the plan and the finish changes it, since the system runs one step at a time.
 
 ### fn plan_emit
-A host packet's send, a relay's or a report's, gated as `emit` is. Its files are
-already on disk, a peer's staged by the link, so the id is minted over their
-names rather than their content, and their sizes come from the link. A staged
-directory moves to `<id>/`. Where the peer spilled its event, the event the
-packet carries is only the peer's pointer, so the packet can't be rendered here:
-the plan hands the system a `Compose`, which renders it once the moves land.
+A host packet's send, a relay's or a report's, gated as `emit` is. A peer's
+files are already on disk, staged by the link, so the id is minted over their
+table, their names and sizes, rather than their content, the sizes the link's.
+A staged directory moves to `<id>/`, and the table is written beside it as
+`<id>.attached.nuon`. The peer's event arrives whole in its Deliver frame, so
+the packet renders here as any other does, its spill the same.
 
 ### fn finish_emit
 As `finish_send`, the gate read again at the emit.
-
-## struct Compose
-A relay whose peer spilled its event. The spill is read and parsed rather than
-copied in, so `<id>.nuon` holds a packet nushell reads whatever the peer sent,
-and a spill that won't parse refuses the relay, `Unparseable`. The moves have
-landed by then, so a refused compose leaves the files and the spill in `<id>/`
-with no `<id>.nuon`, for a deliberate close to take. The spill goes once taken
-in, and `<id>/` with it where it was the one file; the line is the packet's own,
-held to the cap as every line is.
 
 ## fn apply_moves
 Renames within the inbox, so a peer's files land whole under the packet's id or

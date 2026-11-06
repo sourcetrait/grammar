@@ -1,6 +1,6 @@
 use crate::*;
 
-/// The event field a chat's message rides in, or its size where it spilled.
+/// The data field a chat's message rides in, or its size where it spilled.
 const MESSAGE: &str = "message";
 
 impl ChannelFace {
@@ -21,7 +21,7 @@ impl ChannelFace {
         }
     }
 
-    /// The chat's checks, its message spilled ahead of the line's spill, and its send.
+    /// The chat's checks, its message spilled ahead of its data's, and its send.
     async fn send_chat(
         &self,
         p: ChatSendParams,
@@ -33,21 +33,26 @@ impl ChannelFace {
         } = p;
         check_summary(&summary)?;
         let from = format!("{REMOTE_RESERVED_PREFIX}channel/{}", self.mcp_nom.as_str());
-        let attached = [AttachedFile {
+        let files = [AttachedFile {
             file: CHAT_MESSAGE_FILE.to_string(),
             size: message.len() as u64,
         }];
+        let table = render_nuon(&attached_table(&files)).map_err(internal)?;
+        let attached = Attached::Files {
+            files: &files,
+            bytes: table.len() as u64,
+        };
         let span = nu::Span::unknown();
-        let inline = chat_event(&summary, nu::Value::string(message.clone(), span));
-        let event = if line_fits(&from, CHAT_MODEL, &inline, Some(&attached)).map_err(internal)? {
+        let inline = chat_data(&summary, nu::Value::string(message.clone(), span));
+        let data = if line_fits(&from, CHAT_MODEL, &inline, Some(attached)).map_err(internal)? {
             inline
         } else {
-            chat_event(&summary, event_spill_pointer(message.len()))
+            chat_data(&summary, spill_size(message.len() as u64))
         };
         let send = RemoteSendRequest {
             mcp_nom,
             model: CHAT_MODEL.to_string(),
-            event_nuon: render_nuon(&event).map_err(internal)?,
+            event_nuon: render_nuon(&data).map_err(internal)?,
             payloads: vec![Payload {
                 dest: CHAT_MESSAGE_FILE.to_string(),
                 bytes: message.into_bytes(),
@@ -78,8 +83,8 @@ fn check_summary(summary: &str) -> GrammarMcpResult<()> {
     Ok(())
 }
 
-/// A chat's event: its summary, and its message inline or as its size.
-fn chat_event(
+/// A chat's data: its summary, and its message inline or as its size.
+fn chat_data(
     summary: &str,
     message: nu::Value,
 ) -> nu::Value {

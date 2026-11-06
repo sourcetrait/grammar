@@ -32,9 +32,10 @@ Answers the epoch it verified, so the face stands down that open's verify timer
 alone.
 
 ## struct HostRequest
-The greeting, which the face renders and the gate never holds. Its id and the
-whole packet's NUON ride beside the line, so the system writes `<id>.nuon`
-before the line goes out, as it does for every other packet.
+A host packet the face renders, the greeting among them, which the gate never
+holds. Its id and any spilled data ride beside the line, so where its data
+spilled the system writes `<id>.data.nuon` before the line goes out, as it does
+for every other packet.
 
 ## struct AttachedFile
 A file's path in `<id>/` and its size, the row of a packet's `attached` table.
@@ -43,21 +44,14 @@ landed file's, so the Channel stats nothing on its loop.
 
 ## struct EmitRequest
 A host packet through the gate - an emergency's announcement, a remote link's
-relay or report - its event data, rendered and its id minted by the system on
-the Channel's one counter. A relay's files arrive staged, and the system moves
-them under the id it mints, so the Channel's directory has one owner.
+relay or report - its data rendered and its id minted by the system on the
+Channel's one counter. A relay's files arrive staged, and the system moves them
+under the id it mints, so the Channel's directory has one owner.
 
-## struct Staged
+### field staged
 Inbox-relative, since a message carries data rather than a path of the host's.
-`spill` names the peer's spilled event among the files, which the packet's
-`<id>.nuon` takes in rather than a file in `<id>/`.
 
 ## enum EmitError
-### variant Unparseable
-A peer's spilled event is read back as NUON on the receiver, and a peer may
-write anything there; the face logs it under the kind the link gives an inline
-event that doesn't parse, `event_unparseable`.
-
 ### variant Write
 The moves and writes go before the line, so a failed one refuses the emit, and
 no packet goes out whose files aren't there.

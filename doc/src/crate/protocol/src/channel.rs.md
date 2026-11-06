@@ -40,22 +40,14 @@ silence.
 
 ## const NOTIFICATION_CAP
 The client's task-notification cap, the one coupling point to the client: a
-client-cap change is a one-line edit. A rendered line over it spills whole:
-the packet's own file's size, `{size}`, rides as its event, the packet already
-written as `<id>.nuon`.
+client-cap change is a one-line edit. A rendered line over it spills its
+`attached`, then its `data`, each to its file's size (`crate/channel`'s
+`render.rs`).
 
 ## const MODEL_MAX_CHARS / fn model_too_long
 The one field a spilled line keeps that its sender chooses, bounded so a spill
 always fits the cap. Held wherever the reservation is: a definition's send, a
 remote send on the sender's side, and a peer's relay.
-
-## const EVENT_SIZE_KEY
-The spill's one key, a filesize, so the agent knows how much it is about to read
-without the wire naming any path.
-
-## const EVENT_SPILL_DEST
-A dotted name, so it sorts apart from the sender's own files in the staging
-directory and the relay leaves it out of the packet's `attached`.
 
 ## enum ChannelPhase
 Read at send time, never captured. A job outliving its eval keeps its decl and

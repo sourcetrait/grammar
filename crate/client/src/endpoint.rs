@@ -7,6 +7,9 @@ pub const SSH_PORT: u16 = 22;
 /// grammar-ssh's command when an entry names none, found on the login's `PATH`.
 pub const GRAMMAR_SSH_COMMAND: &str = "grammar-ssh";
 
+/// The most characters an engine's alias takes, so a packet's `from` stays short.
+pub const ALIAS_MAX_CHARS: usize = 128;
+
 /// The host's operating system, as its entry names it.
 #[cereal::derived(Data, Copy, Eq)]
 pub enum Platform {
@@ -181,6 +184,11 @@ impl Endpoint {
 
 /// An engine's alias: names joined by `/`, each a name, and never `local`.
 pub fn check_alias(alias: &str) -> Result<(), String> {
+    if alias.chars().count() > ALIAS_MAX_CHARS {
+        return Err(format!(
+            "[[engine]] alias `{alias}` passes {ALIAS_MAX_CHARS} characters"
+        ));
+    }
     if !alias.split('/').all(valid_name) {
         return Err(format!(
             "[[engine]] alias `{alias}` is not a name: names joined by `/`, each 1 to 64 letters, digits, `.`, `_`, or `-`, a letter or digit first"

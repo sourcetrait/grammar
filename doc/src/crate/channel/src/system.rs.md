@@ -20,13 +20,13 @@ The files are written on a blocking thread, the loop awaiting them, so a bulky
 attachment never holds a runtime worker. The Channel's next message waits
 behind the write, since the line must not go up before its files exist. An
 emit's moves go first on the same thread, a relayed packet's staged files
-renamed under its id before its packet is written, and a peer's spilled event
-is composed into the packet there too, its line taken from that render.
+renamed under its id before its table and any spill are written.
 
 ## fn ChannelSystem::write_host_file
-The greeting's packet, written before its line as every packet's is. A failed
-write is logged and the greeting still goes out: the greeting is the handshake
-itself, which a missing record of it must not break.
+A host packet's spilled data, the greeting's among them, written before its
+line as every spill is; a packet that fits writes nothing. A failed write is
+logged and the packet still goes out: the greeting is the handshake itself,
+which a missing file must not break.
 
 ## fn ChannelSystem::send_ups
 What a step sent up goes before its answer, each a singular packet the control

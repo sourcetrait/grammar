@@ -80,11 +80,17 @@ The instance the session's hello expects.
 ### fn pinned_keys
 Each pinned line parsed, for the connection's handler.
 
+## const ALIAS_MAX_CHARS
+A packet from a remote engine's eval is stamped `<alias>/thread/<nonce>`, the
+one part of an envelope's `from` its user chooses, so the alias is bounded as a
+model is and a packet's line, its data spilled, always fits the client's cap.
+
 ## fn check_alias
 An alias is names joined by `/`, each a name by the protocol's rule, so `ai/lab`
 nests, and none is `local`, which names the MCP's own engine. An import's
 known hosts file sits at the alias's path, so the rule keeps every segment a
-plain path component: no empty one, no `.` or `..`.
+plain path component: no empty one, no `.` or `..`. The whole is held to
+`ALIAS_MAX_CHARS`, checked first.
 
 ## fn parse_address
 `<host>[:<port>]`, a channel's address shape with a host name allowed, port 22

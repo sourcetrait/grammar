@@ -82,7 +82,7 @@ impl EmergencyPolicy {
         let emit = EmitRequest {
             from: FROM_MCP.to_string(),
             model: emergency_model(emergency).to_string(),
-            event: announced_record(emergency, host),
+            data: announced_record(emergency, host),
             attached: None,
             staged: None,
         };

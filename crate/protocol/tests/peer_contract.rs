@@ -147,7 +147,7 @@ fn a_peer_id_is_base62_alone() {
 
 #[test]
 fn a_send_s_dest_is_a_plain_relative_path() {
-    for good in ["out.txt", "sub/dir/out.txt", EVENT_SPILL_DEST] {
+    for good in ["out.txt", "sub/dir/out.txt", ".mcp_event.nuon"] {
         assert!(safe_dest(good), "{good}");
     }
     for bad in ["", "/abs/path", "../escape", "sub/../../escape", "./here"] {

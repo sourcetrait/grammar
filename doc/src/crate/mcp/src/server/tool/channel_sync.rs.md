@@ -12,6 +12,7 @@ would be.
 
 ## fn packet_record
 Each queued line is the rendered packet the wire would carry, read back by `from_nuon`
-into its record, so a packet reads the same whichever mode carried it, a spilled event's
-pointer included. `attached`, absent from a line naming no file, is null here, so the
-packets form one table.
+into its envelope, so a packet reads the same whichever mode carried it, a spill's size
+included. The packets are a list of the envelope's two variants, each as its line
+carries it, `attached` in the second alone: no field is filled in to make them one
+table.

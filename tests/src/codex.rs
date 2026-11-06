@@ -191,7 +191,7 @@ impl CodexConsumer {
         let (to, greeting) = server.await_turn(Duration::from_secs(10)).expect("the greeting is delivered");
         assert_eq!(to, thread, "the greeting goes to the thread info named");
         assert_eq!(greeting.model, "mcp/channel/Open", "the first delivery is the handshake; got {greeting:?}");
-        let nom = nuval::NuVal::from_nuon(&greeting.event)
+        let nom = nuval::NuVal::from_nuon(&greeting.data)
             .ok()
             .and_then(|event| event["mcp_nom"].as_str().map(str::to_string))
             .unwrap_or_else(|| panic!("the greeting carries the host's nom; got {greeting:?}"));

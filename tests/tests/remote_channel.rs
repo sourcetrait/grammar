@@ -57,7 +57,7 @@ fn consumer_connects_verifies_and_receives_a_packet() {
         "the returned event_id is the id of the packet that arrived; got {packet:?}",
     );
     assert!(
-        packet.event.contains("hello-wss"),
+        packet.data.contains("hello-wss"),
         "the packet event should carry the payload; got {packet:?}",
     );
     assert_eq!(
@@ -133,7 +133,7 @@ fn remote_loopback_echo() {
     // A sends test/Ping to B; A sees its own remote/channel/Sent (driven by the write).
     let send_id = remote_send(&mut a, &nom_b, "test/Ping", "note: \"ping-1\"");
     a.await_packet(
-        |p| p.model == "remote/channel/Sent" && p.event.contains(&send_id),
+        |p| p.model == "remote/channel/Sent" && p.data.contains(&send_id),
         Duration::from_secs(15),
     )
     .expect("A should see its own Sent for the ping");
@@ -145,7 +145,7 @@ fn remote_loopback_echo() {
             Duration::from_secs(15),
         )
         .expect("B should receive the relayed test/Ping");
-    assert!(relayed.event.contains("ping-1"), "relayed event carries the payload; got {relayed:?}");
+    assert!(relayed.data.contains("ping-1"), "relayed event carries the payload; got {relayed:?}");
 
     // ...and echoes it back to A as test/Loopback - the return leg.
     remote_send(&mut b, &nom_a, "test/Loopback", "echo: \"ping-1\"");
@@ -155,7 +155,7 @@ fn remote_loopback_echo() {
             Duration::from_secs(15),
         )
         .expect("A should receive the test/Loopback echo - the round-trip");
-    assert!(looped.event.contains("ping-1"), "the loopback carries the original payload; got {looped:?}");
+    assert!(looped.data.contains("ping-1"), "the loopback carries the original payload; got {looped:?}");
 
     // Teardown: closing the link on A drops the established link; Disconnected is
     // retained for an established-link teardown on BOTH roles.
@@ -248,7 +248,7 @@ fn remote_list_shows_each_remotes_state() {
     let connected = a.host.interface("interface remote channel connect 'peer'");
     assert!(!has_error_path(&connected), "the connect is synchronous; got {connected}");
     b.await_packet(
-        |p| p.model == "remote/channel/Connected" && p.event.contains(&nom_a),
+        |p| p.model == "remote/channel/Connected" && p.data.contains(&nom_a),
         Duration::from_secs(15),
     )
     .expect("B sees Connected on pairing");
@@ -358,7 +358,7 @@ fn a_listen_defaults_to_loopback_and_a_connect_takes_its_endpoint() {
         .interface(&format!("interface remote channel connect 'peer' --address '{endpoint}'"));
     assert!(!has_error_path(&connected), "the connect takes its endpoint; got {connected}");
     b.await_packet(
-        |p| p.model == "remote/channel/Connected" && p.event.contains(&nom_a),
+        |p| p.model == "remote/channel/Connected" && p.data.contains(&nom_a),
         Duration::from_secs(15),
     )
     .expect("B sees Connected on pairing");
@@ -397,9 +397,9 @@ fn a_taken_port_fails_and_its_ip_alone_listens_on_a_random_one() {
     drop(taken);
 }
 
-/// CapNoCap (local): an oversized channel_send event auto-spills to an inbox file;
-/// a compact pointer rides the wire under the notification cap, and the full event
-/// survives in the spill file.
+/// CapNoCap (local): an oversized channel_send's data spills to `<id>.data.nuon`;
+/// its size rides the wire under the notification cap, and the full data survives
+/// in the file.
 #[tested]
 fn channel_send_spills_oversized_event() {
     let t = testing::test!({ .using_temp_dir() });
@@ -424,29 +424,29 @@ fn channel_send_spills_oversized_event() {
         .await_packet(|p| p.model == "test/Big", Duration::from_secs(10))
         .expect("consumer should receive the test/Big packet");
     assert!(
-        pkt.event.starts_with("{size:"),
-        "an oversized event is replaced by its file's size; got {pkt:?}",
+        pkt.data_size.is_some(),
+        "an oversized data is replaced by its file's size; got {pkt:?}",
     );
     assert!(
-        !pkt.event.contains("SPILL_MARKER_42"),
-        "the event content is spilled out of the wire packet; got {pkt:?}",
+        !pkt.data.contains("SPILL_MARKER_42"),
+        "the data is spilled out of the wire packet; got {pkt:?}",
     );
     assert!(
         pkt.raw.chars().count() < 500,
-        "the pointer packet stays under the notification cap; got {} chars",
+        "the spilled packet stays under the notification cap; got {} chars",
         pkt.raw.chars().count(),
     );
 
     let content = c.read_inbox(&spill_path(&pkt));
     assert!(
         content.contains("SPILL_MARKER_42"),
-        "the whole packet, its full event, survives in <id>.nuon; got {content}",
+        "the full data survives in <id>.data.nuon; got {content}",
     );
 }
 
-/// CapNoCap (remote): an oversized remote_channel_send event auto-spills via the
-/// file connection; the relayed packet on the receiver is a pointer under the cap,
-/// and the full event lands in the receiver's inbox before the packet is seen.
+/// CapNoCap (remote): an oversized remote_channel_send's data rides its Deliver
+/// frame whole and spills at the receiver; the relayed packet is its size under the
+/// cap, and the full data lands in the receiver's inbox before the packet is seen.
 #[tested]
 fn remote_send_spills_oversized_event() {
     let t = testing::test!({ .using_temp_dir() });
@@ -464,30 +464,34 @@ fn remote_send_spills_oversized_event() {
         )
         .expect("B should receive the relayed oversized event");
     assert!(
-        relayed.event.starts_with("{size:"),
-        "the relayed oversized event is its file's size; got {relayed:?}",
+        relayed.data_size.is_some(),
+        "the relayed oversized data is its file's size; got {relayed:?}",
     );
     assert!(
-        !relayed.event.contains("REMOTE_SPILL_99"),
-        "the event content is spilled out of the wire packet; got {relayed:?}",
+        !relayed.data.contains("REMOTE_SPILL_99"),
+        "the data is spilled out of the wire packet; got {relayed:?}",
     );
     assert!(
         relayed.raw.chars().count() < 500,
-        "the relayed pointer stays under the notification cap; got {} chars",
+        "the relayed spill stays under the notification cap; got {} chars",
         relayed.raw.chars().count(),
     );
-    assert!(relayed.attached.is_none(), "a spill alone leaves the packet no files; got {relayed:?}");
+    assert!(
+        relayed.attached.is_none() && relayed.attached_size.is_none(),
+        "a spill alone leaves the packet no attachment; got {relayed:?}",
+    );
 
     let content = b.read_inbox(&spill_path(&relayed));
     assert!(
         content.contains("REMOTE_SPILL_99"),
-        "the full event survives in B's inbox spill file; got {content}",
+        "the full data survives in B's <id>.data.nuon; got {content}",
     );
 }
 
 /// `grmr remote_channel_send_with` returns `{event_id}`, and that id is the one
 /// the sender's own Sent notice carries; the files reach the receiver beside the
-/// relayed packet.
+/// relayed packet, one named `.mcp_event.nuon` a file like any other, and their
+/// table in `<id>.attached.nuon`.
 #[tested]
 fn remote_send_with_returns_its_event_id() {
     let t = testing::test!({ .using_temp_dir() });
@@ -498,7 +502,7 @@ fn remote_send_with_returns_its_event_id() {
     let src = root.join("note.txt");
     std::fs::write(&src, "files-1").expect("write the attachment");
     let resp = a.host.execute(
-        "def execute [data: record<nom: string, src: string>]: nothing -> record<id: string> {\n    let sent = (grmr remote_channel_send_with $data.nom 'test/Files' {note: 'files-1'} [[src dest]; [$data.src 'note.txt']])\n    {id: $sent.event_id}\n}",
+        "def execute [data: record<nom: string, src: string>]: nothing -> record<id: string> {\n    let sent = (grmr remote_channel_send_with $data.nom 'test/Files' {note: 'files-1'} [[src dest]; [$data.src 'note.txt'] [$data.src '.mcp_event.nuon']])\n    {id: $sent.event_id}\n}",
         &NuVal::Record(vec![
             ("nom".to_string(), NuVal::from(nom_b.to_string())),
             ("src".to_string(), NuVal::from(src.to_str().expect("utf-8 path"))),
@@ -512,7 +516,7 @@ fn remote_send_with_returns_its_event_id() {
         .to_string();
 
     a.await_packet(
-        |p| p.model == "remote/channel/Sent" && p.event.contains(&send_id),
+        |p| p.model == "remote/channel/Sent" && p.data.contains(&send_id),
         Duration::from_secs(15),
     )
     .expect("A's own Sent carries the returned event_id");
@@ -522,17 +526,25 @@ fn remote_send_with_returns_its_event_id() {
             Duration::from_secs(15),
         )
         .expect("B should receive the relayed test/Files");
-    assert!(relayed.event.contains("files-1"), "the relayed event carries the payload; got {relayed:?}");
+    assert!(relayed.data.contains("files-1"), "the relayed data carries the payload; got {relayed:?}");
+    let sorted = relayed.attached.clone().map(|mut rows| {
+        rows.sort();
+        rows
+    });
     assert_eq!(
-        relayed.attached,
-        Some(vec![("note.txt".to_string(), 7)]),
+        sorted,
+        Some(vec![(".mcp_event.nuon".to_string(), 7), ("note.txt".to_string(), 7)]),
         "the relayed packet names each file in its own directory with its size; got {relayed:?}",
     );
-    assert_eq!(
-        b.read_inbox(&format!("{}/note.txt", relayed.id)),
-        "files-1",
-        "the file sits in the packet's <id>/, moved from its staging",
-    );
+    for name in ["note.txt", ".mcp_event.nuon"] {
+        assert_eq!(
+            b.read_inbox(&format!("{}/{name}", relayed.id)),
+            "files-1",
+            "{name} sits in the packet's <id>/, moved from its staging",
+        );
+    }
+    let table = b.read_inbox(&format!("{}.attached.nuon", relayed.id));
+    assert!(table.contains("note.txt") && table.contains(".mcp_event.nuon"), "the table beside it; got {table}");
 }
 
 /// A chat between two linked hosts: a short one carries its message inline, with
@@ -549,12 +561,12 @@ fn a_chat_carries_its_summary_inline_and_a_long_message_by_its_size() {
     let sent = a.host.interface(&format!("interface chat send '{nom_b}' 'a short chat' 'hello there'"));
     assert!(!has_error_path(&sent), "the chat sends; got {sent}");
     let send_id = envelope(&sent)["result"]["event_id"].as_str().expect("its event_id").to_string();
-    a.await_packet(|p| p.model == "remote/channel/Sent" && p.event.contains(&send_id), Duration::from_secs(15))
+    a.await_packet(|p| p.model == "remote/channel/Sent" && p.data.contains(&send_id), Duration::from_secs(15))
         .expect("A's own Sent carries the chat's id");
     let short = b
         .await_packet(|p| p.model == "channel/Chat" && p.from == from_a, Duration::from_secs(15))
         .expect("B receives the chat from A");
-    assert!(short.event.contains("a short chat") && short.event.contains("hello there"), "both inline; got {short:?}");
+    assert!(short.data.contains("a short chat") && short.data.contains("hello there"), "both inline; got {short:?}");
     assert_eq!(short.attached, Some(vec![("message.md".to_string(), 11)]), "message.md always rides; got {short:?}");
     assert_eq!(b.read_inbox(&format!("{}/message.md", short.id)), "hello there");
     let read = b.host.interface(&format!("interface chat read '{}'", short.id));
@@ -565,9 +577,10 @@ fn a_chat_carries_its_summary_inline_and_a_long_message_by_its_size() {
     let sent = a.host.interface(&format!("interface chat send '{nom_b}' 'a long chat' '{long}'"));
     assert!(!has_error_path(&sent), "the long chat sends; got {sent}");
     let spilled = b
-        .await_packet(|p| p.model == "channel/Chat" && p.event.contains("a long chat"), Duration::from_secs(15))
+        .await_packet(|p| p.model == "channel/Chat" && p.data.contains("a long chat"), Duration::from_secs(15))
         .expect("B receives the long chat with its summary");
-    assert!(spilled.event.contains("size") && !spilled.event.contains("yyyy"), "its message as its size; got {spilled:?}");
+    let message = NuVal::from_nuon(&spilled.data).ok().and_then(|data| data.get("message").cloned());
+    assert_eq!(message, Some(NuVal::Filesize(long.len() as i64)), "its message as message.md's size; got {spilled:?}");
     assert!(spilled.raw.chars().count() <= 500, "the line fits the cap; got {}", spilled.raw);
     let mut page = |n: u64| b.host.interface(&format!("interface chat read '{}' {n}", spilled.id));
     let first = page(0);
@@ -633,7 +646,7 @@ fn a_host_holds_two_links_at_once() {
         let connected = spoke.host.interface("interface remote channel connect 'peer'");
         assert!(!has_error_path(&connected), "the connect is synchronous; got {connected}");
         hub.await_packet(
-            |p| p.model == "remote/channel/Connected" && p.event.contains(nom.as_str()),
+            |p| p.model == "remote/channel/Connected" && p.data.contains(nom.as_str()),
             Duration::from_secs(15),
         )
         .expect("the hub sees Connected for each spoke");
@@ -649,7 +662,7 @@ fn a_host_holds_two_links_at_once() {
                 Duration::from_secs(15),
             )
             .expect("each spoke receives the hub's send to its nom");
-        assert!(got.event.contains(note), "each send reaches its own spoke; got {got:?}");
+        assert!(got.data.contains(note), "each send reaches its own spoke; got {got:?}");
     }
     for (spoke, nom, note) in [(&mut a, &nom_a, "from-a"), (&mut c, &nom_c, "from-c")] {
         remote_send(spoke, &nom_hub, "test/Pong", &format!("note: \"{note}\""));
@@ -659,7 +672,7 @@ fn a_host_holds_two_links_at_once() {
                 Duration::from_secs(15),
             )
             .expect("the hub receives each spoke's send");
-        assert!(got.event.contains(note), "each send names its own spoke; got {got:?}");
+        assert!(got.data.contains(note), "each send names its own spoke; got {got:?}");
     }
 
     let close = hub.host.interface("interface remote channel close 'peer_a'");
@@ -673,7 +686,7 @@ fn a_host_holds_two_links_at_once() {
     remote_send(&mut hub, &nom_c, "test/Ping", "note: \"after\"");
     let after = c
         .await_packet(
-            |p| p.model == "test/Ping" && p.event.contains("after"),
+            |p| p.model == "test/Ping" && p.data.contains("after"),
             Duration::from_secs(15),
         )
         .expect("C's link still carries the hub's send after A's closed");
@@ -727,9 +740,9 @@ fn attach_bare(root: &Path, name: &str, keys: &GeneratedKeys) -> Consumer {
     Consumer::attach(host, &keys.ca)
 }
 
-/// The inbox-relative file a spilled packet sits in whole, `<id>.nuon`.
+/// The inbox-relative file a packet's spilled data sits in, `<id>.data.nuon`.
 fn spill_path(pkt: &Packet) -> String {
-    format!("{}.nuon", pkt.id)
+    format!("{}.data.nuon", pkt.id)
 }
 
 /// Spawn a listener host (B) and a connector host (A) cross-configured on one free
@@ -774,7 +787,7 @@ fn pair(a: &mut Consumer, b: &mut Consumer, nom_a: &str) {
     let open_a = a.host.interface("interface remote channel connect 'peer'");
     assert!(!has_error_path(&open_a), "the connect is synchronous; got {open_a}");
     b.await_packet(
-        |p| p.model == "remote/channel/Connected" && p.event.contains(nom_a),
+        |p| p.model == "remote/channel/Connected" && p.data.contains(nom_a),
         Duration::from_secs(15),
     )
     .expect("B sees Connected on pairing");

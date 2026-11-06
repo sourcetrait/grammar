@@ -19,15 +19,15 @@ pub(crate) fn open_packet(
     mcp_nom: &datum::NomPair,
 ) -> Result<HostRequest, String> {
     let span = nu::Span::unknown();
-    let mut data = nu::Record::new();
-    data.insert("mcp_nom", nu::Value::string(mcp_nom.as_str().to_string(), span));
-    let event = nu::Value::record(data, span);
-    let event_nuon = render_nuon(&event)?;
-    let id = mint_msg_id(nonce_gen, FROM_MCP, MODEL_OPEN, &event_nuon, None);
-    let rendered = render_packet(id, FROM_MCP, MODEL_OPEN, &event, None)?;
+    let mut record = nu::Record::new();
+    record.insert("mcp_nom", nu::Value::string(mcp_nom.as_str().to_string(), span));
+    let data = nu::Value::record(record, span);
+    let data_nuon = render_nuon(&data)?;
+    let id = mint_msg_id(nonce_gen, FROM_MCP, MODEL_OPEN, &data_nuon, None);
+    let rendered = render_packet(id, FROM_MCP, MODEL_OPEN, &data, None)?;
     Ok(HostRequest {
         id: id.to_string(),
-        packet_nuon: rendered.file,
+        data: rendered.data,
         line: rendered.line,
     })
 }

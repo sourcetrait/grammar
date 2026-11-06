@@ -132,7 +132,7 @@ fn a_codex_channel_delivers_each_packet_into_the_thread_info_named() {
         .expect("the send is delivered");
     assert_eq!(to, "thread-a", "a delivery goes to the thread info named");
     assert_eq!(packet.id, sent, "the delivered packet is the one sent");
-    assert!(packet.event.contains("hello-codex"), "its event rides whole; got {packet:?}");
+    assert!(packet.data.contains("hello-codex"), "its event rides whole; got {packet:?}");
 
     let refreshed = c.host.interface_with_meta("interface info", json!({"threadId": "thread-b"}));
     assert!(!has_error_path(&refreshed), "`interface info` holds; got {refreshed}");
@@ -210,7 +210,7 @@ fn a_relay_is_delivered_into_the_codex_thread() {
     let connected = a.host.interface("interface remote channel connect 'peer'");
     assert!(!has_error_path(&connected), "A connects; got {connected}");
     b.server
-        .await_delivery(|p| p.model == "remote/channel/Connected" && p.event.contains(&a.nom), WAIT)
+        .await_delivery(|p| p.model == "remote/channel/Connected" && p.data.contains(&a.nom), WAIT)
         .expect("B's Connected is delivered into its thread");
 
     let definition = "def execute [data: record<nom: string>]: nothing -> record<id: string> {\n    let sent = (grmr remote channel send $data.nom 'test/Ping' {note: 'relayed'})\n    {id: $sent.event_id}\n}";
@@ -222,5 +222,5 @@ fn a_relay_is_delivered_into_the_codex_thread() {
         .expect("the relay is delivered into B's thread");
     assert_eq!(to, "thread-b", "the relay goes to the thread B's info named");
     assert_eq!(packet.from, format!("remote/channel/{}", a.nom), "the relay is from A; got {packet:?}");
-    assert!(packet.event.contains("relayed"), "its event rides whole; got {packet:?}");
+    assert!(packet.data.contains("relayed"), "its event rides whole; got {packet:?}");
 }

@@ -125,7 +125,7 @@ pub fn free_port() -> u16 {
     listener.local_addr().expect("probe local_addr").port()
 }
 
-/// One Channel packet: its scalar envelope fields, and `event` as its raw NUON.
+/// One Channel packet: its scalar envelope fields, and `data` as its raw NUON.
 ///
 /// The raw NUON serves coarse `contains` assertions.
 #[derive(Debug, Clone)]
@@ -133,9 +133,15 @@ pub struct Packet {
     pub id: String,
     pub from: String,
     pub model: String,
-    /// The files in the packet's own directory, `<id>/`, each with its size.
+    /// A relay's files in its own directory, `<id>/`, each with its size, where
+    /// `attached` is their table.
     pub attached: Option<Vec<(String, i64)>>,
-    pub event: String,
+    /// `attached`'s size where it is a filesize: a local attachment, or a spilled
+    /// table.
+    pub attached_size: Option<i64>,
+    pub data: String,
+    /// `data`'s size where it spilled to `<id>.data.nuon`.
+    pub data_size: Option<i64>,
     /// The full raw NUON wire line, which a client renders as a notification.
     ///
     /// A client truncates it, so a spilled-pointer packet can be asserted under the
@@ -162,12 +168,18 @@ pub fn parse_line(line: &str) -> Option<Packet> {
             })
             .collect::<Vec<_>>()
     });
+    let size = |k: &str| match packet.get(k) {
+        Some(NuVal::Filesize(size)) => Some(*size),
+        _ => None,
+    };
     Some(Packet {
         id: field("id"),
         from: field("from"),
         model,
         attached,
-        event: packet.get("event").map_or_else(|| "{}".to_string(), |event| event.to_string()),
+        attached_size: size("attached"),
+        data: packet.get("data").map_or_else(|| "{}".to_string(), |data| data.to_string()),
+        data_size: size("data"),
         raw: line.to_string(),
     })
 }
@@ -271,7 +283,7 @@ impl Consumer {
             first.model, "mcp/channel/Open",
             "the first packet must be the handshake; got {first:?}",
         );
-        let nom = NuVal::from_nuon(&first.event)
+        let nom = NuVal::from_nuon(&first.data)
             .ok()
             .and_then(|event| event["mcp_nom"].as_str().map(str::to_string))
             .unwrap_or_else(|| panic!("the Open packet carries the host's nom; got {first:?}"));

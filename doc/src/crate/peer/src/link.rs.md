@@ -189,10 +189,10 @@ not the local host. A `channel/` model passes, a chat its peer's host stamped
 `model_too_long`. Its files have landed by then and stay, as for any refused
 relay.
 
-A sender spills an oversized event to the reserved `EVENT_SPILL_DEST` file,
-`{size}` riding as its event. The file lands with the rest and is named among
-the relay's files; the face tells it apart, and the Channel renders the packet
-from it into `<id>.nuon`, so a relayed spill reads as a local one does.
+The event rides its Deliver frame whole, however large, within the frame's 8
+MiB, and every landed file is the sender's under the name it gave; the receiving
+Channel spills what its line can't carry, so a relayed spill reads as a local
+one does.
 
 ## the McpNom handshake
 A Hello variant in each language (codec.rs), exchanged over the same Framed

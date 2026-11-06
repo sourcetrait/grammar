@@ -18,9 +18,10 @@ tell apart.
 Built in one place because it has three emitters: the hub greets a freshly
 connected peer with it, a sync open queues it as its first line, and `interface
 channel open` re-sends it on an existing channel, where a gone peer is what a
-re-greeting reveals. It answers a `HostRequest`, its id and whole packet beside
-its line, so each of the three goes through the Channel's system, which writes
-its `<id>.nuon` before the line goes out.
+re-greeting reveals. It answers a `HostRequest`, its id and any spilled data
+beside its line, so each of the three goes through the Channel's system, which
+writes a spill before the line goes out; the greeting is small, and spills
+nothing.
 
 ## fn server_config
 The certificate and key are the host's `[identity]`, the same pair its remote
@@ -64,8 +65,7 @@ one task, so two simultaneous connections cannot both win. The claim reaches the
 Channel's system before the peer task starts, so it precedes the Open packet and
 any `ready` the agent sends after seeing it. The greeting is asked of the
 Channel right after the claim, so it is the first line on the peer's lane,
-queued before the peer task takes the lane, its event written as any packet's
-is.
+queued before the peer task takes the lane.
 
 Dropping the shutdown sender counts as shutdown, which is why a torn-down
 channel ends this loop even though nothing is ever sent on that oneshot.

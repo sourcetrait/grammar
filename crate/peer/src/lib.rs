@@ -41,15 +41,13 @@ pub(crate) use std::{
 pub(crate) use sourcetrait_common::{agnostic, cereal, datum, subsys};
 
 pub(crate) use sourcetrait_grammar_protocol::{
-    CHANNEL_RESERVED_PREFIX, DECODE_BUDGET_DEFAULT, EVENT_SPILL_DEST, NuVal, RemoteChannelEvent,
-    RemoteChannelRow, RemoteFailure, RemoteLinkState, RemoteListenResult, RemotePacket,
-    RemoteResult, RuntimeError, decode_payload, model_too_long, model_too_long_reason,
-    relay_reserved_prefix, reserved_prefix, safe_dest, valid_peer_id,
+    CHANNEL_RESERVED_PREFIX, DECODE_BUDGET_DEFAULT, NuVal, RemoteChannelEvent, RemoteChannelRow,
+    RemoteFailure, RemoteLinkState, RemoteListenResult, RemotePacket, RemoteResult, RuntimeError,
+    decode_payload, model_too_long, model_too_long_reason, relay_reserved_prefix,
+    reserved_prefix, safe_dest, valid_peer_id,
 };
 
-pub(crate) use sourcetrait_grammar_channel::{
-    event_overflows, event_spill_pointer, mint_msg_id, render_nuon,
-};
+pub(crate) use sourcetrait_grammar_channel::mint_msg_id;
 
 pub(crate) use nuval::TryFromNu;
 

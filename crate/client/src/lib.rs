@@ -5,6 +5,7 @@ pub(crate) mod ssh;
 pub(crate) mod system;
 #[cfg(test)]
 mod tests {
+    mod endpoint;
     mod known_hosts;
     mod ssh;
 }
@@ -68,7 +69,8 @@ pub(crate) mod tku {
 
 pub use crate::{
     endpoint::{
-        Endpoint, GRAMMAR_SSH_COMMAND, Jump, Platform, SSH_PORT, check_alias, check_command,
+        ALIAS_MAX_CHARS, Endpoint, GRAMMAR_SSH_COMMAND, Jump, Platform, SSH_PORT, check_alias,
+        check_command,
         check_host_keys, check_instance, check_key, check_path, check_port, check_word,
         known_hosts_name, parse_address,
     },

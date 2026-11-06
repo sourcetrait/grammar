@@ -226,19 +226,20 @@ async fn a_close_or_a_send_with_no_link_is_refused() {
     let long_model = format!("proj/{}", "m".repeat(sourcetrait_grammar_protocol::MODEL_MAX_CHARS));
     let long = peers.request(send(&long_model)).await.expect("send");
     assert_eq!(long, Err(model_too_long_reason()), "a model past its bound is refused here too");
-    let spill_named = peers
+    let event_named = peers
         .request(RemoteSendRequest {
             payloads: vec![Payload {
-                dest: EVENT_SPILL_DEST.to_string(),
+                dest: ".mcp_event.nuon".to_string(),
                 bytes: b"{a: 1}".to_vec(),
             }],
             ..send("proj/thing/Changed")
         })
         .await
         .expect("send");
-    assert!(
-        spill_named.as_ref().is_err_and(|e| e.contains("reserved")),
-        "a body's file never takes the spill's name: {spill_named:?}",
+    assert_eq!(
+        event_named,
+        Err("no open remote link to mcp_nom `peernom0001`".to_string()),
+        "no dest is reserved, so only the missing link refuses it",
     );
     let chat = peers.request(send("channel/Chat")).await.expect("send");
     assert!(chat.as_ref().is_err_and(|e| e.contains("reserved")), "a body never stamps a chat: {chat:?}");

@@ -14,7 +14,7 @@ mod tests {
 pub(crate) use crate::{
     render::nu_value,
     spam::{Spam, SpamVerdict},
-    state::{Channel, Compose, UpKind, apply_moves, write_files},
+    state::{Channel, UpKind, apply_moves, write_files},
 };
 
 pub(crate) use std::{
@@ -29,16 +29,16 @@ pub(crate) use sourcetrait_common::{agnostic, cereal, datum, subsys};
 
 pub(crate) use sourcetrait_grammar_protocol::{
     ChannelEpoch, ChannelMode, ChannelPhase, ChannelSendData, ChannelSpamErrorEmergency,
-    ChannelSpamWarningEmergency, ChannelState, EVENT_SIZE_KEY, Emergency,
-    NOTIFICATION_CAP, NuVal, SYNC_QUEUE_CAP, SpamThresholdsData, model_too_long,
-    model_too_long_reason, reserved_prefix,
+    ChannelSpamWarningEmergency, ChannelState, Emergency, NOTIFICATION_CAP, NuVal,
+    SYNC_QUEUE_CAP, SpamThresholdsData, model_too_long, model_too_long_reason,
+    reserved_prefix,
 };
 
 pub(crate) use nuval::TryIntoNu;
 
 pub(crate) mod nu {
     pub(crate) use nu_protocol::{Record, Span, Value, engine::EngineState};
-    pub(crate) use nuon::{ToNuonConfig, from_nuon, to_nuon};
+    pub(crate) use nuon::{ToNuonConfig, to_nuon};
 }
 
 pub(crate) mod ser {
@@ -54,12 +54,12 @@ pub use crate::{
         AttachedFile, ChannelSendError, ChannelStatus, ChannelSyncError, ChannelVerifyError,
         CloseHub, CloseRequest, Closed, EmitError, EmitRequest, ExpireRequest, FromChannelSys,
         HostRequest, HubNotice, Line, OpenRequest, Opened, ReadyRequest, SendRequest,
-        SendVerdict, SpamStop, Staged, StatusRequest, StoppedNotice, SyncRequest, Synced,
+        SendVerdict, SpamStop, StatusRequest, StoppedNotice, SyncRequest, Synced,
         ThresholdsRequest, ToChannelSys,
     },
     render::{
-        ATTACHED_FILE, MsgId, RenderedPacket, escape_line, event_file, event_overflows,
-        event_spill_pointer, line_fits, mint_msg_id, render_nuon, render_packet,
+        Attached, MsgId, RenderedPacket, attached_file, attached_table, data_file, escape_line,
+        line_fits, mint_msg_id, render_nuon, render_packet, spill_size,
     },
     spam::SpamThresholds,
     system::{ChannelHandle, ChannelSysConfig, ChannelSysParams, ChannelSysPaths, ChannelSystem},

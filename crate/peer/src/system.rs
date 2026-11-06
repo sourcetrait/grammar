@@ -453,21 +453,14 @@ impl PeerSystem {
         if model_too_long(&model) {
             return Err(model_too_long_reason());
         }
-        if payloads.iter().any(|payload| payload.dest == EVENT_SPILL_DEST) {
-            return Err(format!(
-                "dest `{EVENT_SPILL_DEST}` is reserved for the host's spilled event; \
-                 choose another name",
-            ));
-        }
         let id = mint_msg_id(&self.nonce_gen, "remote/send", &model, &event_nuon, None).to_string();
         let payloads = payloads.into_iter().map(|p| (p.dest, p.bytes)).collect();
-        let (wire_event_nuon, payloads) = spill_remote_event(event_nuon, payloads)?;
         let link = self
             .links
             .values()
             .find(|link| link.handle.remote_mcp_nom == mcp_nom)
             .ok_or_else(|| format!("no open remote link to mcp_nom `{mcp_nom}`"))?;
-        link.handle.enqueue_send(id.clone(), model, wire_event_nuon, payloads)?;
+        link.handle.enqueue_send(id.clone(), model, event_nuon, payloads)?;
         Ok(id)
     }
 
@@ -584,19 +577,6 @@ impl PeerSystem {
         let packet = subsys::Packet::singular(msg);
         let _ = self.inner.channel.tx.send(subsys::MsgFromSys::Packet(packet)).await;
     }
-}
-
-/// Spill an event the receiver's cap would truncate into a transferred file.
-fn spill_remote_event(
-    event_nuon: String,
-    mut payloads: Vec<(String, Vec<u8>)>,
-) -> Result<(String, Vec<(String, Vec<u8>)>), String> {
-    if !event_overflows(&event_nuon) {
-        return Ok((event_nuon, payloads));
-    }
-    let pointer_nuon = render_nuon(&event_spill_pointer(event_nuon.len()))?;
-    payloads.push((EVENT_SPILL_DEST.to_string(), event_nuon.into_bytes()));
-    Ok((pointer_nuon, payloads))
 }
 
 impl subsys::System for PeerSystem {

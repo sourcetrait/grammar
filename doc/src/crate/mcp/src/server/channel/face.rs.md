@@ -63,14 +63,13 @@ awaits each before it takes the next, so the Channel takes them in the order the
 links sent them up.
 
 ## fn relay_onto
-The relay's staging goes to the Channel whole, its spilled event named apart
-from the files the packet's `attached` lists with their sizes, so the Channel's
-system makes every move under the id it mints. A relay the Channel refuses is
-logged by its delivery's id, the one record of a peer's message that reached no
-agent; a spilled event that won't parse is logged `event_unparseable`, as the
-link logs an inline one. Its files stay where the refusal left them: staged
-when the gate or the render refused it, and in `<id>/` when a write or the
-compose failed after the moves, until a deliberate close or the host's end.
+The relay's staging goes to the Channel whole, every landed file one the
+packet's `attached` lists with its size, whatever its sender named it, so the
+Channel's system makes every move under the id it mints. A relay the Channel
+refuses is logged by its delivery's id, the one record of a peer's message that
+reached no agent. Its files stay where the refusal left them: staged when the
+gate or the render refused it, and in `<id>/` when a write failed after the
+moves, until a deliberate close or the host's end.
 
 ## enum HubFace
 The two ways an async open's agent reads its Channel: a Monitor on the wss hub's

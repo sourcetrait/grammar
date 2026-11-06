@@ -54,12 +54,6 @@ pub const SYNC_QUEUE_CAP: usize = 1000;
 /// The client's task-notification cap on a rendered packet line, in characters.
 pub const NOTIFICATION_CAP: usize = 500;
 
-/// The event key of a spilled event, its value the size of the event's own file.
-pub const EVENT_SIZE_KEY: &str = "size";
-
-/// The dest a remote event spill transfers under, in its delivery's directory.
-pub const EVENT_SPILL_DEST: &str = ".mcp_event.nuon";
-
 /// What an emit is allowed to do right now.
 #[cereal::derived(Data, Copy, Eq)]
 pub enum ChannelPhase {

@@ -1,0 +1,18 @@
+# Channel packet envelope
+@namepath mcp/channel/Envelope
+@version 0.0.0-5
+oneof<
+  record<
+    id: string,  # base62, minted by the host per packet; <id>.data.nuon and <id>.attached.nuon its files
+    from: string,  # stamped by the host: thread/<nonce>, <alias>/thread/<nonce>, mcp, or remote/channel/<nom>
+    model: string,  # namepath of data's shape, at most 128 characters; mcp/, remote/, and channel/ are the host's alone
+    data: oneof<record<>, table<>, filesize>,  # the model's record or table, or <id>.data.nuon's size where it spilled
+  >,
+  record<
+    id: string,
+    from: string,
+    model: string,
+    data: oneof<record<>, table<>, filesize>,
+    attached: oneof<table<file: path, size: filesize>, filesize>,  # a relay's files in <id>/, or <id>.attached.nuon's size: a local send's value, or a relay's table spilled
+  >,
+>

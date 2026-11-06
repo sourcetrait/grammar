@@ -89,7 +89,7 @@ fn a_remote_evals_sends_and_asks_reach_the_mcp() {
     let spam = consumer
         .await_packet(|p| p.model == "mcp/channel/spam/Error", PACKET_WAIT)
         .expect("the stop's emergency");
-    assert!(spam.event.contains("lab/thread/"), "the stop names the remote call: {spam:?}");
+    assert!(spam.data.contains("lab/thread/"), "the stop names the remote call: {spam:?}");
 }
 
 /// The first line of `id`'s emergency logs under `cache` holding `needle`, waited for.

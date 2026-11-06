@@ -160,12 +160,12 @@ pub(crate) use sourcetrait_grammar_engine::{
 };
 
 pub(crate) use sourcetrait_grammar_channel::{
-    AttachedFile, ChannelHandle, ChannelSendError, ChannelStatus, ChannelSyncError, ChannelSysParams,
-    ChannelSysPaths, ChannelSystem, ChannelVerifyError, CloseHub, CloseRequest, EmitError,
-    EmitRequest, ExpireRequest, FromChannelSys, HostRequest, HubNotice, Line, OpenRequest,
-    ReadyRequest, SendRequest, SendVerdict, SpamThresholds, Staged, StatusRequest, StoppedNotice,
-    SyncRequest, ThresholdsRequest, event_spill_pointer, line_fits, mint_msg_id, render_nuon,
-    render_packet,
+    Attached, AttachedFile, ChannelHandle, ChannelSendError, ChannelStatus, ChannelSyncError,
+    ChannelSysParams, ChannelSysPaths, ChannelSystem, ChannelVerifyError, CloseHub, CloseRequest,
+    EmitError, EmitRequest, ExpireRequest, FromChannelSys, HostRequest, HubNotice, Line,
+    OpenRequest, ReadyRequest, SendRequest, SendVerdict, SpamThresholds, StatusRequest,
+    StoppedNotice, SyncRequest, ThresholdsRequest, attached_table, line_fits, mint_msg_id,
+    render_nuon, render_packet, spill_size,
 };
 
 pub(crate) use sourcetrait_grammar_interface::{
@@ -194,7 +194,7 @@ pub(crate) use sourcetrait_grammar_peer::{
 };
 
 pub(crate) use sourcetrait_grammar_protocol::{
-    ChannelEpoch, ChannelPhase, ChannelSendData, ControlRequest, EVENT_SPILL_DEST, EngineRequest,
+    ChannelEpoch, ChannelPhase, ChannelSendData, ControlRequest, EngineRequest,
     EngineResponse, FromEngineSys, LIMITS_DEFAULT, LOCAL_HOST, MAX_FRAME_BYTES, PreparedSend,
     PurviewAnswer,
     PurviewRequest, PurviewRow, PurviewView, RemoteResult, RemoteSendData, RuntimeError,

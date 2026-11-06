@@ -89,11 +89,12 @@ impl ChannelSystem {
     ) -> Option<FromChannelSys> {
         Some(match msg {
             ToChannelSys::Open(req) => {
-                let greeting = req.greeting.as_ref().map(|greeting| {
-                    (PathBuf::from(&req.inbox).join(event_file(&greeting.id)), greeting.packet_nuon.clone())
+                let spilled = req.greeting.as_ref().and_then(|greeting| {
+                    let data = greeting.data.clone()?;
+                    Some((PathBuf::from(&req.inbox).join(data_file(&greeting.id)), data))
                 });
                 self.channel.open(req);
-                if let Some(file) = greeting {
+                if let Some(file) = spilled {
                     self.write_host_file(file).await;
                 }
                 FromChannelSys::Opened(Opened)
@@ -113,9 +114,9 @@ impl ChannelSystem {
             ToChannelSys::Thresholds(update) => FromChannelSys::Thresholds(
                 self.channel.set_thresholds(update).map(SpamThresholds::data),
             ),
-            ToChannelSys::Host(HostRequest { id, packet_nuon, line }) => {
-                if let Some(dir) = self.channel.inbox_dir() {
-                    let file = (dir.join(event_file(&id)), packet_nuon);
+            ToChannelSys::Host(HostRequest { id, data, line }) => {
+                if let (Some(dir), Some(data)) = (self.channel.inbox_dir(), data) {
+                    let file = (dir.join(data_file(&id)), data);
                     self.write_host_file(file).await;
                 }
                 FromChannelSys::Hosted(self.channel.send_control(line))
@@ -129,7 +130,7 @@ impl ChannelSystem {
         })
     }
 
-    /// A greeting's event written off the loop; a failure is logged, the greeting sent.
+    /// A host packet's spilled data written off the loop; a failure is logged.
     async fn write_host_file(
         &self,
         file: (PathBuf, String),
@@ -140,7 +141,7 @@ impl ChannelSystem {
             Err(e) => Err(e.to_string()),
         };
         if let Err(reason) = written {
-            eprintln!("grammar: the greeting's event {} not written: {reason}", path.display());
+            eprintln!("grammar: a host packet's data {} not written: {reason}", path.display());
         }
     }
 
@@ -152,15 +153,12 @@ impl ChannelSystem {
         let mut planned = self.channel.plan_emit(req)?;
         let moves = std::mem::take(&mut planned.moves);
         let files = std::mem::take(&mut planned.files);
-        let compose = planned.compose.take();
         let landed = tk::spawn_blocking(move || {
             apply_moves(moves).map_err(EmitError::Write)?;
-            write_files(files).map_err(EmitError::Write)?;
-            compose.map(Compose::write).transpose()
+            write_files(files).map_err(EmitError::Write)
         });
         match landed.await {
-            Ok(Ok(Some(line))) => planned.line = line,
-            Ok(Ok(None)) => {}
+            Ok(Ok(())) => {}
             Ok(Err(e)) => return Err(e),
             Err(e) => return Err(EmitError::Write(format!("the inbox write failed: {e}"))),
         }

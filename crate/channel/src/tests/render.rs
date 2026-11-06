@@ -7,7 +7,8 @@ fn escape_line_folds_a_multi_line_render_back_onto_one_line() {
     assert_eq!(escape_line("plain"), "plain");
 }
 
-fn an_event() -> nu::Value {
+/// Data of one text field holding two lines.
+fn some_data() -> nu::Value {
     let span = nu::Span::unknown();
     let mut data = nu::Record::new();
     data.insert("msg", nu::Value::string("line one\nline two".to_string(), span));
@@ -18,121 +19,182 @@ fn an_id() -> MsgId {
     mint_msg_id(&datum::NonceGenerator::new(), "mcp", "mcp/channel/Open", "{}", None)
 }
 
-#[test]
-fn a_rendered_packet_is_one_line_and_parses_back() {
-    let event = an_event();
-    let rendered = render_packet(an_id(), "mcp", "mcp/channel/Open", &event, None).expect("render");
-    let line = rendered.line;
-    assert!(!line.contains('\n'), "a packet must never span lines: {line:?}");
-    assert_eq!(escape_line(&rendered.file), line, "the file is the packet the line carries");
-
-    let value = nuon::from_nuon(&line, None).expect("valid NUON record");
-    let record = value.as_record().expect("record");
-    assert!(
-        record.get("id").and_then(|v| v.as_str().ok()).is_some_and(|s| !s.is_empty()),
-        "every message carries an id",
-    );
-    assert_eq!(record.get("from").and_then(|v| v.as_str().ok()), Some("mcp"));
-    assert_eq!(
-        record.get("model").and_then(|v| v.as_str().ok()),
-        Some("mcp/channel/Open"),
-    );
-    assert!(
-        record.get("attached").is_none(),
-        "attached is omitted when there is nothing attached, never sent empty",
-    );
-    let event = record.get("event").expect("event").as_record().expect("record");
-    assert_eq!(
-        event.get("msg").and_then(|v| v.as_str().ok()),
-        Some("line one\nline two"),
-        "the escape must round-trip to the original string, not merely survive framing",
-    );
-}
-
 /// One attached file's entry.
-fn attached_file(file: &str, size: u64) -> AttachedFile {
+fn a_file(
+    file: &str,
+    size: u64,
+) -> AttachedFile {
     AttachedFile {
         file: file.to_string(),
         size,
     }
 }
 
-/// An event of one text field `n` characters long.
-fn event_of(n: usize) -> nu::Value {
+/// Data of one text field `n` characters long.
+fn data_of(n: usize) -> nu::Value {
     let span = nu::Span::unknown();
     let mut data = nu::Record::new();
     data.insert("text", nu::Value::string("t".repeat(n), span));
     nu::Value::record(data, span)
 }
 
+/// A rendered line read back as its record.
+fn record_of(line: &str) -> nu::Record {
+    nuon::from_nuon(line, None).expect("NUON").as_record().expect("record").clone()
+}
+
+/// The bytes of a relay's table as `<id>.attached.nuon` holds it.
+fn table_bytes(files: &[AttachedFile]) -> u64 {
+    render_nuon(&attached_table(files)).expect("render").len() as u64
+}
+
+/// A field's filesize, none where it holds anything else.
+fn size_of(
+    record: &nu::Record,
+    field: &str,
+) -> Option<i64> {
+    record.get(field).and_then(|v| v.as_filesize().ok()).map(|size| size.get())
+}
+
+/// A record's columns in order.
+fn columns(record: &nu::Record) -> Vec<&str> {
+    record.columns().map(String::as_str).collect()
+}
+
+#[test]
+fn a_packet_with_nothing_attached_is_the_envelope_s_first_variant() {
+    let rendered = render_packet(an_id(), "mcp", "mcp/channel/Open", &some_data(), None).expect("render");
+    assert!(!rendered.line.contains('\n'), "a packet never spans lines: {:?}", rendered.line);
+    assert_eq!(rendered.data, None, "nothing spilled, so no file");
+    let record = record_of(&rendered.line);
+    assert_eq!(columns(&record), vec!["id", "from", "model", "data"]);
+    assert!(
+        record.get("id").and_then(|v| v.as_str().ok()).is_some_and(|s| !s.is_empty()),
+        "every packet carries an id",
+    );
+    assert_eq!(record.get("from").and_then(|v| v.as_str().ok()), Some("mcp"));
+    assert_eq!(record.get("model").and_then(|v| v.as_str().ok()), Some("mcp/channel/Open"));
+    let data = record.get("data").and_then(|v| v.as_record().ok()).expect("data");
+    assert_eq!(
+        data.get("msg").and_then(|v| v.as_str().ok()),
+        Some("line one\nline two"),
+        "the escape round-trips to the original string",
+    );
+}
+
+#[test]
+fn a_relay_s_attachment_is_the_table_of_its_files() {
+    let files = [a_file("notes.nuon", 42)];
+    let attached = Attached::Files {
+        files: &files,
+        bytes: table_bytes(&files),
+    };
+    let rendered = render_packet(an_id(), "remote/channel/peer", "foo/bar/Car", &some_data(), Some(attached))
+        .expect("render");
+    let record = record_of(&rendered.line);
+    assert_eq!(columns(&record), vec!["id", "from", "model", "data", "attached"]);
+    let rows = record.get("attached").and_then(|v| v.as_list().ok()).expect("a table");
+    assert_eq!(rows.len(), 1);
+    let row = rows[0].as_record().expect("a row");
+    assert_eq!(row.get("file").and_then(|v| v.as_str().ok()), Some("notes.nuon"), "each file by its path in `<id>/`");
+    assert_eq!(size_of(row, "size"), Some(42));
+}
+
+#[test]
+fn a_local_attachment_is_its_file_s_size() {
+    let attached = Attached::Value { bytes: 42 };
+    let rendered = render_packet(an_id(), "thread/abc", "foo/Bar", &some_data(), Some(attached)).expect("render");
+    let record = record_of(&rendered.line);
+    assert_eq!(size_of(&record, "attached"), Some(42), "a local value rides as its file's size");
+    assert!(record.get("data").and_then(|v| v.as_record().ok()).is_some(), "its data inline");
+}
+
+#[test]
+fn a_line_past_the_cap_spills_its_attached_table_first() {
+    let files = [a_file(&format!("{}.txt", "n".repeat(NOTIFICATION_CAP)), 6)];
+    let bytes = table_bytes(&files);
+    let attached = Attached::Files { files: &files, bytes };
+    let rendered = render_packet(an_id(), "remote/channel/peer", "foo/Bar", &some_data(), Some(attached))
+        .expect("render");
+    assert!(rendered.line.chars().count() <= NOTIFICATION_CAP, "the line fits the cap");
+    assert_eq!(rendered.data, None, "the table's spill was enough, so the data stays");
+    let record = record_of(&rendered.line);
+    assert_eq!(size_of(&record, "attached"), Some(bytes as i64), "the table as its file's size");
+    assert!(record.get("data").and_then(|v| v.as_record().ok()).is_some(), "the data inline");
+}
+
+#[test]
+fn a_line_still_past_the_cap_spills_its_data_too() {
+    let files = [a_file("notes.nuon", 6)];
+    let bytes = table_bytes(&files);
+    let attached = Attached::Files { files: &files, bytes };
+    let rendered = render_packet(an_id(), "remote/channel/peer", "foo/Bar", &data_of(NOTIFICATION_CAP), Some(attached))
+        .expect("render");
+    assert!(rendered.line.chars().count() <= NOTIFICATION_CAP, "the line fits the cap");
+    let text = rendered.data.as_deref().expect("the data spilled");
+    let spilled = nuon::from_nuon(text, None).expect("NUON");
+    let field = spilled.as_record().expect("the data alone").get("text").and_then(|v| v.as_str().ok());
+    assert_eq!(field.map(str::len), Some(NOTIFICATION_CAP), "the file holds the data whole");
+    let record = record_of(&rendered.line);
+    assert_eq!(size_of(&record, "data"), Some(text.len() as i64), "the data as its file's size");
+    assert_eq!(size_of(&record, "attached"), Some(bytes as i64), "attached spilled before it");
+}
+
+#[test]
+fn the_envelope_fits_spilled_at_the_longest_model_and_alias() {
+    let from = format!("{}/thread/{}", "a".repeat(128), "n".repeat(11));
+    let model = "m".repeat(sourcetrait_grammar_protocol::MODEL_MAX_CHARS);
+    let files = [a_file(&"f".repeat(NOTIFICATION_CAP), 6)];
+    let attached = Attached::Files {
+        files: &files,
+        bytes: table_bytes(&files),
+    };
+    let rendered = render_packet(an_id(), &from, &model, &data_of(NOTIFICATION_CAP), Some(attached)).expect("render");
+    let count = rendered.line.chars().count();
+    assert!(count <= NOTIFICATION_CAP, "the spilled envelope fits: {count}");
+    let refused = render_packet(an_id(), "thread/abc", &"m".repeat(NOTIFICATION_CAP), &data_of(1), None);
+    assert!(
+        refused.is_err_and(|e| e.contains("cap")),
+        "an envelope past the cap is refused, never truncated",
+    );
+}
+
 #[test]
 fn a_line_fits_by_its_fields_its_id_counted_at_its_longest() {
-    let files = [attached_file("message.md", 11)];
-    let fits = |n: usize| line_fits("remote/channel/peer", "channel/Chat", &event_of(n), Some(&files)).expect("render");
-    let longest = (0..500).take_while(|n| fits(*n)).last().expect("a small event fits");
-    let line = |id: MsgId| render_packet(id, "remote/channel/peer", "channel/Chat", &event_of(longest), Some(&files)).expect("render").line;
+    let files = [a_file("message.md", 11)];
+    let attached = Attached::Files {
+        files: &files,
+        bytes: table_bytes(&files),
+    };
+    let fits = |n: usize| {
+        line_fits("remote/channel/peer", "channel/Chat", &data_of(n), Some(attached)).expect("render")
+    };
+    let longest = (0..NOTIFICATION_CAP).take_while(|n| fits(*n)).last().expect("small data fits");
     assert!(!fits(longest + 1), "one character more passes the cap");
     let worst = (0..64u64)
-        .map(|n| line(mint_msg_id(&datum::NonceGenerator::new(), "x", "y", &n.to_string(), None)).chars().count())
+        .map(|n| {
+            let id = mint_msg_id(&datum::NonceGenerator::new(), "x", "y", &n.to_string(), None);
+            let rendered = render_packet(id, "remote/channel/peer", "channel/Chat", &data_of(longest), Some(attached))
+                .expect("render");
+            assert_eq!(rendered.data, None, "data the check passed stays on the line");
+            rendered.line.chars().count()
+        })
         .max()
         .expect("lines");
     assert!(worst <= NOTIFICATION_CAP, "a line the check passed fits whatever id is minted: {worst}");
 }
 
 #[test]
-fn an_attachment_is_carried_by_its_file_and_size() {
-    let files = vec![attached_file(ATTACHED_FILE, 42)];
-    let line = render_packet(an_id(), "thread/abc", "foo/bar/Car", &an_event(), Some(&files))
-        .expect("render")
-        .line;
-    let value = nuon::from_nuon(&line, None).expect("valid NUON record");
-    let record = value.as_record().expect("record");
-    let rows = record.get("attached").and_then(|v| v.as_list().ok()).expect("a table");
-    let row = rows[0].as_record().expect("a row");
-    assert_eq!(rows.len(), 1);
-    assert_eq!(
-        row.get("file").and_then(|v| v.as_str().ok()),
-        Some(ATTACHED_FILE),
-        "each file by its path in the packet's own directory",
-    );
-    assert_eq!(row.get("size").and_then(|v| v.as_filesize().ok()).map(|size| size.get()), Some(42));
-    assert_eq!(
-        record.get("from").and_then(|v| v.as_str().ok()),
-        Some("thread/abc"),
-    );
+fn a_spill_is_a_bare_filesize() {
+    let size = spill_size(4096);
+    assert_eq!(size.as_filesize().ok().map(|size| size.get()), Some(4096));
+    assert!(size.as_record().is_err(), "no record, so no real data reads as one");
 }
 
 #[test]
-fn a_line_past_the_cap_spills_whole() {
-    let span = nu::Span::unknown();
-    let mut data = nu::Record::new();
-    data.insert("text", nu::Value::string("x".repeat(NOTIFICATION_CAP), span));
-    let event = nu::Value::record(data, span);
-    let files = vec![attached_file("notes.nuon", 6)];
-    let rendered = render_packet(an_id(), "thread/abc", "foo/Bar", &event, Some(&files)).expect("render");
-    assert!(rendered.line.chars().count() <= NOTIFICATION_CAP, "the spilled line fits the cap");
-    let line = nuon::from_nuon(&rendered.line, None).expect("NUON");
-    let record = line.as_record().expect("record");
-    assert!(record.get("attached").is_none(), "nothing but the event's size rides a spill");
-    let size = record
-        .get("event")
-        .and_then(|v| v.as_record().ok())
-        .and_then(|event| event.get(EVENT_SIZE_KEY))
-        .and_then(|v| v.as_filesize().ok())
-        .map(|size| size.get());
-    assert_eq!(size, Some(rendered.file.len() as i64), "the size is the packet file's");
-    let file = nuon::from_nuon(&rendered.file, None).expect("the file");
-    assert!(file.as_record().expect("record").get("attached").is_some(), "the file keeps the table");
-}
-
-#[test]
-fn a_line_spills_on_its_attached_table_alone() {
-    let files = vec![attached_file(&format!("{}.txt", "n".repeat(NOTIFICATION_CAP)), 6)];
-    let rendered = render_packet(an_id(), "remote/channel/peer", "foo/Bar", &an_event(), Some(&files))
-        .expect("render");
-    let line = nuon::from_nuon(&rendered.line, None).expect("NUON");
-    let event = line.as_record().expect("record").get("event").and_then(|v| v.as_record().ok()).expect("event");
-    assert!(event.get(EVENT_SIZE_KEY).is_some(), "a long file name spills the line, its event small");
+fn a_packet_s_files_are_named_beside_it() {
+    assert_eq!(data_file("abc"), "abc.data.nuon");
+    assert_eq!(attached_file("abc"), "abc.attached.nuon");
 }
 
 #[test]
@@ -147,22 +209,4 @@ fn ids_are_distinct_for_identical_packets() {
          still get distinct ids",
     );
     assert!(cereal::is_base62(&a.to_string()), "ids render base62");
-}
-
-#[test]
-fn an_event_overflows_past_the_cap_less_the_wrapper() {
-    let fits = "x".repeat(NOTIFICATION_CAP - 120);
-    assert!(!event_overflows(&fits), "an event that leaves the wrapper its room fits");
-    assert!(
-        event_overflows(&format!("{fits}x")),
-        "one character more would push the wrapped line past the client's cap",
-    );
-}
-
-#[test]
-fn a_spilled_event_carries_its_file_size_alone() {
-    let pointer = event_spill_pointer(4096);
-    let record = pointer.as_record().expect("record");
-    assert_eq!(record.columns().map(String::as_str).collect::<Vec<_>>(), vec![EVENT_SIZE_KEY], "no path rides the wire");
-    assert_eq!(record.get(EVENT_SIZE_KEY).and_then(|v| v.as_filesize().ok()).map(|size| size.get()), Some(4096));
 }

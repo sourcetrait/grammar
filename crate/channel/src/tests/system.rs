@@ -52,7 +52,7 @@ async fn open(
 ) {
     let greeting = matches!(mode, ChannelMode::Sync).then(|| HostRequest {
         id: "greetingid".to_string(),
-        packet_nuon: "{}".to_string(),
+        data: None,
         line: "greeting".to_string(),
     });
     handle
@@ -150,7 +150,7 @@ async fn a_gone_peer_makes_the_channel_report_its_hub_gone() {
     let hosted = handle
         .request(HostRequest {
             id: "greetingid".to_string(),
-            packet_nuon: "{}".to_string(),
+            data: None,
             line: "greeting".to_string(),
         })
         .await
@@ -242,10 +242,20 @@ async fn a_spilled_send_writes_its_files_before_its_line_goes_up() {
     let SendVerdict::Sent(id) = handle.request(req).await.expect("send") else {
         panic!("a verified channel takes the send");
     };
-    let attached = fs::read_to_string(dir.join(&id).join(ATTACHED_FILE)).expect("the attachment");
+    let attached = fs::read_to_string(dir.join(format!("{id}.attached.nuon"))).expect("the attachment");
     assert_eq!(attached, "{n: 1}");
-    let packet = fs::read_to_string(dir.join(format!("{id}.nuon"))).expect("the packet");
-    assert!(packet.contains("xxxx"), "the whole packet, its full event, sits in its own file");
+    let data = fs::read_to_string(dir.join(format!("{id}.data.nuon"))).expect("the data");
+    assert!(data.contains("xxxx"), "the whole data sits in its own file");
+    let mut names: Vec<String> = fs::read_dir(&dir)
+        .expect("the inbox")
+        .map(|entry| entry.expect("an entry").file_name().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    assert_eq!(
+        names,
+        [format!("{id}.attached.nuon"), format!("{id}.data.nuon")],
+        "nothing but the attachment and the spill",
+    );
     assert!(matches!(heard.try_recv(), Ok(FromChannelSys::Line(_))));
     let _ = fs::remove_dir_all(&dir);
     handle.stop().await.expect("stop");
@@ -274,7 +284,7 @@ async fn a_thread_outside_the_runtime_sends_and_notifies() {
     let hosted = handle
         .request(HostRequest {
             id: "x".to_string(),
-            packet_nuon: "{}".to_string(),
+            data: None,
             line: "x".to_string(),
         })
         .await

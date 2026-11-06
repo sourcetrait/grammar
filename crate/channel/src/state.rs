@@ -41,40 +41,7 @@ pub(crate) struct PlannedSend {
     /// Each staged path renamed into place, in order, before the writes.
     pub(crate) moves: Vec<(PathBuf, PathBuf)>,
     pub(crate) files: Vec<(PathBuf, String)>,
-    /// A relay whose peer spilled its event, rendered once the moves have landed.
-    pub(crate) compose: Option<Compose>,
     pub(crate) line: String,
-}
-
-/// A relay's packet, to be rendered from the event its peer spilled to a file.
-pub(crate) struct Compose {
-    pub(crate) id: MsgId,
-    pub(crate) from: String,
-    pub(crate) model: String,
-    pub(crate) attached: Option<Vec<AttachedFile>>,
-    /// The spilled event, in the packet's `<id>/` once moved.
-    pub(crate) spill: PathBuf,
-    /// The packet's file, `<id>.nuon`.
-    pub(crate) file: PathBuf,
-}
-
-impl Compose {
-    /// The packet rendered whole with the spilled event and written: its line.
-    pub(crate) fn write(self) -> Result<String, EmitError> {
-        let text = fs::read_to_string(&self.spill)
-            .map_err(|e| EmitError::Write(format!("read {}: {e}", self.spill.display())))?;
-        let event = nu::from_nuon(&text, None)
-            .map_err(|e| EmitError::Unparseable(format!("the spilled event: {e}")))?;
-        let rendered = render_packet(self.id, &self.from, &self.model, &event, self.attached.as_deref())
-            .map_err(EmitError::Render)?;
-        write_files(vec![(self.file, rendered.file)]).map_err(EmitError::Write)?;
-        fs::remove_file(&self.spill)
-            .map_err(|e| EmitError::Write(format!("remove {}: {e}", self.spill.display())))?;
-        if let Some(dir) = self.spill.parent() {
-            let _ = fs::remove_dir(dir);
-        }
-        Ok(rendered.line)
-    }
 }
 
 /// The logical Channel: its phase, its claim, its gate, its sink, and its spam.
@@ -337,7 +304,7 @@ impl Channel {
         let EmitRequest {
             from,
             model,
-            event,
+            data,
             attached,
             staged,
         } = req;
@@ -346,42 +313,37 @@ impl Channel {
             ChannelPhase::Open => return Err(EmitError::Refused(ChannelSendError::NotVerified)),
             ChannelPhase::Verified => {}
         }
-        let event = nu_value(event).map_err(EmitError::Render)?;
-        let event_nuon = render_nuon(&event).map_err(EmitError::Render)?;
-        let names = attached
-            .as_ref()
-            .map(|files| files.iter().map(|file| file.file.as_str()).collect::<Vec<_>>().join("\n"));
-        let id = mint_msg_id(&self.nonce_gen, &from, &model, &event_nuon, names.as_deref());
-        let inbox = self.inbox.clone().ok_or(EmitError::Refused(ChannelSendError::NotOpen))?;
-        let own = inbox.join(id.to_string());
-        let file = inbox.join(event_file(id));
-        let mut moves = Vec::new();
-        if let Some(staged) = &staged {
-            moves.push((inbox.join(&staged.dir), own.clone()));
-        }
-        if let Some(spill) = staged.and_then(|staged| staged.spill) {
-            return Ok(PlannedSend {
-                id: id.to_string(),
-                moves,
-                files: Vec::new(),
-                compose: Some(Compose {
-                    id,
-                    from,
-                    model,
-                    attached,
-                    spill: own.join(spill),
-                    file,
-                }),
-                line: String::new(),
-            });
-        }
-        let rendered = render_packet(id, &from, &model, &event, attached.as_deref())
+        let data = nu_value(data).map_err(EmitError::Render)?;
+        let data_nuon = render_nuon(&data).map_err(EmitError::Render)?;
+        let attached = attached.filter(|files| !files.is_empty());
+        let table_nuon = attached
+            .as_deref()
+            .map(|files| render_nuon(&attached_table(files)))
+            .transpose()
             .map_err(EmitError::Render)?;
+        let id = mint_msg_id(&self.nonce_gen, &from, &model, &data_nuon, table_nuon.as_deref());
+        let inbox = self.inbox.clone().ok_or(EmitError::Refused(ChannelSendError::NotOpen))?;
+        let mut moves = Vec::new();
+        if let Some(dir) = &staged {
+            moves.push((inbox.join(dir), inbox.join(id.to_string())));
+        }
+        let mut files = Vec::new();
+        let attached = match (attached.as_deref(), table_nuon) {
+            (Some(attached), Some(nuon)) => {
+                let bytes = nuon.len() as u64;
+                files.push((inbox.join(attached_file(id)), nuon));
+                Some(Attached::Files { files: attached, bytes })
+            }
+            _ => None,
+        };
+        let rendered = render_packet(id, &from, &model, &data, attached).map_err(EmitError::Render)?;
+        if let Some(text) = rendered.data {
+            files.push((inbox.join(data_file(id)), text));
+        }
         Ok(PlannedSend {
             id: id.to_string(),
             moves,
-            files: vec![(file, rendered.file)],
-            compose: None,
+            files,
             line: rendered.line,
         })
     }
@@ -477,8 +439,8 @@ impl Channel {
             }
         }
 
-        let event = nu_value(event).map_err(SendVerdict::Refused)?;
-        let event_nuon = render_nuon(&event).map_err(SendVerdict::Refused)?;
+        let data = nu_value(event).map_err(SendVerdict::Refused)?;
+        let data_nuon = render_nuon(&data).map_err(SendVerdict::Refused)?;
         let attached_nuon = match attached {
             Some(value) => {
                 let value = nu_value(value).map_err(SendVerdict::Refused)?;
@@ -490,27 +452,25 @@ impl Channel {
             &self.nonce_gen,
             &from,
             &model,
-            &event_nuon,
+            &data_nuon,
             attached_nuon.as_deref(),
         );
 
-        let attached_files = attached_nuon.as_ref().map(|nuon| {
-            vec![AttachedFile {
-                file: ATTACHED_FILE.to_string(),
-                size: nuon.len() as u64,
-            }]
+        let attached = attached_nuon.as_ref().map(|nuon| Attached::Value {
+            bytes: nuon.len() as u64,
         });
-        let rendered = render_packet(id, &from, &model, &event, attached_files.as_deref())
-            .map_err(SendVerdict::Refused)?;
-        let mut files = vec![(self.inbox_path(&event_file(id))?, rendered.file)];
+        let rendered = render_packet(id, &from, &model, &data, attached).map_err(SendVerdict::Refused)?;
+        let mut files = Vec::new();
         if let Some(nuon) = attached_nuon {
-            files.push((self.inbox_path(&id.to_string())?.join(ATTACHED_FILE), nuon));
+            files.push((self.inbox_path(&attached_file(id))?, nuon));
+        }
+        if let Some(text) = rendered.data {
+            files.push((self.inbox_path(&data_file(id))?, text));
         }
         Ok(PlannedSend {
             id: id.to_string(),
             moves: Vec::new(),
             files,
-            compose: None,
             line: rendered.line,
         })
     }

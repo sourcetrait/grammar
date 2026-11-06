@@ -52,9 +52,13 @@ fn the_first_sync_delivers_the_greeting() {
     let packet = one_packet(&env);
     assert_eq!(packet["from"], "mcp", "{env}");
     assert_eq!(packet["model"], "mcp/channel/Open", "{env}");
-    assert!(packet["event"]["mcp_nom"].as_str().is_some(), "{env}");
+    assert!(packet["data"]["mcp_nom"].as_str().is_some(), "{env}");
     assert!(packet["id"].as_str().is_some(), "{env}");
-    assert!(packet["attached"].is_nothing(), "{env}");
+    let NuVal::Record(fields) = packet else {
+        panic!("a packet is a record; got {env}");
+    };
+    let keys: Vec<&str> = fields.iter().map(|(key, _)| key.as_str()).collect();
+    assert_eq!(keys, ["id", "from", "model", "data"], "the envelope's first variant; {env}");
     let ready = s.interface("interface channel ready");
     assert!(!has_error(&ready), "the sync claimed the channel; {ready}");
 }
@@ -72,7 +76,7 @@ fn a_body_send_waits_for_the_next_sync() {
     let packet = one_packet(&env);
     assert_eq!(packet["from"], format!("thread/{nonce}"), "{env}");
     assert_eq!(packet["model"], "example/Ping", "{env}");
-    assert_eq!(packet["event"], nuon("{n: 1}"), "{env}");
+    assert_eq!(packet["data"], nuon("{n: 1}"), "{env}");
     let again = s.interface("interface channel sync");
     assert_eq!(again["result"]["packets"], nuon("[]"), "the sync emptied the queue; {again}");
 }
