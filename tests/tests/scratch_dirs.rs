@@ -313,7 +313,7 @@ fn sigterm_removes_both_directories() {
 
 /// Each open makes the Channel's directory, `channel/`, in the host's tree.
 ///
-/// It is private, a send's event landing in it as `<id>.nuon` and its
+/// It is private, a send's packet landing in it as `<id>.nuon` and its
 /// attachment in `<id>/`; a close removes it, a reopen makes it again, and the
 /// host's end removes its tree and nothing else. The mode and the signalled
 /// end on Unix alone.
@@ -344,7 +344,7 @@ fn each_open_makes_the_channel_inbox_in_the_transient_base() {
         .as_str()
         .unwrap_or_else(|| panic!("the send answers its id; got {resp}"))
         .to_string();
-    assert!(inbox.join(format!("{id}.nuon")).is_file(), "the event lands as {id}.nuon");
+    assert!(inbox.join(format!("{id}.nuon")).is_file(), "the packet lands as {id}.nuon");
     assert!(
         inbox.join(&id).join("attached.nuon").is_file(),
         "the attachment lands in the packet's own {id}/",

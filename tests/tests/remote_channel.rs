@@ -683,7 +683,7 @@ fn attach_bare(root: &Path, name: &str, keys: &GeneratedKeys) -> Consumer {
     Consumer::attach(host, &keys.ca)
 }
 
-/// The inbox-relative file a spilled packet's whole event sits in, `<id>.nuon`.
+/// The inbox-relative file a spilled packet sits in whole, `<id>.nuon`.
 fn spill_path(pkt: &Packet) -> String {
     format!("{}.nuon", pkt.id)
 }
