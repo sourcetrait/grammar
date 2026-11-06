@@ -439,13 +439,13 @@ async fn equip_new(
     core: &EngineCore,
     source: &str,
 ) -> EngineResult<ControlAnswer> {
-    let source_dir = Path::new(source);
-    let equip = equip_namepath_of(source_dir)?;
+    let source_dir = equip_source_dir(source);
+    let equip = equip_namepath_of(&source_dir)?;
     let Ok(lock) = core.rig_locks.register(&equip).await else {
         return Err(EngineError::EquipAlreadyRegistered { equip });
     };
     let _guard = lock.write().await;
-    match establish_equip(&equip, source_dir) {
+    match establish_equip(&equip, &source_dir) {
         Ok(created) => Ok(ControlAnswer::Created(created)),
         Err(e) => {
             core.rig_locks.unregister(&equip).await;
@@ -459,14 +459,14 @@ async fn equip_install(
     core: &EngineCore,
     source: &str,
 ) -> EngineResult<ControlAnswer> {
-    let source_dir = Path::new(source);
-    let equip = equip_namepath_of(source_dir)?;
+    let source_dir = equip_source_dir(source);
+    let equip = equip_namepath_of(&source_dir)?;
     let Ok(lock) = core.rig_locks.register(&equip).await else {
         return Err(EngineError::EquipAlreadyRegistered { equip });
     };
     let _guard = lock.write().await;
     let engine = core.lint_engine.current();
-    match install_equip(&equip, source_dir, &engine) {
+    match install_equip(&equip, &source_dir, &engine) {
         Ok(result) => Ok(ControlAnswer::Installed { equip, result }),
         Err(e) => {
             core.rig_locks.unregister(&equip).await;
@@ -480,13 +480,13 @@ async fn equip_check(
     core: &EngineCore,
     source: &str,
 ) -> EngineResult<ControlAnswer> {
-    let source_dir = Path::new(source);
-    let equip = equip_namepath_of(source_dir)?;
+    let source_dir = equip_source_dir(source);
+    let equip = equip_namepath_of(&source_dir)?;
     let Some(lock) = core.rig_locks.lookup(&equip).await else {
         return Err(EngineError::EquipNotRegistered { equip });
     };
     let _guard = lock.read().await;
-    check_source_dir(&equip, source_dir)?;
+    check_source_dir(&equip, &source_dir)?;
     let engine = core.lint_engine.current();
     let result = check_equip(&equip, &engine)?;
     let (errors, warnings) = Diagnostic::bucket(result.diagnostics);
@@ -502,13 +502,13 @@ async fn equip_uninstall(
     core: &EngineCore,
     source: &str,
 ) -> EngineResult<ControlAnswer> {
-    let source_dir = Path::new(source);
-    let equip = equip_namepath_of(source_dir)?;
+    let source_dir = equip_source_dir(source);
+    let equip = equip_namepath_of(&source_dir)?;
     let Some(lock) = core.rig_locks.lookup(&equip).await else {
         return Ok(ControlAnswer::Uninstalled { equip: None });
     };
     let guard = lock.write().await;
-    check_source_dir(&equip, source_dir)?;
+    check_source_dir(&equip, &source_dir)?;
     uninstall_equip(&equip)?;
     drop(guard);
     core.rig_locks.unregister(&equip).await;

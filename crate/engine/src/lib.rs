@@ -77,7 +77,7 @@ pub(crate) use crate::{
         },
         store::{
             EQUIP_DIR, EQUIP_KINDS, KIND_LIB, KIND_RIG, META_FILE, check_equip_name, equip_dir,
-            git_command, index_to_nuon, is_valid_equip, is_valid_ident, is_valid_module_path, keypair_dir,
+            equip_source_dir, git_command, index_to_nuon, is_valid_equip, is_valid_ident, is_valid_module_path, keypair_dir,
             lib_meta_path, load_lib_index, load_rig_source, meta_to_nuon, rig_docs_dir, run_git,
         },
         validate::{HELP_WORDS, NAME_DENYLIST, is_reserved_term, validate_equip_source},
@@ -144,7 +144,7 @@ pub(crate) mod nu {
     pub(crate) use nu_engine::command_prelude::Call;
     pub(crate) use nu_parser::parse;
     pub(crate) use nu_parser::{FlatShape, flatten_block};
-    pub(crate) use nu_path::expand_to_real_path;
+    pub(crate) use nu_path::{expand_tilde, expand_to_real_path};
     pub(crate) use nu_plugin_engine::load_plugin_file;
     pub(crate) use nu_protocol::{
         BlockId, ByteStreamSource, ByteStreamType, Category, CollectionColumns, Config, DeclId,

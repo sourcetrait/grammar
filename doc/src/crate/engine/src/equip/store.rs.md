@@ -43,6 +43,13 @@ rather than normalized, because the registered source is compared component-wise
 normalized alias would name a different directory than the one it spells. A Windows path's
 drive prefix, `C:`, is passed over as the root is.
 
+## fn equip_source_dir
+Every equip command reads its source here, as nushell reads a path argument: a leading `~`
+is the home of the host the engine runs on, so a remote engine's source is that host's own
+tree, never the controller's. Nothing else is rewritten; a relative source stays relative
+to the engine's directory, the work dir, and is registered as spelled. Read as spelled,
+`~/x` would name a directory `~` under the work dir, and `equip new` would make it.
+
 ## fn require_rig
 Two refusals, kept apart: an equip that is not installed is `equip::not_registered`, while an
 installed one with no rig is `equip::no_rig`. A call or a scaffold into a lib-only equip is a

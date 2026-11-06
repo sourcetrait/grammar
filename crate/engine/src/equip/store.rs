@@ -240,6 +240,11 @@ pub fn equip_namepath_of(source_dir: &Path) -> Result<String, EngineError> {
     Ok(equip)
 }
 
+/// An equip's source as its engine's host reads it, a leading `~` its home.
+pub(crate) fn equip_source_dir(source: &str) -> PathBuf {
+    nu::expand_tilde(source)
+}
+
 /// Refuse an equip name that is malformed, reserved, or denied.
 pub(crate) fn check_equip_name(equip: &str) -> Result<(), EngineError> {
     let Some((author, name)) = equip.split_once('/').filter(|(_, n)| !n.contains('/')) else {

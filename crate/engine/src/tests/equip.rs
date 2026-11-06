@@ -146,3 +146,25 @@ fn an_older_index_still_names_its_source() {
         "the source is the one field a commit reads",
     );
 }
+
+/// A source's leading `~` reads as the engine host's home, the rest as spelled.
+///
+/// Read relative, `~/x` would name a directory `~` under the work dir, which
+/// `equip new` would then make.
+#[test]
+fn an_equip_source_reads_a_leading_tilde_as_home() {
+    let homed = equip_source_dir("~/src/equip/acme/geo");
+    assert!(homed.is_absolute(), "the home's tree; got {}", homed.display());
+    assert!(homed.ends_with("src/equip/acme/geo"), "under the home; got {}", homed.display());
+    assert_eq!(equip_namepath_of(&homed).expect("named"), "acme/geo");
+    assert_eq!(
+        equip_source_dir("src/equip/acme/geo"),
+        PathBuf::from("src/equip/acme/geo"),
+        "a relative source stays relative to the engine's directory",
+    );
+    assert_eq!(
+        equip_source_dir("/opt/equip/acme/geo"),
+        PathBuf::from("/opt/equip/acme/geo"),
+        "an absolute source stays as spelled",
+    );
+}
