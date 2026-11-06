@@ -138,13 +138,13 @@ impl HostRoute {
         let PreparedSend {
             mcp_nom,
             model,
-            event_nuon,
+            data,
             files,
         } = prepared;
         let send = RemoteSendRequest {
             mcp_nom,
             model,
-            event_nuon,
+            data,
             payloads: files.into_iter().map(|file| Payload { dest: file.dest, bytes: file.bytes }).collect(),
         };
         let Some(peer) = self.face.peer() else {

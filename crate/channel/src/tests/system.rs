@@ -74,11 +74,11 @@ async fn verified(handle: &ChannelHandle, inbox: &std::path::Path) {
     assert_eq!(ready, Ok(ChannelEpoch(1)));
 }
 
-fn send(event: NuVal) -> SendRequest {
+fn send(data: NuVal) -> SendRequest {
     SendRequest(ChannelSendData {
         from: "thread/a".to_string(),
         model: "foo/Bar".to_string(),
-        event,
+        data,
         attached: None,
     })
 }
@@ -236,7 +236,7 @@ async fn a_spilled_send_writes_its_files_before_its_line_goes_up() {
     let req = SendRequest(ChannelSendData {
         from: "thread/a".to_string(),
         model: "foo/Bar".to_string(),
-        event: big,
+        data: big,
         attached: Some(small_event()),
     });
     let SendVerdict::Sent(id) = handle.request(req).await.expect("send") else {

@@ -378,15 +378,15 @@ impl Channel {
     /// A body's send up to its files: the checks, the render, and the id.
     pub(crate) fn plan_send(
         &mut self,
-        data: ChannelSendData,
+        send: ChannelSendData,
         now: Instant,
     ) -> Result<PlannedSend, SendVerdict> {
         let ChannelSendData {
             from,
             model,
-            event,
+            data: event,
             attached,
-        } = data;
+        } = send;
         if let Some(prefix) = reserved_prefix(&model) {
             return Err(SendVerdict::Refused(format!(
                 "`{prefix}` is reserved for host-originated models; \

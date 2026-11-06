@@ -46,8 +46,8 @@
   [answer/value/ok,                               FromEngineSys, "0000efcdab8967452301000901026f6b0001"],
   [request/bed/local,                             ToEngineSys,   "040000efcdab89674523010467726d72326368616e6e656c2073656e6420276d792f6164686f632f5468696e6727207b666f6f3a2027626172272c206e756d3a20337d"],
   [request/bed/remote,                            ToEngineSys,   "040100ffffffffffffffff00efcdab89674523010467726d72326368616e6e656c2073656e6420276d792f6164686f632f5468696e6727207b666f6f3a2027626172272c206e756d3a20337d"],
-  [request/call/local,                            ToEngineSys,   "020000efcdab89674523010c6772616d3a6765743a6c6f670a7b726566733a205b5d7d0104326d696e"],
-  [request/call/remote,                           ToEngineSys,   "020100ffffffffffffffff00efcdab89674523010c6772616d3a6765743a6c6f670a7b726566733a205b5d7d0104326d696e"],
+  [request/call/local,                            ToEngineSys,   "020000efcdab89674523010c6772616d3a6765743a6c6f67090104726566730a000104326d696e"],
+  [request/call/remote,                           ToEngineSys,   "020100ffffffffffffffff00efcdab89674523010c6772616d3a6765743a6c6f67090104726566730a000104326d696e"],
   [request/control/equip_check,                   ToEngineSys,   "0300060e65717569702f61636d652f67656f"],
   [request/control/equip_commit,                  ToEngineSys,   "0300090861636d652f67656f"],
   [request/control/equip_install,                 ToEngineSys,   "0300050e65717569702f61636d652f67656f"],
@@ -60,8 +60,8 @@
   [request/control/processes,                     ToEngineSys,   "030000"],
   [request/control/signatures,                    ToEngineSys,   "03000a0304bb2a2e61636d652f"],
   [request/control/teardown,                      ToEngineSys,   "030003"],
-  [request/execute/local,                         ToEngineSys,   "000000efcdab8967452301326465662065786563757465205b646174613a206e6f7468696e675d3a206e6f7468696e67202d3e206e6f7468696e67207b7d046e756c6c00"],
-  [request/execute/remote,                        ToEngineSys,   "000100ffffffffffffffff00efcdab8967452301326465662065786563757465205b646174613a206e6f7468696e675d3a206e6f7468696e67202d3e206e6f7468696e67207b7d046e756c6c00"],
-  [request/rerun/local,                           ToEngineSys,   "010000efcdab89674523010b6e6f6e6365536f75726365167b7265706f3a2027d0bad0bbd18ed18720e29c93277d01053330736563"],
-  [request/rerun/remote,                          ToEngineSys,   "010100ffffffffffffffff00efcdab89674523010b6e6f6e6365536f75726365167b7265706f3a2027d0bad0bbd18ed18720e29c93277d01053330736563"]
+  [request/execute/local,                         ToEngineSys,   "000000efcdab8967452301326465662065786563757465205b646174613a206e6f7468696e675d3a206e6f7468696e67202d3e206e6f7468696e67207b7d0d00"],
+  [request/execute/remote,                        ToEngineSys,   "000100ffffffffffffffff00efcdab8967452301326465662065786563757465205b646174613a206e6f7468696e675d3a206e6f7468696e67202d3e206e6f7468696e67207b7d0d00"],
+  [request/rerun/local,                           ToEngineSys,   "010000efcdab89674523010b6e6f6e6365536f757263650901047265706f030cd0bad0bbd18ed18720e29c9301053330736563"],
+  [request/rerun/remote,                          ToEngineSys,   "010100ffffffffffffffff00efcdab89674523010b6e6f6e6365536f757263650901047265706f030cd0bad0bbd18ed18720e29c9301053330736563"]
 ]

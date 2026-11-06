@@ -37,25 +37,38 @@ grammar-ssh's idle end and its signal end carry their reason.
 The two directions' frames. Requests and asks each carry an id their sender
 draws in order, unique in the session, so a response or an answer finds its
 waiter without a table of its own on the wire. A cancel is no frame of its own:
-it is the engine's `Kill` under the call's nonce, which the MCP minted, as
-`interface process kill` is.
+it is an interface call, `process kill` under the call's nonce, which the MCP
+minted.
 
 ## enum EngineRequest
+The tool calls themselves, each with its parameters as the MCP's tool took them,
+and nothing else: a parameter the tool takes as NUON crosses as a NuVal, one it
+takes as Nu as a string (User). An interface call crosses as its subcommand, so
+no interface command is a type of the wire and a command added or changed moves
+only the hosts that serve it; bed's subcommand crosses the same way. execute's
+definition crosses as its contract's model beside its body: `is_env`, the data's
+and the result's schemas as NuTypes, and whether it takes `timeout?`, the body
+its Nu text.
 ### fn is_call
 An eval, a rerun, a call, or a bed call takes one of the session's call slots,
-each running an eval; every other
-request takes a control slot, so a session full of evals still answers a kill,
-a process list, or an info.
+each running an eval; an interface call takes a control slot, so a session full
+of evals still answers a kill, a process list, or an info.
 
 ## enum EngineResponse
 `Refused` is grammar-ssh's refusal before its engine took the request, or an
 answer past the frame refused in its place, never the engine's own failure,
 which its answer carries.
 
-## struct SshInfo
-What `interface info` reports of a host that only its grammar-ssh knows: its
-nom, its workdir, its two scratch directories, and its plugins. The signature
-block and the purview come from its engine's own requests.
+## struct CallAnswer
+A call's answer is its value or the rows its refusal reports, the envelope's two
+halves, so no error type of the engine's crosses: the MCP wraps either in the
+envelope under its nonce.
+
+## struct HostInfo
+What `interface info` reports of a host beside its engine's view: its version
+and nushell's, its id and namespace, its nom, its workdir, its two scratch
+directories, and its plugins. The MCP and grammar-ssh each build their own for
+the engine's `desk.rs`; it never crosses the wire.
 
 ## const AI_TRANSIENT_DIR
 The name both hosts join between their runtime base and their id, so an agent
@@ -75,8 +88,8 @@ A positional pair, as the tools have always shown it.
 The engine's host asks grammar-ssh can't answer itself, carried to the MCP,
 whose Channel and peer links are the agent's. A pin is held on grammar-ssh,
 since it binds grammar-ssh's own operator, so it never crosses. A remote send
-crosses prepared: its files read and its event rendered on grammar-ssh, where
-the paths are, and carried inline within the frame's ceiling, so the MCP reaches
+crosses prepared: its files read on grammar-ssh, where the paths are, and
+carried inline within the frame's ceiling beside its data, so the MCP reaches
 no file of grammar-ssh's.
 
 ## struct PreparedSend

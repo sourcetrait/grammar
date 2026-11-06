@@ -213,7 +213,7 @@ async fn a_close_or_a_send_with_no_link_is_refused() {
     let send = |model: &str| RemoteSendRequest {
         mcp_nom: "peernom0001".to_string(),
         model: model.to_string(),
-        event_nuon: "{a: 1}".to_string(),
+        data: NuVal::Record(vec![("a".to_string(), NuVal::Int(1))]),
         payloads: Vec::new(),
     };
     let unlinked = peers.request(send("proj/thing/Changed")).await.expect("send");

@@ -122,7 +122,7 @@ A host packet's send, a relay's or a report's, gated as `emit` is. A peer's
 files are already on disk, staged by the link, so the id is minted over their
 table, their names and sizes, rather than their content, the sizes the link's.
 A staged directory moves to `<id>/`, and the table is written beside it as
-`<id>.attached.nuon`. The peer's event arrives whole in its Deliver frame, so
+`<id>.attached.nuon`. The peer's data arrives whole in its Deliver frame, so
 the packet renders here as any other does, its spill the same.
 
 ### fn finish_emit

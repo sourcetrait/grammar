@@ -354,12 +354,12 @@ fn thresholds_update_partially_and_reject_zero() {
     assert_eq!(read.warn_rate, 7, "a rejected update must not have partially applied");
 }
 
-/// A body's send of `event` from `from`, nothing attached.
-fn send_data(from: &str, model: &str, event: NuVal) -> ChannelSendData {
+/// A body's send of `data` from `from`, nothing attached.
+fn send_data(from: &str, model: &str, data: NuVal) -> ChannelSendData {
     ChannelSendData {
         from: from.to_string(),
         model: model.to_string(),
-        event,
+        data,
         attached: None,
     }
 }

@@ -11,13 +11,13 @@ remote/channel/Sent or Unsent, driven by the transport's write (`crate/peer`'s
 ## struct GrmrRemoteChannelSend
 One decl: `data` the message, and `attached`, optional, the files table, each local
 `src` beside the `dest` the receiver lands it under, left off where the send carries
-no files. `data` is the envelope's own word for what a packet carries; the wire's
-`RemoteSendData` keeps its field `event`, so its schema stands.
+no files. `data` is the envelope's own word for what a packet carries, and `RemoteSendData`'s
+field for it.
 
 ## fn remote_send
 The reservation is refused first, as the send always refused it before reading
 anything, then the data and the files table cross as data; the controller reads
-each file, rendering the event after (`crate/mcp`'s `server/host.rs`). A model under
+each file (`crate/mcp`'s `server/host.rs`). A model under
 `mcp/` or `remote/` is host-origin only, as for a channel send, and one past
 `MODEL_MAX_CHARS` is refused beside it, as the receiver would refuse its relay.
 

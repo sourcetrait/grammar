@@ -3,6 +3,7 @@ pub(crate) mod blocked;
 pub(crate) mod cache;
 pub(crate) mod config_dirs;
 pub(crate) mod cycle;
+pub(crate) mod desk;
 pub(crate) mod dispatch;
 pub(crate) mod embed;
 pub(crate) mod engine;
@@ -110,8 +111,14 @@ pub(crate) use crate::{
 };
 
 pub(crate) use sourcetrait_grammar_protocol::{
-    ChannelSendData, ChannelSpamErrorEmergency, PreparedSend, PurviewRow, PurviewView,
-    RemoteSendData, RuntimeError, SendFile, model_too_long, model_too_long_reason, reserved_prefix, safe_dest, with_head,
+    ChannelSendData, ChannelSpamErrorEmergency, HostInfo, INTERFACE, PreparedSend, PurviewRow, PurviewView,
+    RemoteSendData, RuntimeError, SendFile, TransientPaths, model_too_long, model_too_long_reason,
+    reserved_prefix, safe_dest, with_head,
+};
+
+pub(crate) use sourcetrait_grammar_interface::{
+    EngineInterfaceCommand, InspectParams, InterfaceCommand, KIND_INTERFACE, PurviewConfigureParams,
+    PurviewExtendParams, PurviewParams, interface_engine, parse_command,
 };
 
 pub(crate) use std::{
@@ -161,7 +168,7 @@ pub(crate) mod nu {
     pub(crate) use nu_protocol::ast::Call as AstCall;
     pub(crate) use nu_protocol::shell_error::generic::GenericError;
     pub(crate) use nu_std::load_standard_library;
-    pub(crate) use nuon::{ToNuonConfig, from_nuon, to_nuon};
+    pub(crate) use nuon::{ToNuonConfig, to_nuon};
 }
 
 pub(crate) use nu::{CallExt, IntoValue};
@@ -193,6 +200,7 @@ pub use crate::{
     bed::{EMBEDDED, KIND_BED, analyze_bed},
     cache::{CacheKind, DEFINITION_FILE, cache_dir, definition_file},
     cycle::detect_import_cycle,
+    desk::{CurrentPurview, Desk, InterfaceParser, run_engine_command, run_interface},
     embed::EVAL_STACK_SIZE,
     engine::NU_VERSION,
     equip::{
@@ -213,11 +221,11 @@ pub use crate::{
         },
         validate::{DocEntry, ValidationResult},
     },
-    execute::{ExecuteDef, analyze_definition},
+    execute::{ExecuteDef, analyze_definition, define, definition_model, render_definition},
     executor::{Executor, eval_concurrency_cap},
     identity::EngineIdentity,
     lint::lint_block,
-    msg::{FromEngine, HostAsk, PinAsk, ToEngine},
+    msg::{DefineRequest, FromEngine, HostAsk, PinAsk, ToEngine},
     namepath::{
         Namepath, NamepathPattern, NamepathRef, NamepathStr, PATTERN_ALL, PATTERN_CURRENT,
         resolve_builtin,
@@ -228,13 +236,15 @@ pub use crate::{
     plugins::{ensure_plugin_registry, list_registered_plugins},
     schema::{check_value, typedef_text},
     send::prepare_send,
+    serve::{nuon_data, nuon_timeout},
     system::{EngineHandle, EngineSysConfig, EngineSysParams, EngineSysPaths, EngineSystem},
     template::{build_call_source, build_execute_source},
 };
 
 pub use sourcetrait_grammar_protocol::{
-    BUILTINS, BedRequest, CallDoc, CallRequest, CheckSummary, CommitResult, ControlAnswer, ControlRequest,
-    Diagnostic, EngineCommand, EngineError, EngineHealth, EngineResult, ExecuteRequest,
+    BUILTINS, BedRequest, CallDoc, CallRequest, CheckSummary, CommitResult, ControlAnswer,
+    ControlRequest, Diagnostic, EngineCommand, EngineError, EngineHealth, EngineResult, ExecuteDefinition,
+    ExecuteRequest,
     FromEngineSys, Host, HostAnswer, HostStop, HungEval, InspectDoc, LINT_VIOLATION_CAP, Lane,
     ModuleDoc, PluginInfo, ProcessRow, PurviewAnswer, PurviewConfigureRequest, PurviewListRequest,
     PurviewRequest, PurviewResolution, PurviewResolveRequest, PurviewRigRequest, RerunRequest,

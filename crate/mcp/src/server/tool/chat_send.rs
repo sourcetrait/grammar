@@ -52,7 +52,7 @@ impl ChannelFace {
         let send = RemoteSendRequest {
             mcp_nom,
             model: CHAT_MODEL.to_string(),
-            event_nuon: render_nuon(&data).map_err(internal)?,
+            data: NuVal::try_from_nu(data).map_err(|e| internal(e.to_string()))?,
             payloads: vec![Payload {
                 dest: CHAT_MESSAGE_FILE.to_string(),
                 bytes: message.into_bytes(),

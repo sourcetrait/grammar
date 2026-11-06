@@ -37,6 +37,7 @@ serde.workspace = true
 tokio.workspace = true
 
 sourcetrait_common.workspace = true
+sourcetrait_grammar_interface.workspace = true
 sourcetrait_grammar_protocol.workspace = true
 sourcetrait_process.workspace = true
 

@@ -292,12 +292,21 @@ impl TestServer {
         Self::envelope(self.rt.block_on(self.nush.bed(mcp::Parameters(p))))
     }
 
+    /// An engine command on the MCP's own engine, under `nonce`.
+    fn engine_command(
+        &self,
+        nonce: datum::Nonce,
+        command: EngineInterfaceCommand,
+    ) -> NuVal {
+        Self::envelope(self.rt.block_on(self.nush.local_engine(nonce, command)))
+    }
+
     pub fn commit(&self, namepath: &str) -> NuVal {
         let p = CommitParams {
             namepath: namepath.to_string(),
         };
         let nonce = self.interface_nonce(&p);
-        Self::envelope(self.rt.block_on(self.nush.equip_commit(nonce, &Route::Local, p)))
+        self.engine_command(nonce, EngineInterfaceCommand::EquipCommit(p))
     }
 
     /// An `interface equip` action on a source; an unknown one goes to the parse.
@@ -306,14 +315,14 @@ impl TestServer {
             source: source_dir.to_string(),
         };
         let nonce = self.interface_nonce(&p);
-        let result = match action {
-            "new" => self.rt.block_on(self.nush.equip_new(nonce, &Route::Local, p)),
-            "install" => self.rt.block_on(self.nush.equip_install(nonce, &Route::Local, p)),
-            "check" => self.rt.block_on(self.nush.equip_check(nonce, &Route::Local, p)),
-            "uninstall" => self.rt.block_on(self.nush.equip_uninstall(nonce, &Route::Local, p)),
+        let command = match action {
+            "new" => EngineInterfaceCommand::EquipNew(p),
+            "install" => EngineInterfaceCommand::EquipInstall(p),
+            "check" => EngineInterfaceCommand::EquipCheck(p),
+            "uninstall" => EngineInterfaceCommand::EquipUninstall(p),
             other => return self.interface(&format!("{INTERFACE} equip {other} '{source_dir}'")),
         };
-        Self::envelope(result)
+        self.engine_command(nonce, command)
     }
 
     /// `interface equip new` at `root`'s source for `name`; its rig source.
@@ -333,7 +342,7 @@ impl TestServer {
             namepaths: namepaths.iter().map(|s| s.to_string()).collect(),
         };
         let nonce = self.interface_nonce(&p);
-        Self::envelope(self.rt.block_on(self.nush.equip_scaffold(nonce, &Route::Local, p)))
+        self.engine_command(nonce, EngineInterfaceCommand::EquipScaffold(p))
     }
 
     /// `interface help` on a namepath or a pattern.
@@ -342,19 +351,19 @@ impl TestServer {
             namepath: namepath.to_string(),
         };
         let nonce = self.interface_nonce(&p);
-        Self::envelope(self.rt.block_on(self.nush.help(nonce, &Route::Local, p)))
+        self.engine_command(nonce, EngineInterfaceCommand::Help(p))
     }
 
     /// `interface info`, the current view's.
     pub fn info(&self) -> NuVal {
         let nonce = self.interface_nonce(&"info");
-        Self::envelope(self.rt.block_on(self.nush.info(nonce, &Route::Local)))
+        self.engine_command(nonce, EngineInterfaceCommand::Info)
     }
 
     /// `interface purview list`.
     pub fn purviews(&self) -> NuVal {
         let nonce = self.interface_nonce(&"purview list");
-        Self::envelope(self.rt.block_on(self.nush.purview_list(nonce, &Route::Local)))
+        self.engine_command(nonce, EngineInterfaceCommand::PurviewList)
     }
 
     /// Set a purview's namepath patterns; an EMPTY `namepaths` deletes it.
@@ -368,7 +377,7 @@ impl TestServer {
             namepaths: namepaths.iter().map(|s| s.to_string()).collect(),
         };
         let nonce = self.interface_nonce(&p);
-        Self::envelope(self.rt.block_on(self.nush.purview_configure(nonce, &Route::Local, p)))
+        self.engine_command(nonce, EngineInterfaceCommand::PurviewConfigure(p))
     }
 
     pub fn purview_extend(
@@ -379,7 +388,7 @@ impl TestServer {
             purviews: purviews.iter().map(|s| s.to_string()).collect(),
         };
         let nonce = self.interface_nonce(&p);
-        Self::envelope(self.rt.block_on(self.nush.purview_extend(nonce, &Route::Local, p)))
+        self.engine_command(nonce, EngineInterfaceCommand::PurviewExtend(p))
     }
 
     /// `interface purview set`.
@@ -391,7 +400,7 @@ impl TestServer {
             purviews: purviews.iter().map(|s| (*s).to_string()).collect(),
         };
         let nonce = self.interface_nonce(&p);
-        Self::envelope(self.rt.block_on(self.nush.purview_set(nonce, &Route::Local, p)))
+        self.engine_command(nonce, EngineInterfaceCommand::PurviewSet(p))
     }
 
     /// Where this namespace's purview table lands.
@@ -402,7 +411,7 @@ impl TestServer {
     /// `interface process list`.
     pub fn processes(&self) -> NuVal {
         let nonce = self.interface_nonce(&"process list");
-        Self::envelope(self.rt.block_on(self.nush.process_list(nonce, &Route::Local)))
+        self.engine_command(nonce, EngineInterfaceCommand::ProcessList)
     }
 
     /// `interface process kill`; its result is null on success.
@@ -411,7 +420,7 @@ impl TestServer {
             nonce: nonce.to_string(),
         };
         let call_nonce = self.interface_nonce(&p);
-        Self::envelope(self.rt.block_on(self.nush.process_kill(call_nonce, &Route::Local, p)))
+        self.engine_command(call_nonce, EngineInterfaceCommand::ProcessKill(p))
     }
 
     /// `interface channel ready`; its result is null.

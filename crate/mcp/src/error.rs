@@ -8,6 +8,10 @@ pub enum GrammarMcpError {
     Engine(EngineError),
     /// What the transport to grammar-ssh failed at, under its `remote::engine::` kinds.
     Transport(TransportError),
+    /// A remote engine's refusal of a call, as the rows it answered.
+    Rows {
+        diagnostics: Vec<Diagnostic>,
+    },
     /// A remote engine command's parameters or entry refused, the MCP's alone.
     RemoteEngineInvalidParams {
         reason: String,
@@ -70,6 +74,7 @@ impl GrammarMcpError {
         Some(match self.clone() {
             Self::Engine(_)
             | Self::Transport(_)
+            | Self::Rows { .. }
             | Self::RemoteEngineInvalidParams { .. }
             | Self::RemoteEngineNotOpen { .. } => return None,
             Self::InterfaceViolations { diagnostics } => {
@@ -152,6 +157,7 @@ pub(crate) fn error_to_call_result(
     let rows = match error.into() {
         GrammarMcpError::Engine(error) => error.rows(),
         GrammarMcpError::Transport(error) => error.rows(),
+        GrammarMcpError::Rows { diagnostics } => diagnostics,
         GrammarMcpError::RemoteEngineInvalidParams { reason } => vec![Diagnostic::error(
             KIND_ENGINE_INVALID,
             None,

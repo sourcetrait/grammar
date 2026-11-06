@@ -41,9 +41,9 @@ pub(crate) use futures_util::{SinkExt, StreamExt};
 
 pub(crate) use sourcetrait_common::{datum, subsys};
 pub(crate) use sourcetrait_grammar_engine::{
-    self as engine, ControlAnswer, EVAL_STACK_SIZE, EngineCommand, EngineError, EngineHandle,
-    EngineHealth, EngineIdentity, EngineResult, EngineSystem, FromEngine, HostAsk, PinAsk, ToEngine,
-    prepare_send,
+    self as engine, ControlAnswer, CurrentPurview, Desk, EVAL_STACK_SIZE, EngineCommand, EngineError,
+    EngineHandle, EngineHealth, EngineIdentity, EngineResult, EngineSystem, FromEngine, HostAsk,
+    InterfaceParser, PinAsk, ToEngine, prepare_send, run_interface,
 };
 pub(crate) use sourcetrait_grammar_operator::{
     FromOperatorSys, OperatorHandle, OperatorSysParams, OperatorSysPaths, OperatorSystem,
@@ -51,12 +51,11 @@ pub(crate) use sourcetrait_grammar_operator::{
     emergency_line, emergency_log_path, pin,
 };
 pub(crate) use sourcetrait_grammar_protocol::{
-    AI_TRANSIENT_DIR, ASK_DEADLINE, ClientHello, DRAIN_DEADLINE, DecodeBudget, Emergency, EngineRequest,
-    EngineResponse, FrameCodec, FromEngineSys, HELLO_BUDGET, HELLO_DEADLINE, HelloReply, Host,
-    HostAnswer, Instance, LIMITS_DEFAULT, Limits, McpFrame, NuVal, Observation, PurviewAnswer,
-    PurviewRequest, RuntimeError, SESSION_IDLE, SessionAsk, SessionClose, SshFrame, SshInfo,
-    SshProfile, ToEngineSys, TransientPaths, TransportError, ValueAnswer, decode_payload, payload,
-    valid_name,
+    AI_TRANSIENT_DIR, ASK_DEADLINE, CallAnswer, ClientHello, DRAIN_DEADLINE, DecodeBudget, Emergency,
+    EngineRequest, EngineResponse, FrameCodec, HELLO_BUDGET, HELLO_DEADLINE, HelloReply, Host,
+    HostAnswer, HostInfo, Instance, LIMITS_DEFAULT, Limits, McpFrame, NuVal, Observation,
+    SESSION_IDLE, SessionAsk, SessionClose, SshFrame, SshProfile, TransientPaths, TransportError,
+    ValueAnswer, decode_payload, payload, render_signatures, valid_name,
 };
 pub(crate) use sourcetrait_grammar_scratch::{
     HostProbe, LOCK_FILE, LockError, LockRecord, NamespaceLock, OwnedDir, Owner, current_uid, sweep,

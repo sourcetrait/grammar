@@ -139,6 +139,14 @@ impl subsys::System for EngineSystem {
                     let _ = tx.send(subsys::MsgFromSys::Packet(response)).await;
                 });
             }
+            ToEngine::Define(req) => {
+                tk::spawn(async move {
+                    let engine = core.lint_engine.current();
+                    let answer = FromEngine::Defined(define(&engine, &req.definition));
+                    let response = subsys::Packet::response(id, answer);
+                    let _ = tx.send(subsys::MsgFromSys::Packet(response)).await;
+                });
+            }
             ToEngine::Host(_) => {}
         }
         Ok(subsys::Flow::Continue)

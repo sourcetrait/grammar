@@ -5,6 +5,7 @@ use crate::*;
 pub enum ToEngine {
     Wire(ToEngineSys),
     Purview(PurviewRequest),
+    Define(DefineRequest),
     Host(HostAnswer),
 }
 
@@ -13,7 +14,35 @@ pub enum ToEngine {
 pub enum FromEngine {
     Wire(FromEngineSys),
     Purview(PurviewAnswer),
+    Defined(Result<ExecuteDefinition, Vec<Diagnostic>>),
     Host(HostAsk),
+}
+
+/// A definition's text, held to the contract and the lint at a tool's edge.
+#[cereal::derived(Data)]
+pub struct DefineRequest {
+    pub definition: String,
+}
+
+impl From<DefineRequest> for ToEngine {
+    fn from(v: DefineRequest) -> Self {
+        Self::Define(v)
+    }
+}
+
+impl subsys::Request<EngineSystem> for DefineRequest {
+    type ResponseType = Result<ExecuteDefinition, Vec<Diagnostic>>;
+}
+
+impl TryFrom<FromEngine> for Result<ExecuteDefinition, Vec<Diagnostic>> {
+    type Error = subsys::SubsysError;
+
+    fn try_from(v: FromEngine) -> subsys::SubsysResult<Self> {
+        match v {
+            FromEngine::Defined(answer) => Ok(answer),
+            _ => Err(subsys::SubsysError::ResponseType),
+        }
+    }
 }
 
 /// What an eval asks of the process hosting it.

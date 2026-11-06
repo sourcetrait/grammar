@@ -145,7 +145,7 @@ impl RemoteChannelEvent {
     }
 
     /// The record its packet carries, a key present only where it has a value.
-    pub fn event(&self) -> NuVal {
+    pub fn data(&self) -> NuVal {
         let text = |s: &str| NuVal::String(s.to_string());
         let failure = |f: &RemoteFailure| {
             NuVal::Record(vec![("kind".to_string(), text(&f.kind)), ("message".to_string(), text(&f.message))])
@@ -177,7 +177,7 @@ pub struct RemotePacket {
     pub origin: String,
     pub model: String,
     /// The payload, data alone.
-    pub event: NuVal,
+    pub data: NuVal,
 }
 
 impl RemotePacket {

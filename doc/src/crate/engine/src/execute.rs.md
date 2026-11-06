@@ -8,8 +8,23 @@ contract is execute's for its data, timeout, input, and return, User's ruling, s
 
 ## struct ExecuteDef
 What the rest of a call needs from its definition and nothing more: the lane, the two
-types the data and the result are checked against, and whether the source passes the
-timeout. The types are schema.rs's `NuTypedef`, which DataCheck and ResultCheck walk.
+types the data and the result are checked against, whether the source passes the
+timeout, and the body's text. The types are nuval's `NuType`s, which the checks walk.
+
+## fn define
+A tool's edge: the agent's definition held to the contract and the lint, its positions
+the agent's own, and answered as its model, which is what crosses to the engine that runs
+it, the MCP's own or a remote one's.
+
+## fn definition_model
+The definition as execute's contract and its body: the `--env` flag, the data's and the
+result's schemas, whether it takes `timeout?`, and the body's text between the block's
+braces, so the wire carries the contract, never the definition's text (User).
+
+## fn render_definition
+The definition written back from its model, each shape in nuval's text, `to_inline`,
+which nushell reads back as the same annotation. The body is the agent's text unchanged,
+so a rendered definition runs as the agent's did.
 
 ## fn analyze_definition
 ONE PARSE serves the contract and the lint, on the lint engine, which is the shell the
@@ -38,8 +53,9 @@ already resolved defaults, optionality, and shapes there.
 
 Violations are gathered where they are independent and capped at the lint's three, so
 an agent fixing a definition sees its several faults in one round. The lint runs only on
-a definition that holds to the contract, and is skipped when `lint` is false: a rerun
-re-analyzes a definition the host cached after linting it.
+a definition that holds to the contract, and is skipped when `lint` is false: an `execute`
+call's rendered definition was linted at the tool's edge, and a rerun re-analyzes a
+definition the host cached after linting it.
 
 ## struct SignatureContract
 The part of the contract a signature settles alone, shared by a definition and a rig's

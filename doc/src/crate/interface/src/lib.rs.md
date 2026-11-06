@@ -5,7 +5,8 @@ The interface commands' one parser, which any product that serves the
 command is held to, and the parameters each command carries. The catalog of
 commands is the protocol crate's (`COMMANDS`); what runs a command is its
 controller's, routed by the system that owns it (`contract.rs`'s
-`InterfaceCommand`).
+`InterfaceCommand`), an engine command the engine's (`crate/engine`'s `desk.rs`)
+on the host a call reaches, the MCP or grammar-ssh.
 
 ## mod nu
 nushell's parser and the protocol's engine types alone: the parse never

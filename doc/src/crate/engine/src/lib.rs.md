@@ -18,6 +18,11 @@ Unix alone, as `std::os::unix` is: its one reader, `plugins.rs`'s
 `changed_time`, takes the inode's ctime from it there, and on Windows reads
 the change time through `GetFileInformationByHandleEx` instead.
 
+## use sourcetrait_grammar_interface
+The interface's engine commands are the engine's to run (`desk.rs`), on whichever
+host a call reaches, so the engine takes the interface crate's commands and its
+parse: a host that receives an interface call as text parses it here.
+
 ## mod equip
 The equips by concept, so no file holds them all: `store`, the repository, its
 index, its paths, its locks, and the builtins' install; `lifecycle`, an equip's
@@ -30,7 +35,9 @@ its handle, and an instance's identity, which the host inherits; the stateless
 pool's executor and the stateful engine; the
 definition's contract, the lint, and the parse engines; the contract's type check
 and its text; the source templates; the plugin registry's read; the call cache's
-paths; the equips' store, lifecycle, signatures, and validation; and the namepaths.
+paths; the equips' store, lifecycle, signatures, and validation; the namepaths; and the
+interface's engine commands with the desk a host lends them, and a tool's data taken
+from its NUON.
 Everything else is the crate's own.
 
 The engine's requests, commands, and answers, the two lanes, the equips' documents

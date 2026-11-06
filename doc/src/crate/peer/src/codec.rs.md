@@ -11,7 +11,7 @@ Peer-neutral: either end sends it. Nothing rides back - the sender's own transpo
 write is the delivery's ack, and remote/channel/Sent and Unsent fire from that write.
 
 ### variant Deliver
-`files` names the dests the receiver awaits on the file connection before it
+`data` crosses as the value it is, never NUON text. `files` names the dests the receiver awaits on the file connection before it
 relays, empty for a message with none.
 
 ## enum InitiatorToAcceptor

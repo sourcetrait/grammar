@@ -39,11 +39,27 @@ pub enum Host {
 pub struct ExecuteRequest {
     pub host: Host,
     pub nonce: datum::Nonce,
-    pub definition: String,
-    /// The definition's data as NUON text.
-    pub data: String,
-    /// The call's timeout as a Nu duration's text; the default when absent.
-    pub timeout: Option<String>,
+    /// The definition: its signature a model, its body Nu's text.
+    pub definition: ExecuteDefinition,
+    /// The definition's data, the tool's NUON taken as its value.
+    pub data: NuVal,
+    /// The call's timeout, the tool's NUON taken as its value; the default when absent.
+    pub timeout: Option<NuVal>,
+}
+
+/// An `execute` definition as its contract and its body, the signature's model beside it.
+#[cereal::derived(Data)]
+pub struct ExecuteDefinition {
+    /// `def --env`: the call runs on the stateful lane.
+    pub is_env: bool,
+    /// The data's schema, `data`'s shape.
+    pub data: NuType,
+    /// The result's schema, the signature's output.
+    pub result: NuType,
+    /// Whether the signature takes `timeout?`.
+    pub timeout: bool,
+    /// The body: its Nu text between the block's braces.
+    pub body: String,
 }
 
 /// A rerun: an earlier `execute` call's definition run on fresh data.
@@ -53,8 +69,10 @@ pub struct RerunRequest {
     pub nonce: datum::Nonce,
     /// The earlier call's nonce, whose cached definition runs again.
     pub source: String,
-    pub data: String,
-    pub timeout: Option<String>,
+    /// The fresh data, the tool's NUON taken as its value.
+    pub data: NuVal,
+    /// The call's timeout, the tool's NUON taken as its value; the default when absent.
+    pub timeout: Option<NuVal>,
 }
 
 /// A call: a committed rig function run on its data.
@@ -63,10 +81,10 @@ pub struct CallRequest {
     pub host: Host,
     pub nonce: datum::Nonce,
     pub namepath: String,
-    /// The function's data as NUON text.
-    pub data: String,
-    /// The call's timeout as a Nu duration's text; the default when absent.
-    pub timeout: Option<String>,
+    /// The function's data, the tool's NUON taken as its value.
+    pub data: NuVal,
+    /// The call's timeout, the tool's NUON taken as its value; the default when absent.
+    pub timeout: Option<NuVal>,
 }
 
 /// A bed call: one embedded command's subcommand, run as a call of its own.
@@ -76,6 +94,14 @@ pub struct BedRequest {
     pub nonce: datum::Nonce,
     /// The embedded command, `grmr`.
     pub command: String,
+    /// Its subcommand as nu text, its arguments literals.
+    pub subcommand: String,
+}
+
+/// An interface call: its subcommand, parsed and run by the host it reaches.
+#[cereal::derived(Data)]
+pub struct InterfaceRequest {
+    pub nonce: datum::Nonce,
     /// Its subcommand as nu text, its arguments literals.
     pub subcommand: String,
 }

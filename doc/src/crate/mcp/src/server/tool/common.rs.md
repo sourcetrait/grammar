@@ -16,9 +16,9 @@ Built once, from the deny set `NuSh::new` is handed, so a denied command is unkn
 parse for the host's whole life; nothing evaluates on it, so it is shared rather than
 cloned per call.
 
-### field views
-The session's current purview on each engine (`server/purview.rs`), the MCP's own and each
-remote engine's.
+### field view
+The session's current purview on the MCP's own engine; a remote engine's lives with its
+grammar-ssh session.
 
 ## fn NuSh::new
 The deny set is a parameter rather than read from the config, because the one-shot CLI
@@ -32,17 +32,10 @@ operator and the emergency log are keyed by it too.
 `mint_nonce` on the server's generator (`server/identity.rs`).
 The request carries the nonce to the engine, which runs the call under it.
 
-## fn NuSh::control_on
-A control command on the routed engine: the MCP's own through its controller, or
-grammar-ssh's as the engine's own wire request, the request's host local there. The interface's
-engine commands all reach their engine through it, so a command answers alike on every
-host.
-
-## fn NuSh::ssh_info
-A remote engine's grammar-ssh as its session's info request answers it, for `interface info`.
-
-## fn NuSh::signatures
-The routed engine's signature block within the patterns.
+## struct LocalDesk
+The MCP's own engine lent to the interface's engine commands (`crate/engine`'s
+`desk.rs`): its engine, its identity from its config and homes, the session's view on
+it, and the interface block its deny set leaves.
 
 ## enum Route
 Where a tool's `host` sends its request: the MCP's own engine, or a configured
@@ -60,19 +53,16 @@ lacks is `host::unknown`; an entry still missing a field is refused as
 or a space makes another alias.
 
 ## fn NuSh::value
-`execute`, `rerun`, and `call` share it. The request carries `Host::Local` either way:
-grammar-ssh's engine is local to itself, and the MCP routes before any engine sees the
-request. A remote request goes to the remote engines' system as the engine's own wire
-request (`server/controller.rs`).
+`execute`, `rerun`, `call`, and `bed` share it. The request carries `Host::Local` either
+way: grammar-ssh's engine is local to itself, and the MCP routes before any engine sees
+the request. A remote request goes to the remote engines' system as the tool call it is
+(`server/controller.rs`), and grammar-ssh answers its value or the rows its refusal
+reports; a refusal grammar-ssh made before its engine took the request, and the
+transport's errors, answer under their `remote::engine::` kinds.
 
-## fn remote_value
-grammar-ssh's answer is the engine's own value answer, or a refusal grammar-ssh made before
-its engine took the request; the transport's errors answer under their `remote::engine::`
-kinds.
-
-## fn unexpected
-An answer of another command's kind is the engine breaking its own protocol, so it is
-`internal`, never the agent's error.
+## fn answer_result
+A call's answer as its envelope, the value or the rows, for an interface call run on
+the MCP's own engine or answered by grammar-ssh.
 
 ## fn envelope_text
 One seam for every envelope, a success's here and a failure's through

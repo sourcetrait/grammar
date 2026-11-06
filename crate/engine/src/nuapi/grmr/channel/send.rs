@@ -43,7 +43,7 @@ impl nu::Command for GrmrChannelSend {
         let send = ChannelSendData {
             from: from.clone(),
             model,
-            event: sendable(data).map_err(refused)?,
+            data: sendable(data).map_err(refused)?,
             attached: attached.map(sendable).transpose().map_err(refused)?,
         };
         let id = match host.ask(HostAsk::ChannelSend(send)).map_err(refused)? {

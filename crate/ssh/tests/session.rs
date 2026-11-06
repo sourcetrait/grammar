@@ -9,43 +9,55 @@ use std::time::Duration;
 use sourcetrait_common::datum;
 use sourcetrait_grammar_client::{Session, SessionEvent};
 use sourcetrait_grammar_protocol::{
-    ControlAnswer, ControlRequest, EngineCommand, EngineRequest, EngineResponse, ExecuteRequest, FromEngineSys,
-    HelloReply, Host, HostAnswer, Instance, LIMITS_DEFAULT, Limits, McpFrame, NuVal, SessionAsk, SessionClose,
-    SshFrame, ToEngineSys, TransportError, ValueAnswer,
+    CallAnswer, EngineRequest, EngineResponse, ExecuteDefinition, ExecuteRequest, HelloReply, Host,
+    HostAnswer, Instance, InterfaceRequest, LIMITS_DEFAULT, Limits, McpFrame, NuType, NuVal, SessionAsk,
+    SessionClose, SshFrame, TransportError,
 };
 use sourcetrait_grammar_scratch::NamespaceLock;
 use support::{RawSession, TestInstance, exit_within, hello, open, runtime, spawn_ssh, stderr_of};
 
+/// A definition on `data: nothing`, its result typed `result` and its body `body`.
+fn definition(result: &str, body: &str) -> ExecuteDefinition {
+    ExecuteDefinition {
+        is_env: false,
+        data: NuType::Nothing,
+        result: NuType::from_text(result).unwrap_or_else(|e| panic!("`{result}` is a type: {e}")),
+        timeout: false,
+        body: body.to_string(),
+    }
+}
+
 /// A definition that sleeps past any test's wait, until it is cancelled.
-const SLEEP: &str = "def execute [data: nothing]: nothing -> nothing { sleep 30sec }";
+fn sleep() -> ExecuteDefinition {
+    definition("nothing", " sleep 30sec ")
+}
 
 /// How long grammar-ssh may take to exit once its session ends.
 const EXIT_DEADLINE: Duration = Duration::from_secs(30);
 
 /// `definition` run on null data under `nonce`.
-fn execute(nonce: datum::Nonce, definition: &str) -> EngineRequest {
-    EngineRequest::Wire(ToEngineSys::Execute(ExecuteRequest {
+fn execute(nonce: datum::Nonce, definition: ExecuteDefinition) -> EngineRequest {
+    EngineRequest::Execute(ExecuteRequest {
         host: Host::Local,
         nonce,
-        definition: definition.to_string(),
-        data: "null".to_string(),
+        definition,
+        data: NuVal::Nothing,
         timeout: None,
-    }))
+    })
 }
 
-/// A control command's answer, its failure a panic.
-async fn control(session: &Session, command: EngineCommand) -> ControlAnswer {
-    let request = EngineRequest::Wire(ToEngineSys::Control(ControlRequest { host: Host::Local, command }));
-    match session.request(request).await.expect("a response") {
-        EngineResponse::Wire(FromEngineSys::Control(Ok(answer))) => answer,
-        other => panic!("a control answer, not {other:?}"),
-    }
+/// An interface call's subcommand, as the MCP sends it on.
+fn interface(subcommand: &str) -> EngineRequest {
+    EngineRequest::Interface(InterfaceRequest {
+        nonce: datum::NonceGenerator::new().generate(),
+        subcommand: subcommand.to_string(),
+    })
 }
 
 /// A call's value, its failure a panic.
 async fn value(session: &Session, request: EngineRequest) -> NuVal {
     match session.request(request).await.expect("a response") {
-        EngineResponse::Wire(FromEngineSys::Value(ValueAnswer { result: Ok(value), .. })) => value,
+        EngineResponse::Answer(CallAnswer { result: Ok(value), .. }) => value,
         other => panic!("a value, not {other:?}"),
     }
 }
@@ -55,13 +67,34 @@ fn record(fields: &[(&str, NuVal)]) -> NuVal {
     NuVal::Record(fields.iter().map(|(name, value)| (name.to_string(), value.clone())).collect())
 }
 
+/// A record's field, its absence a panic.
+fn field<'a>(value: &'a NuVal, name: &str) -> &'a NuVal {
+    match value {
+        NuVal::Record(fields) => fields
+            .iter()
+            .find(|(key, _)| key == name)
+            .map(|(_, value)| value)
+            .unwrap_or_else(|| panic!("no `{name}` in {value:?}")),
+        other => panic!("a record, not {other:?}"),
+    }
+}
+
+/// A string's text, anything else a panic.
+fn text(value: &NuVal) -> &str {
+    match value {
+        NuVal::String(text) => text,
+        other => panic!("a string, not {other:?}"),
+    }
+}
+
 /// The first call the engine lists in flight, waited for.
 async fn first_in_flight(session: &Session) -> String {
     for _ in 0..100 {
-        if let ControlAnswer::Processes(rows) = control(session, EngineCommand::Processes).await
+        let listed = value(session, interface("process list")).await;
+        if let NuVal::List(rows) = field(&listed, "processes")
             && let Some(row) = rows.first()
         {
-            return row.nonce.clone();
+            return text(field(row, "nonce")).to_string();
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
@@ -76,24 +109,24 @@ fn a_session_serves_info_and_a_call() {
         let (session, _events) = opened.expect("the session opens");
         assert_eq!(session.ssh().instance, Instance::new("fixture", "default").unwrap());
         assert_eq!(session.ssh().effective, LIMITS_DEFAULT);
-        match session.request(EngineRequest::Info).await.expect("info") {
-            EngineResponse::Info(info) => {
-                assert_eq!((info.id.as_str(), info.namespace.as_str()), ("fixture", "default"));
-                assert_eq!(info.work_dir, instance.workdir().display().to_string());
-                assert_eq!(info.nom, session.ssh().nom);
-                assert!(Path::new(&info.tmp).is_dir() && Path::new(&info.transient.grammar).is_dir());
-                assert_eq!(
-                    info.transient.ai,
-                    instance.home("run").join("ai").join("fixture").display().to_string(),
-                    "an agent's scratch under the runtime home by the id",
-                );
-            }
-            other => panic!("info, not {other:?}"),
-        }
+        let info = value(&session, interface("interface info")).await;
+        assert_eq!((text(field(&info, "id")), text(field(&info, "namespace"))), ("fixture", "default"));
+        assert_eq!(text(field(&info, "work_dir")), instance.workdir().display().to_string());
+        assert_eq!(text(field(&info, "nom")), session.ssh().nom);
+        let transient = field(&info, "transient");
+        assert!(Path::new(text(field(&info, "tmp"))).is_dir() && Path::new(text(field(transient, "grammar"))).is_dir());
+        assert_eq!(
+            text(field(transient, "ai")),
+            instance.home("run").join("ai").join("fixture").display().to_string(),
+            "an agent's scratch under the runtime home by the id",
+        );
+        let view = field(&info, "purview");
+        assert!(matches!(view, NuVal::List(rows) if !rows.is_empty()), "its signatures' view, its own session's: {info:?}");
+        text(field(&info, "signatures"));
         let nonces = datum::NonceGenerator::new();
-        let answer = value(&session, execute(nonces.generate(), "def execute [data: nothing]: nothing -> record<n: int> { {n: 42} }")).await;
+        let answer = value(&session, execute(nonces.generate(), definition("record<n: int>", " {n: 42} "))).await;
         assert_eq!(answer, record(&[("n", NuVal::Int(42))]));
-        let nom = value(&session, execute(nonces.generate(), "def execute [data: nothing]: nothing -> record<nom: string> { {nom: $env.EQUIP_MCP_NOM} }")).await;
+        let nom = value(&session, execute(nonces.generate(), definition("record<nom: string>", " {nom: $env.EQUIP_MCP_NOM} "))).await;
         assert_eq!(nom, record(&[("nom", NuVal::String(session.ssh().nom.clone()))]), "an eval reads its engine's nom");
         session.close();
         let status = exit_within(&mut child, EXIT_DEADLINE).await;
@@ -112,14 +145,15 @@ fn a_kill_cancels_a_call_in_flight() {
         let nonce = datum::NonceGenerator::new().generate();
         let call = tokio::spawn({
             let session = session.clone();
-            async move { session.request(execute(nonce, SLEEP)).await }
+            async move { session.request(execute(nonce, sleep())).await }
         });
         let listed = first_in_flight(&session).await;
         assert_eq!(listed, nonce.to_string(), "the engine lists the call by its nonce");
-        control(&session, EngineCommand::Kill { nonce: listed }).await;
+        let killed = value(&session, interface(&format!("process kill '{listed}'"))).await;
+        assert_eq!(killed, NuVal::Nothing);
         let answer = tokio::time::timeout(Duration::from_secs(10), call).await.expect("the call ends").unwrap();
         assert!(
-            matches!(answer, Ok(EngineResponse::Wire(FromEngineSys::Value(ValueAnswer { result: Err(_), .. })))),
+            matches!(answer, Ok(EngineResponse::Answer(CallAnswer { result: Err(_), .. }))),
             "the cancelled call answers its failure: {answer:?}",
         );
     });
@@ -137,12 +171,12 @@ fn calls_past_the_sessions_bound_are_refused_busy() {
         let first = nonces.generate();
         let held = tokio::spawn({
             let session = session.clone();
-            async move { session.request(execute(first, SLEEP)).await }
+            async move { session.request(execute(first, sleep())).await }
         });
         first_in_flight(&session).await;
-        let refused = session.request(execute(nonces.generate(), SLEEP)).await.expect("a response");
+        let refused = session.request(execute(nonces.generate(), sleep())).await.expect("a response");
         assert!(matches!(refused, EngineResponse::Refused(TransportError::Busy)), "{refused:?}");
-        control(&session, EngineCommand::Kill { nonce: first.to_string() }).await;
+        value(&session, interface(&format!("process kill '{first}'"))).await;
         let _ = tokio::time::timeout(Duration::from_secs(10), held).await;
     });
 }
@@ -154,13 +188,14 @@ fn a_result_past_the_frame_is_refused_in_its_place() {
         let requested = Limits { frame: 64 * 1024, ..LIMITS_DEFAULT };
         let (_child, opened) = open(&instance, "default", requested).await;
         let (session, _events) = opened.expect("the session opens");
-        let big = "def execute [data: nothing]: nothing -> record<s: string> { {s: ('' | fill --character 'x' --width 200000)} }";
+        let big = definition("record<s: string>", " {s: ('' | fill --character 'x' --width 200000)} ");
         let answer = session.request(execute(datum::NonceGenerator::new().generate(), big)).await.expect("a response");
         assert!(
             matches!(answer, EngineResponse::Refused(TransportError::ResultTooLarge { limit: 65536 })),
             "{answer:?}",
         );
-        assert!(matches!(session.request(EngineRequest::Info).await, Ok(EngineResponse::Info(_))), "the session goes on");
+        let info = value(&session, interface("info")).await;
+        assert_eq!(text(field(&info, "name")), "grammar", "the session goes on");
     });
 }
 
@@ -188,9 +223,12 @@ fn an_evals_asks_reach_the_mcp_and_its_answers_come_back() {
             }
         });
         let nonces = datum::NonceGenerator::new();
-        let send = "def execute [data: nothing]: nothing -> record<event_id: string> { grmr channel send test/Model {x: 1} }";
+        let send = definition("record<event_id: string>", " grmr channel send test/Model {x: 1} ");
         assert_eq!(value(&session, execute(nonces.generate(), send)).await, record(&[("event_id", NuVal::String("sent1".to_string()))]));
-        let config = "def execute [data: nothing]: nothing -> record<cpu: float, rate: int> { let c = (grmr config get [supervisor.cpu_warn_fraction channel.spam_warn_rate]); {cpu: ($c | get 0.value), rate: ($c | get 1.value)} }";
+        let config = definition(
+            "record<cpu: float, rate: int>",
+            " let c = (grmr config get [supervisor.cpu_warn_fraction channel.spam_warn_rate]); {cpu: ($c | get 0.value), rate: ($c | get 1.value)} ",
+        );
         assert_eq!(
             value(&session, execute(nonces.generate(), config)).await,
             record(&[("cpu", NuVal::Float(0.5)), ("rate", NuVal::Int(10))]),
@@ -224,7 +262,7 @@ fn the_end_of_stdin_ends_the_session_and_removes_its_scratch_and_cache() {
         let (mut raw, reply) = RawSession::open(&mut child, hello(&instance, "default", LIMITS_DEFAULT)).await;
         assert!(matches!(reply, HelloReply::Accepted(_)), "{reply:?}");
         let nonce = datum::NonceGenerator::new().generate();
-        raw.send(&McpFrame::Request { id: 1, request: execute(nonce, SLEEP) }).await;
+        raw.send(&McpFrame::Request { id: 1, request: execute(nonce, sleep()) }).await;
         let call = cache_home.join("execute").join(nonce.to_string());
         for _ in 0..100 {
             if call.is_dir() {

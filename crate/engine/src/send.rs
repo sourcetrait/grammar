@@ -1,24 +1,23 @@
-//! A body's remote send prepared by its host, its event rendered and files read.
+//! A body's remote send prepared by its host, its files read.
 use crate::*;
 
-/// A body's remote send as its host sends it on, its event's NUON and files read.
-pub fn prepare_send(data: RemoteSendData) -> Result<PreparedSend, String> {
+/// A body's remote send as its host sends it on, its data whole and its files read.
+pub fn prepare_send(send: RemoteSendData) -> Result<PreparedSend, String> {
     let RemoteSendData {
         mcp_nom,
         model,
-        event,
+        data,
         attached,
-    } = data;
+    } = send;
     let span = nu::Span::unknown();
     let files = match attached {
         Some(table) => read_files(&table.try_into_nu(span).map_err(|e| e.to_string())?)?,
         None => Vec::new(),
     };
-    let event = event.try_into_nu(span).map_err(|e| e.to_string())?;
     Ok(PreparedSend {
         mcp_nom,
         model,
-        event_nuon: render_nuon(&event)?,
+        data,
         files,
     })
 }

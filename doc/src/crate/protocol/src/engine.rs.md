@@ -28,19 +28,34 @@ show the name an agent calls.
 identity its Channel and its remote links already go by.
 
 ## struct ExecuteRequest
-The parameters as the agent sent them, the data and the timeout still text: the
-engine holds them to the contract, so a host never parses what the engine will
-check.
+The parameters as the tool took them, each as what it is: the definition its
+contract's model beside its body's text, and the data and the timeout the values
+their NUON names, all taken at the MCP's edge. The engine holds the data and the
+timeout to the contract, so only the engine that runs the call checks them.
+
+## struct ExecuteDefinition
+execute's contract and its body, the one thing beyond a parameter the wire
+carries (User): `is_env`, the data's and the result's schemas as nuval's
+`NuType`s, whether it takes `timeout?`, and the body as Nu's text. The contract
+has no other parameter, so the model names none.
+The MCP's edge takes it from the agent's definition with the contract's analysis
+and the lint; the serving engine writes the definition back from it, each shape
+in nuval's text, and runs that.
 
 ## struct CallRequest
-As `ExecuteRequest`, the data and the timeout still text: the engine holds them to
-the contract its rig index records for the function's `main`.
+As `ExecuteRequest`, the data and the timeout values: the engine holds them
+to the contract its rig index records for the function's `main`.
 
 ## struct BedRequest
 A bed call's embedded command and its subcommand, both as the end user sent
 them: the engine holds them to the rules where it runs them, as it holds a
 definition to its contract, so a remote engine's grammar-ssh checks what it
 runs.
+
+## struct InterfaceRequest
+An interface call's subcommand as the end user sent it, its nonce the MCP's: the
+host it reaches parses it with the interface contract and runs it there
+(`crate/engine`'s `desk.rs`), so a remote engine's commands cross as text alone.
 
 ## enum EngineCommand
 Everything a host asks that isn't an eval, so one request type reaches the

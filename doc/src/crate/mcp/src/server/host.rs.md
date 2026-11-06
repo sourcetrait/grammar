@@ -74,14 +74,14 @@ goes back to the sender, which stops its own eval and reports the action
 error's emergency.
 
 ### fn remote_send
-The send is prepared by the engine's `prepare_send`, its files read and its
-event rendered off the runtime's workers, as grammar-ssh prepares a remote
+The send is prepared by the engine's `prepare_send`, its files read off
+the runtime's workers, as grammar-ssh prepares a remote
 eval's. The reservation was refused on the eval's side first, as it always came
 before the files.
 
 ### fn send_prepared
 A prepared send, a local eval's or grammar-ssh's, goes to the peer links'
-system, which mints the id, spills an oversized event, and queues the frames on
+system, which mints the id and queues the frames on
 the link to `mcp_nom` (`crate/peer`'s `system.rs`).
 
 ### fn remote_answer

@@ -359,7 +359,7 @@ impl RemoteLinkHandle {
         &self,
         id: String,
         model: String,
-        event_nuon: String,
+        data: NuVal,
         payloads: Vec<(String, Vec<u8>)>,
     ) -> Result<(), String> {
         let dests: Vec<String> = payloads.iter().map(|(dest, _)| dest.clone()).collect();
@@ -369,7 +369,7 @@ impl RemoteLinkHandle {
             &self.file_out_tx,
             &id,
             model,
-            event_nuon,
+            data,
             payloads,
             dests,
         ) {
@@ -388,14 +388,14 @@ pub(crate) fn push_frames(
     file_out_tx: &tk::UnboundedSender<FileFrame>,
     id: &str,
     model: String,
-    event_nuon: String,
+    data: NuVal,
     payloads: Vec<(String, Vec<u8>)>,
     dests: Vec<String>,
 ) -> Result<(), String> {
     let deliver = MsgFrame::Deliver {
         id: id.to_string(),
         model,
-        event_nuon,
+        data,
         files: dests,
     };
     let deliver = match checked(InitiatorToAcceptor::Msg(deliver))? {
@@ -619,7 +619,7 @@ struct DeliverSlot {
 /// The message half of a Deliver: what the relayed packet carries.
 struct DeliverInfo {
     model: String,
-    event_nuon: String,
+    data: NuVal,
 }
 
 /// What both drivers of a link share to land + relay an inbound delivery.
@@ -925,7 +925,7 @@ fn land_file_chunk(
     Ok(last)
 }
 
-/// Relay an inbound delivery up for the Channel, its event made data.
+/// Relay an inbound delivery up for the Channel.
 fn relay_to_channel(
     ctx: &RecvContext,
     id: &str,
@@ -941,15 +941,12 @@ fn relay_to_channel(
     if model_too_long(&info.model) {
         return Err(("model_too_long".to_string(), model_too_long_reason()));
     }
-    let event = nu::from_nuon(&info.event_nuon, None)
-        .map_err(|e| ("event_unparseable".to_string(), e.to_string()))?;
-    let event = NuVal::try_from_nu(event).map_err(|e| ("render".to_string(), e.to_string()))?;
     ctx.ctx.relay(Relay {
         packet: RemotePacket {
             delivery: id.to_string(),
             origin: ctx.peer_nom.clone(),
             model: info.model.clone(),
-            event,
+            data: info.data.clone(),
         },
         files,
     });
@@ -964,7 +961,7 @@ fn handle_msg_frame(
     let MsgFrame::Deliver {
         id,
         model,
-        event_nuon,
+        data,
         files,
     } = frame;
     if !valid_peer_id(&id) {
@@ -975,7 +972,7 @@ fn handle_msg_frame(
         eprintln!("grammar: remote delivery `{id}` names unsafe dest `{dest}`; dropped");
         return;
     }
-    record_deliver(recv, &id, DeliverInfo { model, event_nuon }, files);
+    record_deliver(recv, &id, DeliverInfo { model, data }, files);
 }
 
 /// Handle one inbound file-connection frame (receiver side).

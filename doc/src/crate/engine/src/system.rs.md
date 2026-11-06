@@ -23,7 +23,8 @@ every eval's asks reach the controller that started this system.
 ## fn on_channel_recv
 The answer is sent from the request's own task, on a clone of the system's sender; the
 loop has gone back to receiving by then. A purview request runs on a blocking thread, its
-store's file and the equip store's lock being blocking work. A host answer reaching here
+store's file and the equip store's lock being blocking work. A definition's model
+is the lint engine's parse, on a task of its own as an eval's analysis is. A host answer reaching here
 answers no waiter, its ask gone, and is dropped: the framework hands every other answer
 to its waiter first.
 

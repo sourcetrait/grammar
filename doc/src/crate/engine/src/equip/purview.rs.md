@@ -4,7 +4,7 @@ The namespace's purviews beside the equip store they filter: the stored rows,
 their load and save, their seeding, their pruning, and their resolution. Every
 write runs under the equip store's one lock, the default's seeding among them.
 A controller reaches them through the engine's own requests (`msg.rs`'s
-`PurviewRequest`); the session's current view stays the controller's.
+`PurviewRequest`); the session's current view is the desk's (`desk.rs`).
 
 ## const META_DIR
 The namespace's meta directory - where `purviews.nuon` lives, alongside `keypair/`,

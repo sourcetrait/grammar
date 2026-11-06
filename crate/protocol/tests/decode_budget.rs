@@ -9,26 +9,18 @@ use std::path::Path;
 use sha2::{Digest, Sha256};
 use sourcetrait_common::datum::Nonce;
 use sourcetrait_grammar_protocol::{
-    ControlAnswer, DECODE_BUDGET_DEFAULT, DecodeBudget, EngineResponse, FrameError, FromEngineSys, NuVal,
-    ProcessRow, ValueAnswer, ValueLimitError, ValueLimits, SshFrame, check_value, decode_payload,
+    CallAnswer, DECODE_BUDGET_DEFAULT, DecodeBudget, EngineResponse, FrameError, NuVal,
+    ValueLimitError, ValueLimits, SshFrame, check_value, decode_payload,
 };
 
 /// grammar-ssh's response carrying `result` as a call's value.
 fn response(result: NuVal) -> SshFrame {
     SshFrame::Response {
         id: 1,
-        response: EngineResponse::Wire(FromEngineSys::Value(ValueAnswer {
+        response: EngineResponse::Answer(CallAnswer {
             nonce: Nonce::new_unchecked(7),
             result: Ok(result),
-        })),
-    }
-}
-
-/// grammar-ssh's response carrying a control command's answer.
-fn control(answer: ControlAnswer) -> SshFrame {
-    SshFrame::Response {
-        id: 1,
-        response: EngineResponse::Wire(FromEngineSys::Control(Ok(answer))),
+        }),
     }
 }
 
@@ -207,7 +199,7 @@ fn each_bound_holds_at_its_edge_on_a_frame() {
     decode_payload::<SshFrame>(&deep, depth).expect("its 10 levels");
     assert_eq!(refused(&deep, DecodeBudget { depth: 9, ..depth }), (bitcode::Exceeded::Depth, 9));
 
-    let text = bitcode::encode(&control(ControlAnswer::Signatures("s".repeat(4096))));
+    let text = reply(NuVal::String("s".repeat(4096)));
     let heap = DecodeBudget { heap: 4096, ..DECODE_BUDGET_DEFAULT };
     decode_payload::<SshFrame>(&text, heap).expect("its 4096 bytes");
     assert_eq!(refused(&text, DecodeBudget { heap: 4095, ..heap }), (bitcode::Exceeded::Heap, 4095));
@@ -240,13 +232,20 @@ fn kept(payload: &[u8]) -> u64 {
 
 #[test]
 fn each_frame_s_charge_covers_what_it_keeps() {
-    let row = |i: usize| ProcessRow {
-        nonce: format!("n{i}"),
-        tool: "execute".to_string(),
-        started_at: i as u64,
-        args: NuVal::Record(vec![("data".to_string(), NuVal::List((0..i as i64).map(NuVal::Int).collect()))]),
-        source_nonce: i.is_multiple_of(2).then(|| "s".to_string()),
-        path: None,
+    let row = |i: usize| {
+        let mut fields = vec![
+            ("nonce".to_string(), NuVal::String(format!("n{i}"))),
+            ("tool".to_string(), NuVal::String("execute".to_string())),
+            ("started_at".to_string(), NuVal::Int(i as i64)),
+            (
+                "args".to_string(),
+                NuVal::Record(vec![("data".to_string(), NuVal::List((0..i as i64).map(NuVal::Int).collect()))]),
+            ),
+        ];
+        if i.is_multiple_of(2) {
+            fields.push(("source_nonce".to_string(), NuVal::String("s".to_string())));
+        }
+        NuVal::Record(fields)
     };
     let frames = [
         (
@@ -262,7 +261,10 @@ fn each_frame_s_charge_covers_what_it_keeps() {
             )),
         ),
         ("a deep value", response(nested(40))),
-        ("processes", control(ControlAnswer::Processes((0..20).map(row).collect()))),
+        (
+            "processes",
+            response(NuVal::Record(vec![("processes".to_string(), NuVal::List((0..20).map(row).collect()))])),
+        ),
     ];
     for (name, frame) in frames {
         let payload = bitcode::encode(&frame);

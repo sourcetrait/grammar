@@ -10,13 +10,26 @@ use sourcetrait_grammar_client::{
     SessionPhase, open,
 };
 use sourcetrait_grammar_protocol::{
-    ControlAnswer, ControlRequest, EngineCommand, EngineRequest, EngineResponse, ExecuteRequest,
-    FromEngineSys, Host, LIMITS_DEFAULT, NuVal, ToEngineSys, TransportError, ValueAnswer,
+    CallAnswer, EngineRequest, EngineResponse, ExecuteDefinition, ExecuteRequest, Host, InterfaceRequest,
+    LIMITS_DEFAULT, NuType, NuVal, TransportError,
 };
 use sourcetrait_grammar_tests::{Cuttable, LOGIN_MARK, Sshd, TestAccount, TestKey, alive, holds_within};
 
+/// A definition on `data: nothing`, its result typed `result` and its body `body`.
+fn definition(result: &str, body: &str) -> ExecuteDefinition {
+    ExecuteDefinition {
+        is_env: false,
+        data: NuType::Nothing,
+        result: NuType::from_text(result).unwrap_or_else(|e| panic!("`{result}` is a type: {e}")),
+        timeout: false,
+        body: body.to_string(),
+    }
+}
+
 /// A definition that sleeps past any test's wait, until it is cancelled.
-const SLEEP: &str = "def execute [data: nothing]: nothing -> nothing { sleep 30sec }";
+fn sleep() -> ExecuteDefinition {
+    definition("nothing", " sleep 30sec ")
+}
 
 /// How long grammar-ssh may take to end once its session does.
 const END_WAIT: Duration = Duration::from_secs(30);
@@ -27,19 +40,46 @@ fn runtime() -> tokio::runtime::Runtime {
 }
 
 /// `definition` run on null data under `nonce`.
-fn execute(nonce: datum::Nonce, definition: &str) -> EngineRequest {
-    EngineRequest::Wire(ToEngineSys::Execute(ExecuteRequest {
+fn execute(nonce: datum::Nonce, definition: ExecuteDefinition) -> EngineRequest {
+    EngineRequest::Execute(ExecuteRequest {
         host: Host::Local,
         nonce,
-        definition: definition.to_string(),
-        data: "null".to_string(),
+        definition,
+        data: NuVal::Nothing,
         timeout: None,
-    }))
+    })
 }
 
-/// A control command as a request.
-fn control(command: EngineCommand) -> EngineRequest {
-    EngineRequest::Wire(ToEngineSys::Control(ControlRequest { host: Host::Local, command }))
+/// An interface call's subcommand, as the MCP sends it on.
+fn interface(subcommand: &str) -> EngineRequest {
+    EngineRequest::Interface(InterfaceRequest {
+        nonce: datum::NonceGenerator::new().generate(),
+        subcommand: subcommand.to_string(),
+    })
+}
+
+/// A call's value, anything else a panic.
+fn value(response: Result<EngineResponse, TransportError>) -> NuVal {
+    match response {
+        Ok(EngineResponse::Answer(CallAnswer { result: Ok(value), .. })) => value,
+        other => panic!("a value, not {other:?}"),
+    }
+}
+
+/// A string field's text, anything else a panic.
+fn text<'a>(value: &'a NuVal, name: &str) -> &'a str {
+    match value.get(name) {
+        Some(NuVal::String(text)) => text,
+        other => panic!("a string `{name}`, not {other:?} in {value:?}"),
+    }
+}
+
+/// The nonces of the calls a process list's value shows in flight.
+fn listed(processes: &NuVal) -> Vec<String> {
+    match processes.get("processes") {
+        Some(NuVal::List(rows)) => rows.iter().map(|row| text(row, "nonce").to_string()).collect(),
+        other => panic!("a process list, not {other:?}"),
+    }
 }
 
 /// The session's refusal, its success a panic.
@@ -53,11 +93,8 @@ fn refusal(opened: Result<(RemoteSession, impl Sized), TransportError>) -> Trans
 /// The first call grammar-ssh lists in flight, waited for.
 async fn first_in_flight(session: &RemoteSession) -> String {
     for _ in 0..100 {
-        if let Ok(EngineResponse::Wire(FromEngineSys::Control(Ok(ControlAnswer::Processes(rows))))) =
-            session.request(control(EngineCommand::Processes)).await
-            && let Some(row) = rows.first()
-        {
-            return row.nonce.clone();
+        if let Some(nonce) = listed(&value(session.request(interface("process list")).await)).first() {
+            return nonce.clone();
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
@@ -95,33 +132,24 @@ fn a_session_serves_grammar_ssh_s_info_a_call_and_a_kill() {
     runtime().block_on(async {
         let (session, _events) = open(&endpoint, LIMITS_DEFAULT).await.expect("a session");
         let session = Arc::new(session);
-        match session.request(EngineRequest::Info).await.expect("info") {
-            EngineResponse::Info(info) => {
-                assert_eq!((info.id.as_str(), info.namespace.as_str()), ("fixture", "default"));
-                assert_eq!(info.work_dir, account.workdir().display().to_string());
-                assert_eq!(info.nom, session.ssh().nom);
-            }
-            other => panic!("info, not {other:?}"),
-        }
+        let info = value(session.request(interface("interface info")).await);
+        assert_eq!((text(&info, "id"), text(&info, "namespace")), ("fixture", "default"));
+        assert_eq!(text(&info, "work_dir"), account.workdir().display().to_string());
+        assert_eq!(text(&info, "nom"), session.ssh().nom);
         let nonces = datum::NonceGenerator::new();
-        let definition = "def execute [data: nothing]: nothing -> record<n: int> { {n: 42} }";
-        match session.request(execute(nonces.generate(), definition)).await.expect("a response") {
-            EngineResponse::Wire(FromEngineSys::Value(ValueAnswer { result: Ok(value), .. })) => {
-                assert_eq!(value, NuVal::Record(vec![("n".to_string(), NuVal::Int(42))].into_iter().collect()));
-            }
-            other => panic!("a value, not {other:?}"),
-        }
+        let answer = value(session.request(execute(nonces.generate(), definition("record<n: int>", " {n: 42} "))).await);
+        assert_eq!(answer, NuVal::Record(vec![("n".to_string(), NuVal::Int(42))]));
         let nonce = nonces.generate();
         let call = tokio::spawn({
             let session = session.clone();
-            async move { session.request(execute(nonce, SLEEP)).await }
+            async move { session.request(execute(nonce, sleep())).await }
         });
         let listed = first_in_flight(&session).await;
         assert_eq!(listed, nonce.to_string(), "grammar-ssh lists the call by its nonce");
-        session.request(control(EngineCommand::Kill { nonce: listed })).await.expect("the kill");
+        value(session.request(interface(&format!("process kill '{listed}'"))).await);
         let answer = tokio::time::timeout(Duration::from_secs(10), call).await.expect("the call ends").unwrap();
         assert!(
-            matches!(answer, Ok(EngineResponse::Wire(FromEngineSys::Value(ValueAnswer { result: Err(_), .. })))),
+            matches!(answer, Ok(EngineResponse::Answer(CallAnswer { result: Err(_), .. }))),
             "the killed call answers its failure: {answer:?}",
         );
         let pid = session.ssh().pid;
@@ -138,26 +166,20 @@ fn grammar_ssh_runs_in_its_accounts_login_and_starts_where_the_session_does() {
     endpoint.workdir = None;
     runtime().block_on(async {
         let (session, _events) = open(&endpoint, LIMITS_DEFAULT).await.expect("a session");
-        let definition = format!(
-            "def execute [data: nothing]: nothing -> record<login: string> {{ {{login: ($env.{LOGIN_MARK}? | default '')}} }}"
+        let body = format!(" {{login: ($env.{LOGIN_MARK}? | default '')}} ");
+        let marked = value(
+            session
+                .request(execute(datum::NonceGenerator::new().generate(), definition("record<login: string>", &body)))
+                .await,
         );
-        match session.request(execute(datum::NonceGenerator::new().generate(), &definition)).await.expect("a response") {
-            EngineResponse::Wire(FromEngineSys::Value(ValueAnswer { result: Ok(value), .. })) => {
-                assert_eq!(value.get("login"), Some(&NuVal::String("1".to_string())), "the login shell's mark");
-            }
-            other => panic!("a value, not {other:?}"),
-        }
+        assert_eq!(marked.get("login"), Some(&NuVal::String("1".to_string())), "the login shell's mark");
         let home = nix::unistd::User::from_uid(nix::unistd::getuid())
             .expect("the user database")
             .expect("the test's user")
             .dir;
-        match session.request(EngineRequest::Info).await.expect("info") {
-            EngineResponse::Info(info) => {
-                let start = std::fs::canonicalize(&info.work_dir).expect("the workdir");
-                assert_eq!(start, std::fs::canonicalize(&home).expect("the home"), "the session's start");
-            }
-            other => panic!("info, not {other:?}"),
-        }
+        let info = value(session.request(interface("info")).await);
+        let start = std::fs::canonicalize(text(&info, "work_dir")).expect("the workdir");
+        assert_eq!(start, std::fs::canonicalize(&home).expect("the home"), "the session's start");
         session.close().await;
     });
 }
@@ -215,10 +237,7 @@ impl subsys::Handler<RemoteSystem> for Bare {
 /// Whether grammar-ssh lists a call in flight within 10 s, through the system.
 async fn in_flight(remote: &RemoteHandle, endpoint: &Endpoint) -> bool {
     for _ in 0..100 {
-        if let Ok(EngineResponse::Wire(FromEngineSys::Control(Ok(ControlAnswer::Processes(rows))))) =
-            remote.request(endpoint.clone(), control(EngineCommand::Processes)).await
-            && !rows.is_empty()
-        {
+        if !listed(&value(remote.request(endpoint.clone(), interface("process list")).await)).is_empty() {
             return true;
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -228,16 +247,10 @@ async fn in_flight(remote: &RemoteHandle, endpoint: &Endpoint) -> bool {
 
 /// grammar-ssh's pid as an eval on it reads it, through the system.
 async fn ssh_pid(remote: &RemoteHandle, endpoint: &Endpoint) -> u32 {
-    let definition = "def execute [data: nothing]: nothing -> record<pid: int> { {pid: $nu.pid} }";
-    let request = execute(datum::NonceGenerator::new().generate(), definition);
-    match remote.request(endpoint.clone(), request).await.expect("a response") {
-        EngineResponse::Wire(FromEngineSys::Value(ValueAnswer { result: Ok(value), .. })) => {
-            match value.get("pid") {
-                Some(NuVal::Int(pid)) => *pid as u32,
-                other => panic!("a pid, not {other:?}"),
-            }
-        }
-        other => panic!("a value, not {other:?}"),
+    let request = execute(datum::NonceGenerator::new().generate(), definition("record<pid: int>", " {pid: $nu.pid} "));
+    match value(remote.request(endpoint.clone(), request).await).get("pid") {
+        Some(NuVal::Int(pid)) => *pid as u32,
+        other => panic!("a pid, not {other:?}"),
     }
 }
 
@@ -255,7 +268,7 @@ fn a_lost_grammar_ssh_answers_its_calls_lost_and_the_next_request_its_restart() 
         let call = tokio::spawn({
             let remote = remote.clone();
             let endpoint = endpoint.clone();
-            async move { remote.request(endpoint, execute(datum::NonceGenerator::new().generate(), SLEEP)).await }
+            async move { remote.request(endpoint, execute(datum::NonceGenerator::new().generate(), sleep())).await }
         });
         assert!(in_flight(&remote, &endpoint).await, "the call runs on grammar-ssh");
         nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid as i32), nix::sys::signal::Signal::SIGKILL)
@@ -265,7 +278,7 @@ fn a_lost_grammar_ssh_answers_its_calls_lost_and_the_next_request_its_restart() 
             Err(lost) => assert_eq!(lost.kind(), "remote::engine::session_lost", "{}", lost.message()),
             Ok(other) => panic!("the call's loss, not {other:?}"),
         }
-        let told = remote.request(endpoint.clone(), EngineRequest::Info).await.expect_err("the restart, nothing run");
+        let told = remote.request(endpoint.clone(), interface("info")).await.expect_err("the restart, nothing run");
         let TransportError::EngineRestart { nom, failure } = &told else {
             panic!("the engine's restart, not {told:?}");
         };

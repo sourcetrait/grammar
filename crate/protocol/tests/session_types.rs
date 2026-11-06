@@ -227,27 +227,60 @@ fn nonce() -> Nonce {
     Nonce::new_unchecked(7)
 }
 
+/// The data a call carries, `{refs: []}`.
+fn refs() -> NuVal {
+    NuVal::Record(vec![("refs".into(), NuVal::List(Vec::new()))])
+}
+
 fn call() -> CallRequest {
     CallRequest {
         host: Host::Local,
         nonce: nonce(),
         namepath: "gram:get:log".into(),
-        data: "{refs: []}".into(),
+        data: refs(),
         timeout: None,
     }
 }
 
-fn info() -> SshInfo {
-    SshInfo {
-        version: "0.0.0-9".into(),
-        nu_version: "0.116.1".into(),
-        id: "fixture".into(),
-        namespace: "default".into(),
-        nom: "sshnom01".into(),
-        work_dir: "/srv/work".into(),
-        tmp: "/srv/tmp/grammar-ssh.x".into(),
-        transient: TransientPaths { ai: "/run/user/2001/ai/fixture".into(), grammar: "/run/user/2001/grammar-ssh.y".into() },
-        plugins: vec![PluginInfo("nu_plugin_eye".into(), Some("0.1.0".into())), PluginInfo("bad".into(), None)],
+fn execute() -> ExecuteRequest {
+    ExecuteRequest {
+        host: Host::Local,
+        nonce: nonce(),
+        definition: ExecuteDefinition {
+            is_env: false,
+            data: NuType::Nothing,
+            result: NuType::Record(vec![NuField::new("n", NuType::Int)]),
+            timeout: true,
+            body: " {n: 1} ".into(),
+        },
+        data: NuVal::Nothing,
+        timeout: Some(NuVal::Duration(30_000_000_000)),
+    }
+}
+
+fn rerun() -> RerunRequest {
+    RerunRequest {
+        host: Host::Local,
+        nonce: nonce(),
+        source: "sourcenonce1".into(),
+        data: refs(),
+        timeout: None,
+    }
+}
+
+fn bed() -> BedRequest {
+    BedRequest {
+        host: Host::Local,
+        nonce: nonce(),
+        command: "grmr".into(),
+        subcommand: "config list".into(),
+    }
+}
+
+fn interface() -> InterfaceRequest {
+    InterfaceRequest {
+        nonce: nonce(),
+        subcommand: "purview set [core]".into(),
     }
 }
 
@@ -255,32 +288,33 @@ fn prepared() -> PreparedSend {
     PreparedSend {
         mcp_nom: "peernom0001".into(),
         model: "example/Receipt".into(),
-        event_nuon: "{n: 1}".into(),
+        data: NuVal::Record(vec![("n".into(), NuVal::Int(1))]),
         files: vec![SendFile { dest: "out.nuon".into(), bytes: vec![0, 0xff] }],
     }
 }
 
 fn channel_send() -> ChannelSendData {
-    ChannelSendData { from: "thread/x".into(), model: "example/Note".into(), event: NuVal::Nothing, attached: None }
+    ChannelSendData { from: "thread/x".into(), model: "example/Note".into(), data: NuVal::Nothing, attached: None }
 }
 
 /// Every engine request, by its variant.
 fn requests() -> Vec<(&'static str, EngineRequest)> {
     vec![
-        ("wire", EngineRequest::Wire(call().into())),
-        ("purview", EngineRequest::Purview(PurviewRequest::Resolve(PurviewResolveRequest { ids: vec!["core".into()] }))),
-        ("info", EngineRequest::Info),
+        ("execute", execute().into()),
+        ("rerun", rerun().into()),
+        ("call", call().into()),
+        ("bed", bed().into()),
+        ("interface", interface().into()),
     ]
 }
 
 /// Every engine response, by its variant.
 fn responses() -> Vec<(&'static str, EngineResponse)> {
-    let answer = ValueAnswer { nonce: nonce(), result: Ok(NuVal::Nothing) };
-    let views = vec![PurviewView("core".into(), vec!["gram:".into()])];
+    let value = CallAnswer { nonce: nonce(), result: Ok(refs()) };
+    let rows = CallAnswer { nonce: nonce(), result: Err(vec![refusal()]) };
     vec![
-        ("wire", EngineResponse::Wire(FromEngineSys::Value(answer))),
-        ("purview", EngineResponse::Purview(PurviewAnswer::Listed(Ok(views)))),
-        ("info", EngineResponse::Info(info())),
+        ("answer", EngineResponse::Answer(value)),
+        ("answer_rows", EngineResponse::Answer(rows)),
         ("refused", EngineResponse::Refused(TransportError::Busy)),
     ]
 }
@@ -313,11 +347,14 @@ fn frames() -> Vec<(&'static str, golden::Vector)> {
     let ping = Ping { nonce: u64::MAX };
     let closed = SessionClose { error: Some(TransportError::SessionLost { reason: "no frame in 30 s".into() }) };
     vec![
-        ("mcp/request", golden::vector(&McpFrame::Request { id: 1, request: EngineRequest::Info })),
+        ("mcp/request", golden::vector(&McpFrame::Request { id: 1, request: interface().into() })),
         ("mcp/answer", golden::vector(&McpFrame::Answer { id: 2, answer: HostAnswer::Noted })),
         ("mcp/ping", golden::vector(&McpFrame::Ping(ping))),
         ("mcp/close", golden::vector(&McpFrame::Close(SessionClose { error: None }))),
-        ("ssh/response", golden::vector(&SshFrame::Response { id: 1, response: EngineResponse::Info(info()) })),
+        ("ssh/response", golden::vector(&SshFrame::Response {
+            id: 1,
+            response: EngineResponse::Answer(CallAnswer { nonce: nonce(), result: Ok(NuVal::Nothing) }),
+        })),
         ("ssh/ask", golden::vector(&SshFrame::Ask { id: 2, ask: SessionAsk::Config })),
         ("ssh/emergency", golden::vector(&SshFrame::Emergency(Emergency::RamWarning(RamWarningEmergency { rss_kb: 1 })))),
         ("ssh/pong", golden::vector(&SshFrame::Pong(ping))),
@@ -335,7 +372,7 @@ fn misc() -> Vec<(&'static str, golden::Vector)> {
         }),
         listening: true,
     };
-    let remote = RemoteSendData { mcp_nom: "peernom0001".into(), model: "example/Receipt".into(), event: NuVal::Nothing, attached: Some(NuVal::List(Vec::new())) };
+    let remote = RemoteSendData { mcp_nom: "peernom0001".into(), model: "example/Receipt".into(), data: NuVal::Nothing, attached: Some(NuVal::List(Vec::new())) };
     let row = RemoteChannelRow {
         alias: "lab/peer".into(),
         address: None,
@@ -438,22 +475,22 @@ fn every_variant_has_its_vector() {
     let requests: BTreeSet<_> = requests()
         .iter()
         .map(|(_, r)| match r {
-            EngineRequest::Wire(_) => "wire",
-            EngineRequest::Purview(_) => "purview",
-            EngineRequest::Info => "info",
+            EngineRequest::Execute(_) => "execute",
+            EngineRequest::Rerun(_) => "rerun",
+            EngineRequest::Call(_) => "call",
+            EngineRequest::Bed(_) => "bed",
+            EngineRequest::Interface(_) => "interface",
         })
         .collect();
-    assert_eq!(requests.len(), 3);
+    assert_eq!(requests.len(), 5);
     let responses: BTreeSet<_> = responses()
         .iter()
         .map(|(_, r)| match r {
-            EngineResponse::Wire(_) => "wire",
-            EngineResponse::Purview(_) => "purview",
-            EngineResponse::Info(_) => "info",
+            EngineResponse::Answer(_) => "answer",
             EngineResponse::Refused(_) => "refused",
         })
         .collect();
-    assert_eq!(responses.len(), 4);
+    assert_eq!(responses.len(), 2);
     let asks: BTreeSet<_> = asks()
         .iter()
         .map(|(_, a)| match a {
@@ -487,18 +524,10 @@ fn every_variant_has_its_vector() {
 }
 
 #[test]
-fn a_call_takes_a_call_slot_and_every_other_request_a_control_one() {
-    assert!(EngineRequest::Wire(call().into()).is_call());
-    let bed = BedRequest {
-        host: Host::Local,
-        nonce: nonce(),
-        command: "grmr".into(),
-        subcommand: "get_config_all".into(),
-    };
-    assert!(EngineRequest::Wire(bed.into()).is_call(), "a bed call runs an eval, so it takes a call slot");
-    let control = ControlRequest { host: Host::Local, command: EngineCommand::Kill { nonce: "n".into() } };
-    for (name, request) in [("control", EngineRequest::Wire(control.into())), ("info", EngineRequest::Info)] {
-        assert!(!request.is_call(), "{name}");
+fn an_eval_takes_a_call_slot_and_an_interface_call_a_control_one() {
+    for (name, request) in requests() {
+        let interface = matches!(request, EngineRequest::Interface(_));
+        assert_eq!(request.is_call(), !interface, "{name}: a bed call runs an eval, so it takes a call slot");
     }
 }
 

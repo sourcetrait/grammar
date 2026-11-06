@@ -91,8 +91,8 @@ first would refuse to the second, and an operator would sample the test process.
 
 ### fn interface
 The whole tool, parse and dispatch, for a test of the contract or of a command
-as an agent sends it. The typed helpers beside it call each command's method
-straight, so a test of a command's logic passes typed values and never quotes a
+as an agent sends it. The typed helpers beside it call the engine's commands
+straight, through `local_engine`, so a test of a command's logic passes typed values and never quotes a
 literal; the parse has its own tests.
 
 ### fn bed

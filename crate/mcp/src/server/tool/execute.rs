@@ -28,12 +28,27 @@ impl NuSh {
             Ok(route) => route,
             Err(error) => return error_to_call_result(error, nonce),
         };
+        let definition = match self.controller.request(DefineRequest { definition: p.definition }).await {
+            Ok(Ok(definition)) => definition,
+            Ok(Err(diagnostics)) => {
+                return error_to_call_result(EngineError::DefinitionViolations { diagnostics }, nonce);
+            }
+            Err(error) => return error_to_call_result(error, nonce),
+        };
+        let data = match nuon_data(&p.data, "definition") {
+            Ok(data) => data,
+            Err(error) => return error_to_call_result(error, nonce),
+        };
+        let timeout = match nuon_timeout(p.timeout.as_deref()) {
+            Ok(timeout) => timeout,
+            Err(error) => return error_to_call_result(error, nonce),
+        };
         let request = ExecuteRequest {
             host: Host::Local,
             nonce,
-            definition: p.definition,
-            data: p.data,
-            timeout: p.timeout,
+            definition,
+            data,
+            timeout,
         };
         match self.value(route, request).await {
             Ok(value) => success_value(nonce, value),

@@ -10,8 +10,14 @@ request naming its answer type for subsys against `EngineSystem`.
 ## enum ToEngine
 ## enum FromEngine
 A subsys system takes one type each way, so the wire's pair rides one variant,
-the purview requests another, and the host's a third: down, a request or a host
-answer; up, an answer or a host ask.
+the purview requests another, a definition's model a third, and the host's a
+fourth: down, a request or a host answer; up, an answer or a host ask.
+
+## struct DefineRequest
+A tool's edge asks its own engine for a definition's model, held to the
+contract and the lint on the engine's lint engine, so the edge parses on the
+shell the call runs on, whichever engine then runs it. The answer is the model or
+the rows of the definition's refusal.
 
 ## impl subsys::Request for PurviewRequest
 A purview request whole answers the purview answer whole, so a controller that

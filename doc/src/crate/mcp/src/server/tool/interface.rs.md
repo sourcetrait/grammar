@@ -58,8 +58,9 @@ The tool's body, its caller given: the server's tool, the in-process harness
 ## fn run_interface
 Each group to its system: the face's two and the remote engines' whatever the
 host, since the Channel, the remote channels, and the remote engines' entries
-and sessions are the MCP's, and the engine's to `run_engine` on the host's
-engine. The deny set applies at the parse, before any routing, so a
+and sessions are the MCP's, and the engine's to the host's engine: the
+MCP's own through `local_engine`, a remote engine's as the call's subcommand, which
+grammar-ssh parses and runs (`crate/engine`'s `desk.rs`). The deny set applies at the parse, before any routing, so a
 denied command is withheld the same for every host. No command dispatches an
 eval, so none appears in `interface process list`'s table and none takes a
 lane or a permit; a command's own locks are taken inside its method as its
@@ -70,6 +71,16 @@ The remote engines' group, each command its method on the MCP
 (`remote_engines.rs`, `remote_engine_set.rs`, `remote_engine_connect.rs`, and
 `remote_engine_import.rs`).
 
-## fn run_engine
-The engine's group, each command its method on the routed engine, the
-purviews', `info`'s, and `help`'s with the session's view there.
+## fn mcp_block
+`interface help interface` and `interface help grmr` answer the MCP's own blocks
+whatever the host, the interface being the MCP's, its deny set applied, and grmr
+the same on every engine; every other engine command goes where the call routes.
+
+## fn local_engine
+An engine command on the MCP's own engine, through the engine's handlers with the
+MCP's desk (`common.rs`'s `LocalDesk`); the harness calls it with a parsed command.
+
+## fn remote_interface
+A remote engine's call goes as its subcommand, the text the agent sent, and comes back
+as its value or its rows: the wire carries the call, never the command's values, so a
+command added or changed needs no change to the session (User).

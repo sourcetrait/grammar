@@ -57,6 +57,11 @@ pub(crate) fn interface_engine_for(deny: &DenySet) -> nu::EngineState {
     sourcetrait_grammar_interface::interface_engine(|words| deny.denies_command(words))
 }
 
+/// Whether `command` asks for one of the MCP's own blocks, the interface's or grmr's.
+fn mcp_block(command: &EngineInterfaceCommand) -> bool {
+    matches!(command, EngineInterfaceCommand::Help(p) if p.namepath == INTERFACE || p.namepath == GRMR)
+}
+
 /// The commands the deny set leaves, by their words, a `##` heading a topic.
 pub(crate) fn render_command_list(deny: &DenySet) -> String {
     sourcetrait_grammar_protocol::render_command_list(|words| deny.denies_command(words))
@@ -143,7 +148,7 @@ impl NuSh {
                 if matches!(command, InterfaceCommand::Engine(EngineInterfaceCommand::Info)) {
                     self.controller.face.keep_thread(caller.thread.as_deref());
                 }
-                self.run_interface(nonce, route, command, &caller).await
+                self.run_interface(nonce, route, command, &p.subcommand, &caller).await
             }
             Err(diagnostics) => {
                 error_to_call_result(GrammarMcpError::InterfaceViolations { diagnostics }, nonce)
@@ -152,11 +157,14 @@ impl NuSh {
     }
 
     /// Run a parsed command under the interface call's nonce, routed to its system.
+    ///
+    /// An engine command bound for a remote engine goes as `subcommand`, its text.
     pub(crate) async fn run_interface(
         &self,
         nonce: datum::Nonce,
         route: Route,
         command: InterfaceCommand,
+        subcommand: &str,
         caller: &Caller,
     ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
         let face = &self.controller.face;
@@ -165,7 +173,12 @@ impl NuSh {
             InterfaceCommand::Peer(command) => face.run_peer(nonce, command).await,
             InterfaceCommand::Chat(command) => face.run_chat(nonce, command).await,
             InterfaceCommand::RemoteEngine(command) => self.run_remote_engine(nonce, command).await,
-            InterfaceCommand::Engine(command) => self.run_engine(nonce, &route, command).await,
+            InterfaceCommand::Engine(command) => match route {
+                Route::Remote(alias) if !mcp_block(&command) => {
+                    self.remote_interface(nonce, &alias, subcommand).await
+                }
+                _ => self.local_engine(nonce, command).await,
+            },
         }
     }
 
@@ -186,29 +199,31 @@ impl NuSh {
         }
     }
 
-    /// An engine command, routed to its host's engine with the session's view there.
-    async fn run_engine(
+    /// An engine command on the MCP's own engine, within the session's view there.
+    pub(crate) async fn local_engine(
         &self,
         nonce: datum::Nonce,
-        route: &Route,
         command: EngineInterfaceCommand,
     ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
-        use EngineInterfaceCommand as E;
-        match command {
-            E::Info => self.info(nonce, route).await,
-            E::Help(p) => self.help(nonce, route, p).await,
-            E::ProcessList => self.process_list(nonce, route).await,
-            E::ProcessKill(p) => self.process_kill(nonce, route, p).await,
-            E::PurviewList => self.purview_list(nonce, route).await,
-            E::PurviewSet(p) => self.purview_set(nonce, route, p).await,
-            E::PurviewExtend(p) => self.purview_extend(nonce, route, p).await,
-            E::PurviewConfigure(p) => self.purview_configure(nonce, route, p).await,
-            E::EquipNew(p) => self.equip_new(nonce, route, p).await,
-            E::EquipInstall(p) => self.equip_install(nonce, route, p).await,
-            E::EquipCheck(p) => self.equip_check(nonce, route, p).await,
-            E::EquipUninstall(p) => self.equip_uninstall(nonce, route, p).await,
-            E::EquipScaffold(p) => self.equip_scaffold(nonce, route, p).await,
-            E::EquipCommit(p) => self.equip_commit(nonce, route, p).await,
+        answer_result(nonce, run_engine_command(&LocalDesk(self), command).await)
+    }
+
+    /// An interface call sent to a remote engine as its subcommand, run there.
+    async fn remote_interface(
+        &self,
+        nonce: datum::Nonce,
+        alias: &str,
+        subcommand: &str,
+    ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
+        let request = InterfaceRequest {
+            nonce,
+            subcommand: subcommand.to_string(),
+        };
+        match self.controller.remote(alias, request.into()).await {
+            Ok(EngineResponse::Answer(answer)) => answer_result(nonce, answer.result),
+            Ok(EngineResponse::Refused(refusal)) | Err(refusal) => {
+                error_to_call_result(GrammarMcpError::Transport(refusal), nonce)
+            }
         }
     }
 }

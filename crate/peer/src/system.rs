@@ -447,20 +447,21 @@ impl PeerSystem {
         let RemoteSendRequest {
             mcp_nom,
             model,
-            event_nuon,
+            data,
             payloads,
         } = req;
         if model_too_long(&model) {
             return Err(model_too_long_reason());
         }
-        let id = mint_msg_id(&self.nonce_gen, "remote/send", &model, &event_nuon, None).to_string();
+        let text = data.to_nuon(NuonStyle::Raw);
+        let id = mint_msg_id(&self.nonce_gen, "remote/send", &model, &text, None).to_string();
         let payloads = payloads.into_iter().map(|p| (p.dest, p.bytes)).collect();
         let link = self
             .links
             .values()
             .find(|link| link.handle.remote_mcp_nom == mcp_nom)
             .ok_or_else(|| format!("no open remote link to mcp_nom `{mcp_nom}`"))?;
-        link.handle.enqueue_send(id.clone(), model, event_nuon, payloads)?;
+        link.handle.enqueue_send(id.clone(), model, data, payloads)?;
         Ok(id)
     }
 

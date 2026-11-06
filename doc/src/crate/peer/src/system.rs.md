@@ -48,8 +48,8 @@ the address bound; the accept runs behind on a task of its own.
 A body's send is held to every reservation here as on the sender's side; the
 host's own, a chat, to `channel/` alone, the one prefix the host sends a peer.
 Past that the two are one send, held to the model's bound. The id is minted over
-the model and the event as rendered, and the frames queue on the link to the
-peer the send names: the event whole in its Deliver frame, which the link holds
+the model and the data's NUON, and the frames queue on the link to the
+peer the send names: the data whole in its Deliver frame, which the link holds
 to its 8 MiB (`check_outbound`), and each file under the name its sender gave,
 none of them the host's. The receiving Channel spills what its own line can't
 carry.

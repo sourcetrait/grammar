@@ -19,9 +19,9 @@ A listener's close answers once its accept let the port go, so an immediate
 re-listen binds.
 
 ## struct RemoteSendRequest
-A body's send with its event rendered and its files read on the sender's side:
-a source the sender can't read is its own error, surfaced at the call. The
-system mints the id and queues the frames, the event whole in its Deliver frame.
+A body's send with its files read on the sender's side, its data the value it
+is: a source the sender can't read is its own error, surfaced at the call. The
+system mints the id and queues the frames, the data whole in its Deliver frame.
 
 ## struct HostSendRequest
 The host's own send, a chat, apart from a body's so the reservation a body's

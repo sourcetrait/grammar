@@ -106,7 +106,7 @@ pub struct ChannelSendData {
     /// The sending call's origin, `thread/<nonce>`.
     pub from: String,
     pub model: String,
-    pub event: NuVal,
+    pub data: NuVal,
     pub attached: Option<NuVal>,
 }
 
@@ -115,7 +115,7 @@ pub struct ChannelSendData {
 pub struct RemoteSendData {
     pub mcp_nom: String,
     pub model: String,
-    pub event: NuVal,
+    pub data: NuVal,
     /// The files table, `src` beside `dest`; `None` for a send without files.
     pub attached: Option<NuVal>,
 }

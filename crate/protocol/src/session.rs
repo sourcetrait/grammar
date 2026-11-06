@@ -49,51 +49,73 @@ pub enum SshFrame {
     Close(SessionClose),
 }
 
-/// A request of grammar-ssh's engine.
+/// A tool call grammar-ssh serves, its parameters as the MCP's tool took them.
 #[cereal::derived(Data)]
 pub enum EngineRequest {
-    /// An eval, a rerun, a call, or a control command.
-    Wire(ToEngineSys),
-    /// One of the namespace's purview requests.
-    Purview(PurviewRequest),
-    /// grammar-ssh's identity, homes, and plugins.
-    Info,
+    Execute(ExecuteRequest),
+    Rerun(RerunRequest),
+    Call(CallRequest),
+    Bed(BedRequest),
+    Interface(InterfaceRequest),
 }
 
 impl EngineRequest {
-    /// Whether the request is an eval, a rerun, or a call, which take a call's slot.
+    /// Whether the call runs an eval, which takes a call's slot.
     pub fn is_call(&self) -> bool {
-        matches!(
-            self,
-            Self::Wire(ToEngineSys::Execute(_) | ToEngineSys::Rerun(_) | ToEngineSys::Call(_) | ToEngineSys::Bed(_))
-        )
+        !matches!(self, Self::Interface(_))
     }
 }
 
-/// grammar-ssh's answer to a request.
+impl From<ExecuteRequest> for EngineRequest {
+    fn from(v: ExecuteRequest) -> Self { Self::Execute(v) }
+}
+
+impl From<RerunRequest> for EngineRequest {
+    fn from(v: RerunRequest) -> Self { Self::Rerun(v) }
+}
+
+impl From<CallRequest> for EngineRequest {
+    fn from(v: CallRequest) -> Self { Self::Call(v) }
+}
+
+impl From<BedRequest> for EngineRequest {
+    fn from(v: BedRequest) -> Self { Self::Bed(v) }
+}
+
+impl From<InterfaceRequest> for EngineRequest {
+    fn from(v: InterfaceRequest) -> Self { Self::Interface(v) }
+}
+
+/// grammar-ssh's answer to a tool call.
 #[cereal::derived(Data)]
 pub enum EngineResponse {
-    Wire(FromEngineSys),
-    Purview(PurviewAnswer),
-    Info(SshInfo),
+    /// The call's value, or the rows its error reports.
+    Answer(CallAnswer),
     /// The request refused before the engine took it, or its answer past the frame.
     Refused(TransportError),
 }
 
-/// grammar-ssh's identity, homes, and plugins, as `interface info` reports them.
+/// A tool call's answer: its nonce, and its value or the rows its error reports.
 #[cereal::derived(Data)]
-pub struct SshInfo {
+pub struct CallAnswer {
+    pub nonce: datum::Nonce,
+    pub result: Result<NuVal, Vec<Diagnostic>>,
+}
+
+/// A host's identity, homes, and plugins, as `interface info` reports them.
+#[cereal::derived(Data)]
+pub struct HostInfo {
     pub version: String,
     pub nu_version: String,
     pub id: String,
     pub namespace: String,
-    /// grammar-ssh's nom, its `$env.EQUIP_MCP_NOM`.
+    /// The host's nom, its `$env.EQUIP_MCP_NOM`.
     pub nom: String,
-    /// grammar-ssh's working directory, its `$env.EQUIP_WORK_DIR`.
+    /// The host's working directory, its `$env.EQUIP_WORK_DIR`.
     pub work_dir: String,
-    /// grammar-ssh's bulk scratch directory, its `$env.EQUIP_TMP`.
+    /// The host's bulk scratch directory, its `$env.EQUIP_TMP`.
     pub tmp: String,
-    /// grammar-ssh's transient directories, an agent's and its own.
+    /// The host's transient directories, an agent's and its own.
     pub transient: TransientPaths,
     pub plugins: Vec<PluginInfo>,
 }
@@ -127,13 +149,12 @@ pub enum SessionAsk {
     Config,
 }
 
-/// A remote send as its sender prepares it: the event's NUON and each file's bytes.
+/// A remote send as its sender prepares it: its data and each file's bytes.
 #[cereal::derived(Data)]
 pub struct PreparedSend {
     pub mcp_nom: String,
     pub model: String,
-    /// The event as NUON text.
-    pub event_nuon: String,
+    pub data: NuVal,
     pub files: Vec<SendFile>,
 }
 

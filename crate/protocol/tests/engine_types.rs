@@ -74,23 +74,29 @@ fn requests() -> Vec<(String, ToEngineSys)> {
         let execute = ExecuteRequest {
             host,
             nonce: NONCE,
-            definition: "def execute [data: nothing]: nothing -> nothing {}".into(),
-            data: "null".into(),
+            definition: ExecuteDefinition {
+                is_env: true,
+                data: NuType::Nothing,
+                result: NuType::Nothing,
+                timeout: false,
+                body: String::new(),
+            },
+            data: NuVal::Nothing,
             timeout: None,
         };
         let rerun = RerunRequest {
             host,
             nonce: NONCE,
             source: "nonceSource".into(),
-            data: "{repo: 'ключ ✓'}".into(),
-            timeout: Some("30sec".into()),
+            data: NuVal::Record(vec![("repo".into(), NuVal::String("ключ ✓".into()))]),
+            timeout: Some(NuVal::Duration(30_000_000_000)),
         };
         let call = CallRequest {
             host,
             nonce: NONCE,
             namepath: "gram:get:log".into(),
-            data: "{refs: []}".into(),
-            timeout: Some("2min".into()),
+            data: NuVal::Record(vec![("refs".into(), NuVal::List(Vec::new()))]),
+            timeout: Some(NuVal::Duration(120_000_000_000)),
         };
         let bed = BedRequest {
             host,

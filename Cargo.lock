@@ -6647,6 +6647,7 @@ dependencies = [
  "serde",
  "sourcetrait_cereal_bitcode",
  "sourcetrait_common",
+ "sourcetrait_grammar_interface",
  "sourcetrait_grammar_protocol",
  "sourcetrait_process",
  "tokio",

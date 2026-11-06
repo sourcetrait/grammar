@@ -15,7 +15,6 @@ pub(crate) mod server {
     pub(crate) mod identity;
     pub(crate) mod oneshot;
     pub(crate) mod operator;
-    pub(crate) mod purview;
     pub(crate) mod remote;
     pub(crate) mod run;
     pub(crate) mod tool {
@@ -27,22 +26,11 @@ pub(crate) mod server {
         pub(crate) mod channel_open;
         pub(crate) mod channel_sync;
         pub(crate) mod channel_verified;
-        pub(crate) mod commit;
         pub(crate) mod config_channel;
         pub(crate) mod common;
         pub(crate) mod handler;
-        pub(crate) mod info;
-        pub(crate) mod inspect;
         pub(crate) mod interface;
-        pub(crate) mod equip;
         pub(crate) mod execute;
-        pub(crate) mod kill;
-        pub(crate) mod new;
-        pub(crate) mod processes;
-        pub(crate) mod purview_configure;
-        pub(crate) mod purview_extend;
-        pub(crate) mod purviews;
-        pub(crate) mod purview;
         pub(crate) mod remote_channel_close;
         pub(crate) mod remote_channel_connect;
         pub(crate) mod remote_channel_listen;
@@ -110,8 +98,8 @@ pub(crate) use crate::{
             bed::{BED_TOOL, BedParams, bed_description},
             call::CallParams,
             common::{
-                Route, envelope_text, now_millis, serde_to_nu, success, success_value,
-                success_void,
+                LocalDesk, Route, answer_result, envelope_text, now_millis, serde_to_nu, success,
+                success_value, success_void,
             },
             interface::{
                 Caller, INTERFACE_TOOL, InterfaceParams, interface_description,
@@ -131,10 +119,9 @@ pub(crate) use crate::server::{
     host::{FaceLink, HostRoute, ensure_substrate, init_engine},
     oneshot::run_oneshot,
     operator::{OperatorWatch, spawn_observer},
-    purview::{Views, pattern_delta, unknown_purview},
     remote::RemoteRoute,
     run::run_server,
-    tool::common::{NuSh, unexpected},
+    tool::common::NuSh,
 };
 
 pub(crate) use sourcetrait_grammar_client::{
@@ -145,18 +132,15 @@ pub(crate) use sourcetrait_grammar_client::{
 };
 
 pub(crate) use sourcetrait_grammar_engine::{
-    self as engine, EVAL_STACK_SIZE, EngineHandle, EngineIdentity, EngineParams, EngineSystem,
-    FromEngine,
+    self as engine, CurrentPurview, DefineRequest, Desk, EVAL_STACK_SIZE, EngineHandle, EngineIdentity,
+    EngineParams, EngineSystem, FromEngine,
     GRMR, GRMR_COMMANDS, HostAnswer, HostAsk, HostStop, KIND_BED, LintEngine, NU_VERSION,
-    NamepathPattern,
-    NamepathStr, PURVIEW_ALL, PURVIEW_DEFAULT, ParseEngine, PinAsk, PluginInfo,
-    PurviewConfigureRequest, PurviewListRequest, PurviewResolution, PurviewResolveRequest,
-    PurviewRigRequest, ToEngine, analyze_definition, build_call_source,
+    ParseEngine, PinAsk, ToEngine, analyze_definition, build_call_source,
     build_execute_source, definition_file, ensure_default_purview, ensure_equip_store,
-    ensure_plugin_registry, equip_root, file_start, grmr_signatures, grmr_signatures_where,
+    ensure_plugin_registry, equip_root, file_start, grmr_signatures_where,
     index_from_nuon,
-    install_builtins, lib_dir, lint_block, list_registered_plugins, prepare_send, purview_ref,
-    purviews_path, rig_dir, rig_meta_path, seed_builtin_purviews, typedef_text,
+    install_builtins, lib_dir, lint_block, list_registered_plugins, nuon_data, nuon_timeout, prepare_send,
+    purviews_path, rig_dir, rig_meta_path, run_engine_command, seed_builtin_purviews, typedef_text,
 };
 
 pub(crate) use sourcetrait_grammar_channel::{
@@ -194,11 +178,10 @@ pub(crate) use sourcetrait_grammar_peer::{
 };
 
 pub(crate) use sourcetrait_grammar_protocol::{
-    ChannelEpoch, ChannelPhase, ChannelSendData, ControlRequest, EngineRequest,
-    EngineResponse, FromEngineSys, LIMITS_DEFAULT, LOCAL_HOST, MAX_FRAME_BYTES, PreparedSend,
-    PurviewAnswer,
-    PurviewRequest, PurviewRow, PurviewView, RemoteResult, RemoteSendData, RuntimeError,
-    SessionAsk, SpamThresholdsData, ToEngineSys, TransientPaths, TransportError, SshInfo,
+    ChannelEpoch, ChannelPhase, ChannelSendData, EngineRequest,
+    EngineResponse, HostInfo, InterfaceRequest, LIMITS_DEFAULT, LOCAL_HOST, MAX_FRAME_BYTES,
+    PreparedSend, RemoteResult, RemoteSendData, RuntimeError,
+    SessionAsk, SpamThresholdsData, TransientPaths, TransportError,
     AI_TRANSIENT_DIR, CHAT_MESSAGE_FILE, CHAT_MODEL, CHAT_SUMMARY_MAX_CHARS,
     REMOTE_RESERVED_PREFIX, valid_peer_id,
 };
@@ -208,9 +191,9 @@ pub(crate) use sourcetrait_grammar_protocol::{
 };
 
 pub(crate) use sourcetrait_grammar_protocol::{
-    COMMANDS, CallRequest, CheckSummary, CommitResult, ControlAnswer, Diagnostic, EngineCommand,
-    EngineError, EngineHealth, EngineResult, ExecuteRequest, Host, INTERFACE, InspectDoc,
-    RerunRequest, SignaturesDoc, ValueAnswer, command_by_words,
+    COMMANDS, CallRequest, ControlAnswer, Diagnostic, EngineCommand,
+    EngineError, EngineHealth, EngineResult, ExecuteRequest, Host, INTERFACE,
+    RerunRequest, ValueAnswer, command_by_words,
 };
 
 pub(crate) use sourcetrait_grammar_protocol::{Emergency, EmergencyKind, Observation};

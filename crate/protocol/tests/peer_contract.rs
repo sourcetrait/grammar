@@ -39,8 +39,8 @@ fn failure() -> RemoteFailure {
     RemoteFailure { kind: "listen".to_string(), message: "address in use".to_string() }
 }
 
-fn packet(model: &str, event: NuVal) -> RemotePacket {
-    RemotePacket { delivery: "eventid0001".to_string(), origin: NOM.to_string(), model: model.to_string(), event }
+fn packet(model: &str, data: NuVal) -> RemotePacket {
+    RemotePacket { delivery: "eventid0001".to_string(), origin: NOM.to_string(), model: model.to_string(), data }
 }
 
 /// Every result shape a remote command answers.
@@ -71,7 +71,7 @@ fn prepared() -> PreparedSend {
     PreparedSend {
         mcp_nom: NOM.to_string(),
         model: "peer/Report".to_string(),
-        event_nuon: "{n: 1}".to_string(),
+        data: NuVal::Record(vec![("n".to_string(), NuVal::Int(1))]),
         files: vec![SendFile { dest: "out/report.nuon".to_string(), bytes: b"{ok: true}".to_vec() }],
     }
 }
@@ -129,7 +129,7 @@ fn each_event_carries_its_packets_0_0_0_9_record_and_model() {
     ];
     for ((name, event), (model, shape)) in events().into_iter().zip(shapes) {
         assert_eq!(event.model(), model, "{name}");
-        assert_eq!(event.event(), shape, "{name}: an absent key left out, never null");
+        assert_eq!(event.data(), shape, "{name}: an absent key left out, never null");
     }
 }
 

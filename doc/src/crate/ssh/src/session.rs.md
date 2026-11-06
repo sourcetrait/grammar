@@ -73,7 +73,8 @@ every other request in one of `control`, so a session full of evals still
 answers a kill or a process list; a request past its slots is refused `Busy`
 at once rather than queued. A request whose id is in flight ends the session,
 since its response could not tell the two apart. An answer to an ask goes to
-the asker; a ping is ponged.
+the asker; a ping is ponged. The session's view and its interface parser are
+made at its start, so a view on grammar-ssh's engine dies with the session.
 
 The end detaches the asker first, so an eval asking now is refused at once,
 then tears the calls down and drains them; a call that outlasts the drain is
@@ -84,15 +85,19 @@ rerun's definition among them, and go with the cache home at its end.
 A response sent once; one refused for its size is replaced by the refusal.
 
 ## fn respond
-Info is grammar-ssh's own and needs no engine. Every other request goes to the
-engine, refused `Unavailable` when the engine has stopped.
-
-## fn wire
-Each request runs as local here: the host the MCP named is its own alias,
+Each tool call runs here, refused `Unavailable` when the engine has stopped. An
+eval's request runs as local: the host the MCP named is its own alias,
 meaningless to grammar-ssh, so the request's host is grammar-ssh's own engine.
-A request the engine's system fails to take answers as the call's failure, so
-the MCP reads one shape whatever failed.
+An interface call's subcommand is parsed here and run on this engine with the
+session's view (`crate/engine`'s `desk.rs`), so the MCP sends a command it knows
+only as text.
 
-## fn purview
-A purview request's answer, the engine's failure to take it as the runtime's
-internal error, as the MCP's own purview requests read it.
+## fn value
+A call's answer, its value or its rows; a request the engine's system fails to
+take answers as the call's failure, so the MCP reads one shape whatever failed.
+
+## struct SessionDesk
+What a session lends an interface call: grammar-ssh's engine, its identity, and
+the session's view, made fresh at the session's start. Its interface block
+leaves nothing out, since the MCP's deny set refused a denied command before it
+crossed.

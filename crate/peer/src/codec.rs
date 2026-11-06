@@ -28,11 +28,11 @@ pub(crate) enum RemoteStream {
     Debug, Clone, PartialEq, ser::Serialize, ser::Deserialize, bitcode::Encode, bitcode::Decode,
 )]
 pub(crate) enum MsgFrame {
-    /// A message to deliver: its id, model, event, and the files it waits for.
+    /// A message to deliver: its id, model, data, and the files it waits for.
     Deliver {
         id: String,
         model: String,
-        event_nuon: String,
+        data: NuVal,
         files: Vec<String>,
     },
 }

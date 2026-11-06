@@ -26,9 +26,14 @@ this one. Until this engine serves a linked host's requests, a request naming on
 refused as `host::unserved` rather than run here, where it would answer from the wrong
 machine.
 
+## fn nuon_timeout
+A tool's timeout, taken at the MCP's edge as the value its NUON names, as its data is,
+by nuval's reader: NUON reads a duration literal. A text that isn't NUON is refused as
+a timeout.
+
 ## fn parse_timeout
-The call's timeout and nothing else: parsed as NUON, which reads a duration literal, and
-held to a positive duration. It is converted to whole milliseconds rounded up, so a
+The call's timeout and nothing else: the value held to a positive duration, a value of
+another type refused naming its NUON and its type. It is converted to whole milliseconds rounded up, so a
 sub-millisecond duration still gets one. Its value goes on to a definition's or a main's
 `timeout?` when its signature takes one, so a definition can budget against what the
 host allows it. 120sec when absent, uncapped as every tool's timeout is.
@@ -41,19 +46,20 @@ directory exists.
 A rerun passes `lint` false: its definition is the engine's own cache of a definition the
 lint already passed.
 
-## fn hold_data
-One reading of the data for `execute`, a rerun, and a call alike. The text is parsed by
-`from_nuon`, which evaluates constants alone and refuses a pipeline, then held to the
-declared type by the strict check, then rendered back by `to_nuon` as the source's
-literal. The literal is therefore the engine's own render of a plain value, never the
-agent's text: nothing the agent wrote reaches an `execute` source but the definition,
-which the contract has already held to one def, and nothing at all reaches a call's.
+## fn nuon_data
+A tool's data, taken at the MCP's edge as the value its NUON names, so the wire carries
+the value. The text is read by nuval's `NuVal::from_nuon`, as nushell's `from nuon`
+reads it, straight into the NuVal, and a text that doesn't read is refused with nuval's
+error, its byte and its reason, as `nuon_timeout` refuses a timeout's. An empty text is
+refused rather than read as null, since a `data: nothing` signature takes `null` and the
+field is never optional.
 
-A text that doesn't parse is refused in the parse error's own words: the nuon crate's
-error is a generic line, "error when parsing nuon text", with the parse error inside it,
-so it is rendered by nuval's `short`, which carries the inner error, as `parse_timeout`
-renders a timeout's. An empty text is refused rather than read as null, since a
-`data: nothing` signature takes `null` and the field is never optional.
+## fn hold_data
+One reading of the data for `execute`, a rerun, and a call alike: the value held to the
+declared type by the strict check, then rendered by `to_nuon` as the source's literal.
+The literal is therefore the engine's own render of a plain value, never the agent's
+text: nothing the agent wrote reaches an `execute` source but the definition, which the
+contract has already held to one def, and nothing at all reaches a call's.
 
 ## fn hold_timeout
 The timeout always bounds the eval; its literal goes into the source only when the
@@ -62,8 +68,7 @@ for.
 
 ## fn request_args
 What the process list shows of an `execute` call, a rerun, or a call: the data and the
-timeout as the agent sent them, its own text, so an agent matches an entry against what
-it sent.
+timeout as the values they took, so an agent matches an entry against what it sent.
 
 ## fn run_prepared
 The lane is the definition's: `def execute` on the stateless pool, `def --env execute` on
@@ -78,6 +83,11 @@ is `result::invalid`; the eval's side effects stand, nothing being rolled back.
 
 A value that passes crosses to the host as a `NuVal`, which keeps every plain kind, so a
 duration stays a duration and a filesize a filesize when the host renders it.
+
+## fn serve_execute
+The definition written from its model (`execute.rs`'s `render_definition`) and analyzed
+without the lint, which the tool's edge ran on the agent's own text. The rendered
+definition is what the call caches, so a rerun re-fires it.
 
 ## fn serve_rerun
 `execute` again on an earlier call's definition with fresh data.

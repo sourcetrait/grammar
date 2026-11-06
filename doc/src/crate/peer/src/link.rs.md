@@ -162,7 +162,7 @@ reports queue ahead of the Disconnected the system reports at its end.
 ## the receive side (RecvContext, DeliverSlot, try_finalize, relay_to_channel)
 A delivered message becomes a normal Channel packet (a relay, never an
 "injection"). The slot-map per id coordinates the two connections: the Deliver
-sets the model, the event, and the expected dest set, each file's last chunk
+sets the model, the data, and the expected dest set, each file's last chunk
 marks a dest done, and try_finalize fires once (the map remove), from whichever
 driver completed the condition, when the Deliver is in and every dest has
 landed, relaying it up for the Channel's verification-gated emit, which the
@@ -189,7 +189,7 @@ not the local host. A `channel/` model passes, a chat its peer's host stamped
 `model_too_long`. Its files have landed by then and stay, as for any refused
 relay.
 
-The event rides its Deliver frame whole, however large, within the frame's 8
+The data rides its Deliver frame whole, however large, within the frame's 8
 MiB, and every landed file is the sender's under the name it gave; the receiving
 Channel spills what its line can't carry, so a relayed spill reads as a local
 one does.

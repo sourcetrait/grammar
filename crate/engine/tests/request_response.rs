@@ -11,11 +11,17 @@ use nuval::NuVal;
 use sourcetrait_common::testing::prelude::*;
 use sourcetrait_common::{datum, subsys};
 use sourcetrait_grammar_engine::{
-    CallRequest, ControlAnswer, ControlRequest, EVAL_STACK_SIZE, EngineCommand, EngineError,
+    CallRequest, ControlAnswer, ControlRequest, DefineRequest, Diagnostic, EVAL_STACK_SIZE, EngineCommand,
+    EngineError, ExecuteDefinition,
     EngineHandle, EngineIdentity, EngineParams, EngineSystem, ExecuteRequest, FromEngine, Host,
     HostAnswer,
-    HostAsk, ProcessRow, RerunRequest, ToEngine, ValueAnswer, ensure_equip_store, init,
+    HostAsk, ProcessRow, RerunRequest, ToEngine, ValueAnswer, ensure_equip_store, init, nuon_data,
 };
+
+/// A test's NUON data as the value a tool's edge takes it to.
+fn data_value(text: &str) -> NuVal {
+    nuon_data(text, "definition").unwrap_or_else(|e| panic!("`{text}` is NUON: {e:?}"))
+}
 
 static TESTING: testing::ModuleWith<TestEngine> = testing::module_with!(Integration, {
     .using_temp_dir()
@@ -99,12 +105,27 @@ impl TestEngine {
         }
     }
 
+    /// A definition's model as a tool's edge takes it from the engine, or its refusal's rows.
+    fn define(&self, definition: &str) -> Result<ExecuteDefinition, Vec<Diagnostic>> {
+        let req = DefineRequest {
+            definition: definition.to_string(),
+        };
+        self.rt.block_on(self.engine.request(req)).expect("the engine answers")
+    }
+
     fn execute_on(&self, host: Host, definition: &str, data: &str) -> ValueAnswer {
+        let nonce = self.nonces.generate();
+        let definition = match self.define(definition) {
+            Ok(definition) => definition,
+            Err(diagnostics) => {
+                return ValueAnswer { nonce, result: Err(EngineError::DefinitionViolations { diagnostics }) };
+            }
+        };
         let req = ExecuteRequest {
             host,
-            nonce: self.nonces.generate(),
-            definition: definition.to_string(),
-            data: data.to_string(),
+            nonce,
+            definition,
+            data: data_value(data),
             timeout: None,
         };
         self.rt.block_on(self.engine.request(req)).expect("the engine answers")
@@ -119,7 +140,7 @@ impl TestEngine {
             host: Host::Local,
             nonce: self.nonces.generate(),
             source: source.to_string(),
-            data: data.to_string(),
+            data: data_value(data),
             timeout: None,
         };
         self.rt.block_on(self.engine.request(req)).expect("the engine answers")
@@ -130,7 +151,7 @@ impl TestEngine {
             host: Host::Local,
             nonce: self.nonces.generate(),
             namepath: namepath.to_string(),
-            data: data.to_string(),
+            data: data_value(data),
             timeout: None,
         };
         self.rt.block_on(self.engine.request(req)).expect("the engine answers")
@@ -308,13 +329,16 @@ fn kill_ends_a_call_in_flight() {
     let nonce = e.nonces.generate();
     let key = nonce.to_string();
     let engine = e.engine.clone();
+    let definition = e
+        .define("def execute [data: nothing]: nothing -> record<out: int> {\n    sleep 30sec\n    { out: 0 }\n}")
+        .expect("the contract holds");
     let pending = e.rt.spawn(async move {
         engine
             .request(ExecuteRequest {
                 host: Host::Local,
                 nonce,
-                definition: "def execute [data: nothing]: nothing -> record<out: int> {\n    sleep 30sec\n    { out: 0 }\n}".to_string(),
-                data: "null".to_string(),
+                definition,
+                data: NuVal::Nothing,
                 timeout: None,
             })
             .await

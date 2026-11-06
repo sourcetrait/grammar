@@ -10,8 +10,8 @@ use bitcode::Decode;
 use serde::Serialize;
 use sourcetrait_common::datum::Nonce;
 use sourcetrait_grammar_protocol::{
-    DECODE_BUDGET_DEFAULT, DateData, EngineRequest, EngineResponse, ExecuteRequest, FromEngineSys,
-    Host, McpFrame, NuVal, ToEngineSys, ValueAnswer, SshFrame, decode_payload, payload,
+    CallAnswer, DECODE_BUDGET_DEFAULT, DateData, EngineRequest, EngineResponse, ExecuteDefinition,
+    ExecuteRequest, Host, McpFrame, NuField, NuType, NuVal, SshFrame, decode_payload, payload,
 };
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::hint::black_box;
@@ -117,10 +117,10 @@ fn lines(n: usize) -> NuVal {
 fn response(value: NuVal) -> SshFrame {
     SshFrame::Response {
         id: 7,
-        response: EngineResponse::Wire(FromEngineSys::Value(ValueAnswer {
+        response: EngineResponse::Answer(CallAnswer {
             nonce: Nonce::new_unchecked(0x5eed),
             result: Ok(value),
-        })),
+        }),
     }
 }
 
@@ -128,14 +128,19 @@ fn response(value: NuVal) -> SshFrame {
 fn request() -> McpFrame {
     McpFrame::Request {
         id: 8,
-        request: EngineRequest::Wire(ToEngineSys::Execute(ExecuteRequest {
+        request: EngineRequest::Execute(ExecuteRequest {
             host: Host::Local,
             nonce: Nonce::new_unchecked(0xfeed),
-            definition: "def execute [data: record<n: int>]: nothing -> record<n: int> { $data }"
-                .into(),
-            data: "{n: 1}".into(),
+            definition: ExecuteDefinition {
+                is_env: false,
+                data: NuType::Record(vec![NuField::new("n", NuType::Int)]),
+                result: NuType::Record(vec![NuField::new("n", NuType::Int)]),
+                timeout: false,
+                body: " $data ".into(),
+            },
+            data: NuVal::Record(vec![("n".into(), NuVal::Int(1))]),
             timeout: None,
-        })),
+        }),
     }
 }
 

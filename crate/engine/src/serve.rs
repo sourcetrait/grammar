@@ -52,26 +52,35 @@ fn local(host: Host) -> EngineResult<()> {
     }
 }
 
-/// A call's timeout as a positive Nu duration: its milliseconds and its value.
-fn parse_timeout(text: Option<&str>) -> EngineResult<(u64, nu::Value)> {
-    let span = nu::Span::unknown();
+/// A tool's timeout, its NUON text taken as the value it names, where it has one.
+pub fn nuon_timeout(text: Option<&str>) -> EngineResult<Option<NuVal>> {
     let Some(text) = text else {
+        return Ok(None);
+    };
+    NuVal::from_nuon(text).map(Some).map_err(|e| EngineError::TimeoutInvalid {
+        reason: format!("`{text}` is not a Nu duration: {e}"),
+    })
+}
+
+/// A call's timeout as a positive Nu duration: its milliseconds and its value.
+fn parse_timeout(timeout: Option<&NuVal>) -> EngineResult<(u64, nu::Value)> {
+    let span = nu::Span::unknown();
+    let Some(timeout) = timeout else {
         let nanos = DEFAULT_TIMEOUT_MS as i64 * 1_000_000;
         return Ok((DEFAULT_TIMEOUT_MS, nu::Value::duration(nanos, span)));
     };
     let invalid = |reason: String| EngineError::TimeoutInvalid { reason };
-    let value = nu::from_nuon(text, None).map_err(|e| {
-        invalid(format!(
-            "`{text}` is not a Nu duration: {}",
-            nuval::NuValError::from(&e).short()
-        ))
-    })?;
+    let value = timeout
+        .clone()
+        .try_into_nu(span)
+        .map_err(|e| invalid(format!("the timeout: {e}")))?;
     match value {
         nu::Value::Duration { val, .. } if val > 0 => {
             Ok(((val as u64).div_ceil(1_000_000), nu::Value::duration(val, span)))
         }
         other => Err(invalid(format!(
-            "`{text}` is typed {}, not a positive duration such as 30sec",
+            "`{}` is typed {}, not a positive duration such as 30sec",
+            timeout.to_nuon(NuonStyle::Raw),
             other.get_type(),
         ))),
     }
@@ -88,13 +97,13 @@ struct PreparedExecute {
 fn prepare_execute(
     engine: &ParseEngine,
     definition: &str,
-    data: &str,
-    timeout: Option<&str>,
+    data: &NuVal,
+    timeout: Option<&NuVal>,
     lint: bool,
 ) -> EngineResult<PreparedExecute> {
     let def = analyze_definition(engine, definition, lint)
         .map_err(|diagnostics| EngineError::DefinitionViolations { diagnostics })?;
-    let data_literal = hold_data(data, &def.data_type, "definition")?;
+    let data_literal = hold_data(data, &def.data_type)?;
     let (timeout_ms, timeout_literal) = hold_timeout(timeout, def.takes_timeout)?;
     let source = build_execute_source(definition, &data_literal, timeout_literal.as_deref());
     Ok(PreparedExecute {
@@ -104,28 +113,37 @@ fn prepare_execute(
     })
 }
 
-/// A request's data held to its typedef, answered as its source's literal.
-fn hold_data(
-    data: &str,
-    typedef: &NuType,
+/// A tool's data, its NUON text taken as the value it names, `null` for nothing.
+pub fn nuon_data(
+    text: &str,
     holder: &str,
-) -> EngineResult<String> {
+) -> EngineResult<NuVal> {
     let invalid = |reason: String| EngineError::DataInvalid { reason };
-    if data.trim().is_empty() {
+    if text.trim().is_empty() {
         return Err(invalid(format!(
             "data is NUON text, `null` for a `data: nothing` {holder}"
         )));
     }
-    let value = nu::from_nuon(data, None).map_err(|e| {
-        invalid(format!("data is not NUON: {}", nuval::NuValError::from(&e).short()))
-    })?;
+    NuVal::from_nuon(text).map_err(|e| invalid(format!("data is not NUON: {e}")))
+}
+
+/// A request's data held to its typedef, answered as its source's literal.
+fn hold_data(
+    data: &NuVal,
+    typedef: &NuType,
+) -> EngineResult<String> {
+    let invalid = |reason: String| EngineError::DataInvalid { reason };
+    let value = data
+        .clone()
+        .try_into_nu(nu::Span::unknown())
+        .map_err(|e| invalid(format!("data: {e}")))?;
     check_value(&value, typedef, "data").map_err(invalid)?;
     render_nuon(&value).map_err(invalid)
 }
 
 /// A request's timeout in milliseconds, with its literal if the signature takes it.
 fn hold_timeout(
-    timeout: Option<&str>,
+    timeout: Option<&NuVal>,
     takes_timeout: bool,
 ) -> EngineResult<(u64, Option<String>)> {
     let (timeout_ms, value) = parse_timeout(timeout)?;
@@ -138,15 +156,12 @@ fn hold_timeout(
 
 /// A request's data and timeout as the process list shows them.
 fn request_args(
-    data: &str,
-    timeout: Option<&str>,
+    data: &NuVal,
+    timeout: Option<&NuVal>,
 ) -> NuVal {
     NuVal::Record(vec![
-        ("data".to_string(), NuVal::String(data.to_string())),
-        (
-            "timeout".to_string(),
-            timeout.map_or(NuVal::Nothing, |t| NuVal::String(t.to_string())),
-        ),
+        ("data".to_string(), data.clone()),
+        ("timeout".to_string(), timeout.cloned().unwrap_or(NuVal::Nothing)),
     ])
 }
 
@@ -193,13 +208,13 @@ pub(crate) async fn serve_execute(
 ) -> EngineResult<NuVal> {
     local(req.host)?;
     let engine = core.lint_engine.current();
-    let prepared =
-        prepare_execute(&engine, &req.definition, &req.data, req.timeout.as_deref(), true)?;
+    let definition = render_definition(&req.definition);
+    let prepared = prepare_execute(&engine, &definition, &req.data, req.timeout.as_ref(), false)?;
     let kind = InFlightKind::Execute {
         lane: prepared.def.lane,
     };
-    let args = request_args(&req.data, req.timeout.as_deref());
-    run_prepared(&core, req.nonce, prepared, &req.definition, "execute", kind, args).await
+    let args = request_args(&req.data, req.timeout.as_ref());
+    run_prepared(&core, req.nonce, prepared, &definition, "execute", kind, args).await
 }
 
 /// A rerun's value: an earlier call's cached definition on fresh data.
@@ -221,12 +236,12 @@ pub(crate) async fn serve_rerun(
     };
     let engine = core.lint_engine.current();
     let prepared =
-        prepare_execute(&engine, &definition, &req.data, req.timeout.as_deref(), false)?;
+        prepare_execute(&engine, &definition, &req.data, req.timeout.as_ref(), false)?;
     let kind = InFlightKind::Rerun {
         source_nonce: req.source.clone(),
         lane: prepared.def.lane,
     };
-    let args = request_args(&req.data, req.timeout.as_deref());
+    let args = request_args(&req.data, req.timeout.as_ref());
     run_prepared(&core, req.nonce, prepared, &definition, "rerun", kind, args).await
 }
 
@@ -267,8 +282,8 @@ pub(crate) async fn serve_call(
             name,
         });
     };
-    let data_literal = hold_data(&req.data, &function.data_type, "call")?;
-    let (timeout_ms, timeout_literal) = hold_timeout(req.timeout.as_deref(), function.takes_timeout)?;
+    let data_literal = hold_data(&req.data, &function.data_type)?;
+    let (timeout_ms, timeout_literal) = hold_timeout(req.timeout.as_ref(), function.takes_timeout)?;
     let source = build_call_source(
         &equip_root(),
         &rig,
@@ -286,7 +301,7 @@ pub(crate) async fn serve_call(
         nonce: &pair,
         source,
         tool: "call",
-        args: request_args(&req.data, req.timeout.as_deref()),
+        args: request_args(&req.data, req.timeout.as_ref()),
         kind: InFlightKind::Call {
             path: req.namepath.clone(),
         },

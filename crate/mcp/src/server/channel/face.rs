@@ -136,7 +136,7 @@ impl subsys::Handler<PeerSystem> for PeerPump {
                     let emit = EmitRequest {
                         from: FROM_MCP.to_string(),
                         model: report.model().to_string(),
-                        data: report.event(),
+                        data: report.data(),
                         attached: None,
                         staged: None,
                     };
@@ -167,7 +167,7 @@ async fn relay_onto(
     let emit = EmitRequest {
         from,
         model: packet.model,
-        data: packet.event,
+        data: packet.data,
         attached: (!attached.is_empty()).then_some(attached),
         staged,
     };

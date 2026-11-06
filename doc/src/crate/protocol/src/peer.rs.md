@@ -46,7 +46,7 @@ established and `error` when it failed, neither for a listener closed before it
 paired, so a consumer keys a link's lifecycle on `remote` and reads the rest by
 presence. `Sent` reports the write to the link, never that an agent processed
 the message.
-### fn event
+### fn data
 The record the packet has always carried, a key left out where it has no
 value, never null, as the mcp crate's link builds each one by hand.
 

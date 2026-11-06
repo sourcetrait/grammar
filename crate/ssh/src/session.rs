@@ -188,7 +188,7 @@ pub(crate) async fn serve<R, W>(
     reader: R,
     writer: W,
     profile: SshProfile,
-    info: SshInfo,
+    info: HostInfo,
     controller: &GrammarSshController,
 ) -> GrammarSshResult<SessionEnd>
 where
@@ -322,7 +322,7 @@ async fn serve_frames<R>(
     mut frames: tku::FramedRead<R, FrameCodec>,
     limits: Limits,
     out: &Outbox,
-    info: Arc<SshInfo>,
+    info: Arc<HostInfo>,
     controller: &GrammarSshController,
 ) -> SessionEnd
 where
@@ -332,6 +332,8 @@ where
     let calls = Arc::new(tk::Semaphore::new(limits.calls as usize));
     let control = Arc::new(tk::Semaphore::new(limits.control as usize));
     let in_flight = Arc::new(std::sync::Mutex::new(HashSet::new()));
+    let view = Arc::new(CurrentPurview::new());
+    let parser = InterfaceParser::new(|_| false);
     let mut tasks = tk::JoinSet::new();
     let mut stops = Stops::take();
     let end = loop {
@@ -364,9 +366,10 @@ where
                             continue;
                         };
                         let engine = controller.engine();
-                        let (out, info, in_flight) = (out.clone(), info.clone(), in_flight.clone());
+                        let (out, in_flight) = (out.clone(), in_flight.clone());
+                        let (info, view, parser) = (info.clone(), view.clone(), parser.clone());
                         tasks.spawn(async move {
-                            let response = respond(request, engine, &info).await;
+                            let response = respond(request, engine, info, view, &parser).await;
                             send_response(&out, id, response);
                             held(&in_flight).remove(&id);
                             drop(permit);
@@ -410,82 +413,80 @@ fn send_response(
     }
 }
 
-/// A request's answer from grammar-ssh's engine, or its info.
+/// A tool call's answer, run here on grammar-ssh's engine as a local call.
 async fn respond(
     request: EngineRequest,
     engine: EngineResult<Arc<EngineHandle>>,
-    info: &SshInfo,
+    info: Arc<HostInfo>,
+    view: Arc<CurrentPurview>,
+    parser: &InterfaceParser,
 ) -> EngineResponse {
     let engine = match engine {
         Ok(engine) => engine,
-        Err(_) if matches!(request, EngineRequest::Info) => return EngineResponse::Info(info.clone()),
         Err(e) => return EngineResponse::Refused(TransportError::Unavailable { reason: e.to_string() }),
     };
-    match request {
-        EngineRequest::Wire(request) => EngineResponse::Wire(wire(request, &engine).await),
-        EngineRequest::Purview(request) => EngineResponse::Purview(purview(request, &engine).await),
-        EngineRequest::Info => EngineResponse::Info(info.clone()),
-    }
+    let answer = match request {
+        EngineRequest::Execute(mut req) => {
+            req.host = Host::Local;
+            let nonce = req.nonce;
+            value(nonce, engine.request(req).await)
+        }
+        EngineRequest::Rerun(mut req) => {
+            req.host = Host::Local;
+            let nonce = req.nonce;
+            value(nonce, engine.request(req).await)
+        }
+        EngineRequest::Call(mut req) => {
+            req.host = Host::Local;
+            let nonce = req.nonce;
+            value(nonce, engine.request(req).await)
+        }
+        EngineRequest::Bed(mut req) => {
+            req.host = Host::Local;
+            let nonce = req.nonce;
+            value(nonce, engine.request(req).await)
+        }
+        EngineRequest::Interface(req) => {
+            let desk = SessionDesk { engine, info, view };
+            CallAnswer {
+                nonce: req.nonce,
+                result: run_interface(&desk, parser, &req.subcommand).await,
+            }
+        }
+    };
+    EngineResponse::Answer(answer)
 }
 
-/// An eval's, a rerun's, a call's, or a command's answer, run here as local.
-async fn wire(
-    request: ToEngineSys,
-    engine: &EngineHandle,
-) -> FromEngineSys {
-    match request {
-        ToEngineSys::Execute(mut req) => {
-            req.host = Host::Local;
-            let nonce = req.nonce;
-            FromEngineSys::Value(value(nonce, engine.request(req).await))
-        }
-        ToEngineSys::Rerun(mut req) => {
-            req.host = Host::Local;
-            let nonce = req.nonce;
-            FromEngineSys::Value(value(nonce, engine.request(req).await))
-        }
-        ToEngineSys::Call(mut req) => {
-            req.host = Host::Local;
-            let nonce = req.nonce;
-            FromEngineSys::Value(value(nonce, engine.request(req).await))
-        }
-        ToEngineSys::Control(mut req) => {
-            req.host = Host::Local;
-            FromEngineSys::Control(engine.request(req).await.and_then(|answer| answer))
-        }
-        ToEngineSys::Bed(mut req) => {
-            req.host = Host::Local;
-            let nonce = req.nonce;
-            FromEngineSys::Value(value(nonce, engine.request(req).await))
-        }
-    }
-}
-
-/// A call's answer, or the engine's failure to take it as its result.
+/// A call's answer, or the engine's failure to take it, as the rows it reports.
 fn value(
     nonce: datum::Nonce,
     answer: EngineResult<ValueAnswer>,
-) -> ValueAnswer {
-    answer.unwrap_or_else(|e| ValueAnswer { nonce, result: Err(e) })
+) -> CallAnswer {
+    let result = answer.and_then(|answer| answer.result).map_err(EngineError::rows);
+    CallAnswer { nonce, result }
 }
 
-/// A purview request's answer, the engine's failure to take it as a runtime one.
-async fn purview(
-    request: PurviewRequest,
-    engine: &EngineHandle,
-) -> PurviewAnswer {
-    fn flat<T>(answer: EngineResult<Result<T, RuntimeError>>) -> Result<T, RuntimeError> {
-        answer
-            .map_err(|e| RuntimeError::Internal {
-                phase: "ssh::purview".to_string(),
-                reason: e.to_string(),
-            })
-            .and_then(|answer| answer)
+/// What a session lends an interface call: grammar-ssh's engine, identity, and view.
+struct SessionDesk {
+    engine: Arc<EngineHandle>,
+    info: Arc<HostInfo>,
+    view: Arc<CurrentPurview>,
+}
+
+impl Desk for SessionDesk {
+    fn engine(&self) -> EngineResult<Arc<EngineHandle>> {
+        Ok(self.engine.clone())
     }
-    match request {
-        PurviewRequest::List(req) => PurviewAnswer::Listed(flat(engine.request(req).await)),
-        PurviewRequest::Configure(req) => PurviewAnswer::Rows(flat(engine.request(req).await)),
-        PurviewRequest::Resolve(req) => PurviewAnswer::Resolved(flat(engine.request(req).await)),
-        PurviewRequest::Rig(req) => PurviewAnswer::Rows(flat(engine.request(req).await)),
+
+    fn info(&self) -> HostInfo {
+        (*self.info).clone()
+    }
+
+    fn view(&self) -> &CurrentPurview {
+        &self.view
+    }
+
+    fn interface_signatures(&self) -> String {
+        render_signatures(|_| false)
     }
 }

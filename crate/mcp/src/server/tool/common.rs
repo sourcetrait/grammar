@@ -9,8 +9,8 @@ pub struct NuSh {
     pub(crate) mcp_nom: datum::NomPair,
     /// The engine an interface command parses on: its commands, nothing else.
     pub(crate) interface_engine: Arc<nu::EngineState>,
-    /// Which purview ids this session has in view on each engine.
-    pub(crate) views: Arc<Views>,
+    /// Which purview ids this session has in view on the MCP's own engine.
+    pub(crate) view: Arc<CurrentPurview>,
     pub(crate) tool_router: mcp::ToolRouter<NuSh>,
 }
 
@@ -24,7 +24,7 @@ impl NuSh {
             nonce_gen: controller.face.nonce_gen.clone(),
             mcp_nom: controller.face.mcp_nom.clone(),
             interface_engine: Arc::new(interface_engine_for(deny)),
-            views: Arc::new(Views::default()),
+            view: Arc::new(CurrentPurview::new()),
             tool_router: Self::tool_router(&controller.config.deny),
             controller,
         }
@@ -38,51 +38,42 @@ impl NuSh {
     ) -> datum::NoncePair {
         mint_nonce(&self.nonce_gen, tool, params)
     }
+}
 
-    /// A control command's answer from the engine `route` names.
-    pub(crate) async fn control_on(
-        &self,
-        route: &Route,
-        command: EngineCommand,
-    ) -> GrammarMcpResult<ControlAnswer> {
-        match route {
-            Route::Local => Ok(self.controller.control(command).await?),
-            Route::Remote(alias) => {
-                let request = EngineRequest::Wire(ToEngineSys::Control(ControlRequest {
-                    host: Host::Local,
-                    command,
-                }));
-                match self.controller.remote(alias, request).await? {
-                    EngineResponse::Wire(FromEngineSys::Control(answer)) => Ok(answer?),
-                    EngineResponse::Refused(refusal) => Err(GrammarMcpError::Transport(refusal)),
-                    _ => Err(unexpected("control")),
-                }
-            }
+/// The MCP's own engine as an interface call's desk, within the session's view.
+pub(crate) struct LocalDesk<'a>(pub(crate) &'a NuSh);
+
+impl Desk for LocalDesk<'_> {
+    fn engine(&self) -> EngineResult<Arc<EngineHandle>> {
+        self.0.controller.engine()
+    }
+
+    fn info(&self) -> HostInfo {
+        let config = &self.0.controller.config;
+        HostInfo {
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            nu_version: NU_VERSION.to_string(),
+            id: config.id.clone(),
+            namespace: config.namespace.clone(),
+            nom: self.0.mcp_nom.as_str().to_string(),
+            work_dir: config.work_dir.display().to_string(),
+            tmp: tmp_dir().map(|dir| dir.display().to_string()).unwrap_or_default(),
+            transient: TransientPaths {
+                ai: ai_transient_dir(&config.id)
+                    .map(|dir| dir.display().to_string())
+                    .unwrap_or_default(),
+                grammar: transient_dir().map(|dir| dir.display().to_string()).unwrap_or_default(),
+            },
+            plugins: list_registered_plugins(),
         }
     }
 
-    /// A remote engine's grammar-ssh: its identity, its homes, and its plugins.
-    pub(crate) async fn ssh_info(
-        &self,
-        alias: &str,
-    ) -> GrammarMcpResult<SshInfo> {
-        match self.controller.remote(alias, EngineRequest::Info).await? {
-            EngineResponse::Info(info) => Ok(info),
-            EngineResponse::Refused(refusal) => Err(GrammarMcpError::Transport(refusal)),
-            _ => Err(unexpected("info")),
-        }
+    fn view(&self) -> &CurrentPurview {
+        &self.0.view
     }
 
-    /// The signature block within pattern strings, as the routed engine renders it.
-    pub(crate) async fn signatures(
-        &self,
-        route: &Route,
-        patterns: Vec<String>,
-    ) -> GrammarMcpResult<String> {
-        match self.control_on(route, EngineCommand::Signatures { patterns }).await? {
-            ControlAnswer::Signatures(block) => Ok(block),
-            _ => Err(unexpected("signatures")),
-        }
+    fn interface_signatures(&self) -> String {
+        render_signatures(&self.0.controller.config.deny)
     }
 }
 
@@ -116,42 +107,48 @@ impl NuSh {
         }
     }
 
-    /// An eval's, a rerun's, or a call's value from the engine its route names.
+    /// An eval's, a rerun's, a call's, or a bed call's value from its route's engine.
     pub(crate) async fn value<T>(
         &self,
         route: Route,
         request: T,
     ) -> GrammarMcpResult<nu::Value>
     where
-        T: subsys::Request<EngineSystem, ResponseType = ValueAnswer> + Into<ToEngineSys>,
+        T: subsys::Request<EngineSystem, ResponseType = ValueAnswer> + Into<EngineRequest>,
     {
-        let answer = match route {
-            Route::Local => self.controller.request(request).await,
-            Route::Remote(alias) => {
-                let response = self.controller.remote(&alias, EngineRequest::Wire(request.into())).await;
-                remote_value(response)?
-            }
-        };
-        answer_value(answer)
+        match route {
+            Route::Local => answer_value(self.controller.request(request).await),
+            Route::Remote(alias) => match self.controller.remote(&alias, request.into()).await? {
+                EngineResponse::Answer(answer) => {
+                    let value = answer
+                        .result
+                        .map_err(|diagnostics| GrammarMcpError::Rows { diagnostics })?;
+                    nu_value(value)
+                }
+                EngineResponse::Refused(refusal) => Err(GrammarMcpError::Transport(refusal)),
+            },
+        }
     }
 }
 
-/// A remote engine's response as its value answer, or its transport's error.
-fn remote_value(
-    response: Result<EngineResponse, TransportError>,
-) -> GrammarMcpResult<EngineResult<ValueAnswer>> {
-    match response? {
-        EngineResponse::Wire(FromEngineSys::Value(answer)) => Ok(Ok(answer)),
-        EngineResponse::Refused(refusal) => Err(GrammarMcpError::Transport(refusal)),
-        _ => Err(unexpected("value")),
-    }
+/// A value the engine answered, in its nushell form.
+fn nu_value(value: NuVal) -> GrammarMcpResult<nu::Value> {
+    value
+        .try_into_nu(nu::Span::unknown())
+        .map_err(|e| GrammarMcpError::Internal {
+            phase: "engine::value".to_string(),
+            reason: e.to_string(),
+        })
 }
 
-/// The internal error an answer of another command's kind is.
-pub(crate) fn unexpected(command: &str) -> GrammarMcpError {
-    GrammarMcpError::Internal {
-        phase: format!("engine::{command}"),
-        reason: "the engine answered another command".to_string(),
+/// A call's answer as its envelope: `{nonce, result}`, or `{nonce, error}` of its rows.
+pub(crate) fn answer_result(
+    nonce: datum::Nonce,
+    result: Result<NuVal, Vec<Diagnostic>>,
+) -> Result<mcp::CallToolResult, mcp::ErrorData> {
+    match result.map_err(|diagnostics| GrammarMcpError::Rows { diagnostics }).and_then(nu_value) {
+        Ok(value) => success_value(nonce, value),
+        Err(error) => error_to_call_result(error, nonce),
     }
 }
 
@@ -201,13 +198,7 @@ pub(crate) fn success_void(nonce: datum::Nonce) -> Result<mcp::CallToolResult, m
 
 /// A call's value from the engine, its nushell form, or why it has none.
 pub(crate) fn answer_value(answer: EngineResult<ValueAnswer>) -> GrammarMcpResult<nu::Value> {
-    let value = answer?.result?;
-    value
-        .try_into_nu(nu::Span::unknown())
-        .map_err(|e| GrammarMcpError::Internal {
-            phase: "engine::value".to_string(),
-            reason: e.to_string(),
-        })
+    nu_value(answer?.result?)
 }
 
 pub(crate) fn now_millis() -> u64 {

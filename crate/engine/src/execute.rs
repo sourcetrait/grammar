@@ -25,13 +25,48 @@ const KIND_DEFINITION: &str = "definition::invalid";
 /// The kind a module-resolution cycle is reported under, as the eval reports it.
 const KIND_CIRCULAR_IMPORT: &str = "module::circular_import";
 
-/// What a definition holding to the contract declares.
+/// What a definition holding to the contract declares, and its body's text.
 #[derive(Debug, Clone)]
 pub struct ExecuteDef {
     pub lane: Lane,
     pub data_type: NuType,
     pub result_type: NuType,
     pub takes_timeout: bool,
+    pub body: String,
+}
+
+/// A definition's model: the contract's analysis and the lint at a tool's edge.
+pub fn define(
+    parse_engine: &ParseEngine,
+    definition: &str,
+) -> Result<ExecuteDefinition, Vec<Diagnostic>> {
+    analyze_definition(parse_engine, definition, true).map(definition_model)
+}
+
+/// The model of a definition held to the contract: its signature's shapes, its body.
+pub fn definition_model(def: ExecuteDef) -> ExecuteDefinition {
+    ExecuteDefinition {
+        is_env: def.lane == Lane::Stateful,
+        data: def.data_type,
+        result: def.result_type,
+        timeout: def.takes_timeout,
+        body: def.body,
+    }
+}
+
+/// A definition's source written from its model, each shape in nuval's text.
+pub fn render_definition(model: &ExecuteDefinition) -> String {
+    let env = if model.is_env { format!("--{ENV_FLAG} ") } else { String::new() };
+    let mut params = vec![format!("{DATA_PARAM}: {}", model.data.to_inline())];
+    if model.timeout {
+        params.push(format!("{TIMEOUT_PARAM}?: {}", NuType::Duration.to_inline()));
+    }
+    format!(
+        "def {env}{EXECUTE} [{}]: nothing -> {} {{{}}}",
+        params.join(", "),
+        model.result.to_inline(),
+        model.body,
+    )
 }
 
 /// Hold `definition` to the contract, and its body to the lint when `lint`.
@@ -128,6 +163,14 @@ pub fn analyze_definition(
             format!("the definition's command is named `{EXECUTE}`, not `{name}`"),
         )]);
     }
+    let body = match call.positional_iter().nth(2) {
+        Some(block) => {
+            let from = block.span.start.saturating_sub(start) + 1;
+            let to = block.span.end.saturating_sub(start).saturating_sub(1);
+            definition.get(from..to).unwrap_or_default().to_string()
+        }
+        None => String::new(),
+    };
     let mut violations = Vec::new();
     let mut lane = Lane::Stateless;
     for argument in &call.arguments {
@@ -177,6 +220,7 @@ pub fn analyze_definition(
             data_type,
             result_type,
             takes_timeout,
+            body,
         }),
         None => Err(vec![violation(at, "the signature did not resolve".to_string())]),
     }

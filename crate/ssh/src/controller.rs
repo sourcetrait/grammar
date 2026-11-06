@@ -197,8 +197,8 @@ impl GrammarSshController {
     }
 
     /// grammar-ssh's identity, homes, and plugins, as `interface info` reports them.
-    pub(crate) fn info(&self) -> SshInfo {
-        SshInfo {
+    pub(crate) fn info(&self) -> HostInfo {
+        HostInfo {
             version: env!("CARGO_PKG_VERSION").to_string(),
             nu_version: engine::NU_VERSION.to_string(),
             id: self.config.id.clone(),

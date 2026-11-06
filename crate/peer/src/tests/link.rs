@@ -1,4 +1,5 @@
 //! The link's verifier, its codec's frames, its send's checks, and its paths.
+use crate::NuVal;
 use crate::rv;
 use crate::verify::PublicKeyVerifier;
 use rustls::client::danger::ServerCertVerifier;
@@ -67,7 +68,7 @@ fn bitcode_codec_round_trips_the_send_frames() {
     let deliver = MsgFrame::Deliver {
         id: "id1".to_string(),
         model: "proj/thing/Changed".to_string(),
-        event_nuon: "{a: 1, b: \"x\"}".to_string(),
+        data: NuVal::Record(vec![("a".to_string(), NuVal::Int(1)), ("b".to_string(), NuVal::String("x".to_string()))]),
         files: vec!["out.txt".to_string()],
     };
     let chunk = FileFrame::Chunk {
@@ -111,7 +112,7 @@ fn bitcode_codec_refuses_a_frame_past_its_decode_budget() {
     let deliver = MsgFrame::Deliver {
         id: "id1".to_string(),
         model: "proj/thing/Changed".to_string(),
-        event_nuon: "{}".to_string(),
+        data: NuVal::Record(Vec::new()),
         files: vec![String::new(); names],
     };
     let mut dst = BytesMut::new();
@@ -129,7 +130,7 @@ fn both_wire_enums_encode_the_shared_frames_alike() {
     let deliver = MsgFrame::Deliver {
         id: "id1".to_string(),
         model: "proj/thing/Changed".to_string(),
-        event_nuon: "{a: 1}".to_string(),
+        data: NuVal::Record(vec![("a".to_string(), NuVal::Int(1))]),
         files: vec!["out.txt".to_string(), "b".to_string()],
     };
     let chunk = FileFrame::Chunk {
@@ -164,7 +165,7 @@ fn a_send_past_the_inflated_cap_is_refused_before_it_is_queued() {
         &file_tx,
         "id1",
         model,
-        "{}".to_string(),
+        NuVal::Record(Vec::new()),
         payloads,
         vec!["out.txt".to_string()],
     )
@@ -190,7 +191,7 @@ fn a_send_past_the_decode_budget_is_refused_before_it_is_queued() {
         &file_tx,
         "id1",
         "proj/thing/Changed".to_string(),
-        "{}".to_string(),
+        NuVal::Record(Vec::new()),
         payloads,
         dests,
     )

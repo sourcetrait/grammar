@@ -44,9 +44,10 @@ pub use crate::{
         command_by_words, command_spec, render_command_list, render_signatures, with_head,
     },
     engine::{
-        BUILTINS, BedRequest, CallDoc, CallRequest, CheckSummary, CommitResult, ControlAnswer, ControlRequest,
-        Diagnostic, EngineCommand, EngineError, EngineHealth, EngineResult, ExecuteRequest,
-        FromEngineSys, Host, HungEval, InspectDoc, LINT_VIOLATION_CAP, Lane, ModuleDoc,
+        BUILTINS, BedRequest, CallDoc, CallRequest, CheckSummary, CommitResult, ControlAnswer,
+        ControlRequest, Diagnostic, EngineCommand, EngineError, EngineHealth, EngineResult, ExecuteDefinition,
+        ExecuteRequest,
+        FromEngineSys, Host, HungEval, InspectDoc, InterfaceRequest, LINT_VIOLATION_CAP, Lane, ModuleDoc,
         ProcessRow, RerunRequest, RigDoc, Severity, SignaturesDoc, Source, ToEngineSys,
         ValueAnswer, builtin_equip, builtin_name, display_equip, restart_rows, span_to_line_col,
     },
@@ -72,17 +73,17 @@ pub use crate::{
         PurviewResolution, PurviewResolveRequest, PurviewRigRequest, PurviewRow, PurviewView,
     },
     session::{
-        AI_TRANSIENT_DIR, ASK_DEADLINE, DRAIN_DEADLINE, EngineRequest, EngineResponse, HostAnswer,
-        HostStop, McpFrame,
+        AI_TRANSIENT_DIR, ASK_DEADLINE, CallAnswer, DRAIN_DEADLINE, EngineRequest, EngineResponse,
+        HostAnswer, HostInfo, HostStop, McpFrame,
         PING_INTERVAL, Ping, PluginInfo, PreparedSend, SESSION_IDLE, SendFile, SessionAsk,
-        SessionClose, SshFrame, SshInfo, TransientPaths,
+        SessionClose, SshFrame, TransientPaths,
     },
     value::{ValueLimitError, ValueLimitErrorKind, ValueLimits, check_error, check_value},
 };
 
 pub use nuval::{
     Bounded, CellPathMemberData, CompileErrorKind, ConfigErrorKind, ConfigWarningKind, DateData,
-    GlobData, IoErrorKind, JobErrorKind, NetworkErrorKind, NuVal, NuValError, NuValErrorKind,
+    GlobData, IoErrorKind, JobErrorKind, NetworkErrorKind, NuField, NuType, NuVal, NuValError, NuValErrorKind,
     NuValErrorLabel, NuValErrorSource, NuValResult, NuValSeverity, ParseErrorKind,
     ParseWarningKind, RangeData, ShellErrorKind, ShellWarningKind, SpanData, StdIoErrorKind,
     TypedRangeData,

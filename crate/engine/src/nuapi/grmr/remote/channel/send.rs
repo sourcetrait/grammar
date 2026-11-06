@@ -85,7 +85,7 @@ fn remote_send(
     let send = RemoteSendData {
         mcp_nom,
         model,
-        event: sendable(data)?,
+        data: sendable(data)?,
         attached: attached.map(sendable).transpose()?,
     };
     match host.ask(HostAsk::RemoteSend(send))? {

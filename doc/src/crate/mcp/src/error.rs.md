@@ -16,7 +16,8 @@ use `?` freely rather than mapping at every filesystem call.
 `From<EngineError>` wraps the engine's error whole: its kinds and messages are the
 engine's, the equips' refusals and an eval's failure among them, as the wire has always
 carried them. `From<TransportError>` wraps a transport failure whole under its
-`remote::engine::` kind.
+`remote::engine::` kind. `Rows` carries a remote engine's refusal of a call as the rows
+grammar-ssh answered, rendered as they came.
 
 `RemoteEngineInvalidParams` and `RemoteEngineNotOpen` are the MCP's alone: the
 remote engine commands run on the MCP whatever the tool's host, so no
@@ -24,8 +25,8 @@ grammar-ssh sends one back, and the wire's `RuntimeError` stays as schema v1
 fixed it.
 
 ### fn as_runtime
-Every variant but the engine's, the transport's, and the remote engine
-commands' is the runtime's portable
+Every variant but the engine's, the transport's, a remote engine's rows, and the
+remote engine commands' is the runtime's portable
 `RuntimeError`, whose kinds, messages, and rows are its own (the protocol crate's
 `error.rs`): this host's variants stay the values its impls build and bubble, and
 their wording lives once. `From<RuntimeError>` turns grammar-ssh's refusal back into

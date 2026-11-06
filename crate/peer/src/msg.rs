@@ -68,17 +68,17 @@ pub struct Payload {
     pub bytes: Vec<u8>,
 }
 
-/// A body's send to the peer of `mcp_nom`, its event rendered and its files read.
-#[cereal::derived(Data, Eq)]
+/// A body's send to the peer of `mcp_nom`, its data whole and its files read.
+#[cereal::derived(Data)]
 pub struct RemoteSendRequest {
     pub mcp_nom: String,
     pub model: String,
-    pub event_nuon: String,
+    pub data: NuVal,
     pub payloads: Vec<Payload>,
 }
 
 /// The host's own send to a peer, a chat's, its model under the host's `channel/`.
-#[cereal::derived(Data, Eq)]
+#[cereal::derived(Data)]
 pub struct HostSendRequest(pub RemoteSendRequest);
 
 /// The Channel's inbox, set at each open and cleared when a close takes it.

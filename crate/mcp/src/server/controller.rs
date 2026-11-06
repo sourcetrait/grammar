@@ -173,7 +173,7 @@ impl McpController {
     }
 
     /// The engine's system, or the failure a stopped one answers.
-    fn engine(&self) -> EngineResult<Arc<EngineHandle>> {
+    pub(crate) fn engine(&self) -> EngineResult<Arc<EngineHandle>> {
         held(&self.engine).clone().ok_or_else(|| EngineError::Internal {
             phase: "mcp::engine".to_string(),
             reason: "the engine's system has stopped".to_string(),

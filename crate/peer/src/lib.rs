@@ -49,14 +49,11 @@ pub(crate) use sourcetrait_grammar_protocol::{
 
 pub(crate) use sourcetrait_grammar_channel::mint_msg_id;
 
-pub(crate) use nuval::TryFromNu;
+pub(crate) use nuval::NuonStyle;
 
 pub(crate) use futures_util::{SinkExt, StreamExt};
 pub(crate) use tokio_rustls::rustls::pki_types::pem::PemObject;
 
-pub(crate) mod nu {
-    pub(crate) use nuon::from_nuon;
-}
 
 pub(crate) mod ser {
     pub(crate) use ::serde::{Deserialize, Serialize};
