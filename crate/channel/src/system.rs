@@ -129,7 +129,7 @@ impl ChannelSystem {
         })
     }
 
-    /// A greeting's event file written off the loop, a failure logged, the greeting sent.
+    /// A greeting's event written off the loop; a failure is logged, the greeting sent.
     async fn write_host_file(
         &self,
         file: (PathBuf, String),
@@ -144,7 +144,7 @@ impl ChannelSystem {
         }
     }
 
-    /// A host packet: its gate and render, its event's file written off the loop, its emit.
+    /// A host packet: gate and render, files moved and written off the loop, then emit.
     async fn emit(
         &mut self,
         req: EmitRequest,

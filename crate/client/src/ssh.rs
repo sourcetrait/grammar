@@ -417,7 +417,7 @@ pub(crate) struct Pinned {
     keys: Vec<keys::PublicKey>,
     /// Why the host's key was refused, kept for the connect's error.
     rejected: Arc<std::sync::Mutex<Option<String>>>,
-    /// Told when the host ends a channel, its EOF or its close: a jump's one channel is its tunnel.
+    /// Told when the host ends a channel by EOF or close, a jump's one its tunnel.
     ended: Arc<tk::Notify>,
 }
 

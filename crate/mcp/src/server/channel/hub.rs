@@ -162,8 +162,7 @@ async fn serve_peer(
     let _ = peer.channel.notify(HubNotice::PeerGone(peer.epoch)).await;
 }
 
-/// The peer's packets, its greeting queued first at the claim, until a close, its
-/// leaving, or a failure.
+/// The peer's packets, its greeting first, until a close, its leaving, or a fault.
 async fn serve(
     tcp: tk::TcpStream,
     acceptor: tls::TlsAcceptor,

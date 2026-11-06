@@ -296,7 +296,7 @@ impl Channel {
         }
     }
 
-    /// A host packet through the gate up to its files: its id minted, its line rendered.
+    /// A host packet through the gate up to its files, its id minted and line rendered.
     pub(crate) fn plan_emit(
         &mut self,
         req: EmitRequest,

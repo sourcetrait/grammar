@@ -140,7 +140,7 @@ fn held_call(
     }
 }
 
-/// Whether an expression is a literal: a scalar, or a list, record, or table of them.
+/// Whether an expression is a literal: a scalar, or a list, record, or table.
 fn literal(expr: &nu::Expression) -> bool {
     match &expr.expr {
         nu::Expr::FullCellPath(path) => path.tail.is_empty() && literal(&path.head),

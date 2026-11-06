@@ -24,8 +24,7 @@ static SCRATCH: OnceLock<ScratchDirs> = OnceLock::new();
 pub(crate) struct ScratchDirs {
     /// Bulk, under the temporary directory: a definition's `$env.EQUIP_TMP`.
     pub(crate) tmp: PathBuf,
-    /// The host's tree, `grammar/<nom>/` under the runtime directory:
-    /// `$env.EQUIP_TRANSIENT`, the Channel's `channel/` within it.
+    /// The host's tree, `grammar/<nom>/`: `$env.EQUIP_TRANSIENT`, holding `channel/`.
     pub(crate) transient: PathBuf,
 }
 
@@ -142,7 +141,7 @@ fn make_trees(base: &Path) -> Result<PathBuf, String> {
     }
 }
 
-/// An existing trees' parent: a directory itself, on Unix this user's alone to write.
+/// A trees' parent already there: a directory itself, on Unix this user's alone.
 fn check_trees(trees: &Path) -> Result<(), String> {
     let meta = fs::symlink_metadata(trees).map_err(|e| format!("read {}: {e}", trees.display()))?;
     if !meta.is_dir() {
@@ -208,7 +207,7 @@ fn private_tempdir(base: &Path, prefix: &str) -> io::Result<PathBuf> {
     builder.tempdir_in(base).map(|dir| dir.keep())
 }
 
-/// Sweep `base` of `prefix`'s scratch whose owner is proven gone, reporting what it keeps.
+/// Sweep `base` of `prefix`'s scratch whose owner is gone, reporting what it keeps.
 fn sweep_stale(base: &Path, prefix: &str) {
     let report = sourcetrait_grammar_scratch::sweep(
         base,

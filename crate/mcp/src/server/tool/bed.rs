@@ -17,7 +17,7 @@ pub struct BedParams {
     pub subcommand: String,
 }
 
-/// The tool's description: the pretext, then the `grmr` signatures the deny set leaves.
+/// The tool's description: its pretext, then the `grmr` signatures deny leaves.
 pub(crate) fn bed_description(deny: &DenySet) -> String {
     let signatures = grmr_signatures_where(|name| deny.denies_embedded(name));
     format!("{}\n\n{}", BED_PRETEXT.trim_end(), signatures.trim_end())
