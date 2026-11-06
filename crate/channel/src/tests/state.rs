@@ -575,7 +575,7 @@ fn a_host_packet_through_the_gate_is_rendered_and_minted_here() {
     assert_eq!(
         planned.files.iter().map(|(path, _)| path.clone()).collect::<Vec<_>>(),
         [PathBuf::from("/tmp/grammar.channel.x").join(format!("{}.nuon", planned.id))],
-        "a host packet's event is written too",
+        "a host packet is written too",
     );
     let id = channel.finish_emit(planned).expect("emitted");
     let ups = channel.take_ups();
@@ -676,6 +676,32 @@ fn a_composed_packet_takes_its_spilled_event_whole() {
     assert!(own.join("notes.nuon").exists(), "the packet's files stay");
     let line = nuon::from_nuon(&line, None).expect("the line");
     assert!(line.as_record().expect("record").get("attached").is_none(), "the line spills whole");
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_spilled_event_that_does_not_parse_refuses_the_packet() {
+    let dir = std::env::temp_dir().join(format!("grammar_channel_unparsed_{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    let own = dir.join("xyz");
+    fs::create_dir_all(&own).expect("its directory");
+    fs::write(own.join(".mcp_event.nuon"), "{text: ").expect("the spill");
+    fs::write(own.join("notes.nuon"), "{a: 1}").expect("a file");
+    let compose = Compose {
+        id: mint_msg_id(&datum::NonceGenerator::new(), "remote/channel/peer", "foo/Bar", "{}", None),
+        from: "remote/channel/peer".to_string(),
+        model: "foo/Bar".to_string(),
+        attached: Some(vec![attached_file("notes.nuon", 6)]),
+        spill: own.join(".mcp_event.nuon"),
+        file: dir.join("xyz.nuon"),
+    };
+    assert!(
+        matches!(compose.write(), Err(EmitError::Unparseable(_))),
+        "a spill that isn't NUON is the relay's unparseable event",
+    );
+    assert!(!dir.join("xyz.nuon").exists(), "no packet is written");
+    assert!(own.join(".mcp_event.nuon").exists(), "the spill stays for a close");
+    assert!(own.join("notes.nuon").exists(), "the packet's files stay for a close");
     let _ = fs::remove_dir_all(&dir);
 }
 

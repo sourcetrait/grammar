@@ -54,9 +54,12 @@ links sent them up.
 ## fn relay_onto
 The relay's staging goes to the Channel whole, its spilled event named apart
 from the files the packet's `attached` lists with their sizes, so the Channel's
-system makes every move under the id it mints. A relay the Channel refuses is logged by its
-delivery's id, the one record of a peer's message that reached no agent; its
-files stay staged until a deliberate close or the host's end.
+system makes every move under the id it mints. A relay the Channel refuses is
+logged by its delivery's id, the one record of a peer's message that reached no
+agent; a spilled event that won't parse is logged `event_unparseable`, as the
+link logs an inline one. Its files stay where the refusal left them: staged
+when the gate or the render refused it, and in `<id>/` when a write or the
+compose failed after the moves, until a deliberate close or the host's end.
 
 ## struct Hub
 One async open's hub as the face holds it: its epoch, its endpoint, the queue

@@ -46,10 +46,12 @@ the address bound; the accept runs behind on a task of its own.
 
 ## fn PeerSystem::send
 The send's reservation and its model's bound are held here as on the sender's
-side. The id is minted over the model and the event as rendered, then an event
-the receiver's cap would truncate spills into the files under
-`EVENT_SPILL_DEST`, `{size}` riding the wire in its place, and the frames queue
-on the link to the peer the send names.
+side, and a file may not take `EVENT_SPILL_DEST`'s name: the receiver reads a
+file of that name as the spilled event, so a body's file there would replace
+its event or, not being NUON, lose the message. The id is minted over the model
+and the event as rendered, then an event the receiver's cap would truncate
+spills into the files under `EVENT_SPILL_DEST`, `{size}` riding the wire in its
+place, and the frames queue on the link to the peer the send names.
 
 ## fn spill_remote_event
 The sender's half of the event spill: an event over 1 MiB cannot ride the

@@ -433,6 +433,12 @@ impl PeerSystem {
         if model_too_long(&model) {
             return Err(model_too_long_reason());
         }
+        if payloads.iter().any(|payload| payload.dest == EVENT_SPILL_DEST) {
+            return Err(format!(
+                "dest `{EVENT_SPILL_DEST}` is reserved for the host's spilled event; \
+                 choose another name",
+            ));
+        }
         let id = mint_msg_id(&self.nonce_gen, "remote/send", &model, &event_nuon, None).to_string();
         let payloads = payloads.into_iter().map(|p| (p.dest, p.bytes)).collect();
         let (wire_event_nuon, payloads) = spill_remote_event(event_nuon, payloads)?;

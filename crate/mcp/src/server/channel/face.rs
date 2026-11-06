@@ -162,6 +162,7 @@ async fn relay_onto(
         Ok(Ok(_)) => return,
         Ok(Err(EmitError::Refused(e))) => ("channel", e.message().to_string()),
         Ok(Err(EmitError::Render(e))) => ("render", e),
+        Ok(Err(EmitError::Unparseable(e))) => ("event_unparseable", e),
         Ok(Err(EmitError::Write(e))) => ("write", e),
         Err(e) => ("channel", e),
     };

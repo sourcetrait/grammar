@@ -154,14 +154,14 @@ impl ChannelSystem {
         let files = std::mem::take(&mut planned.files);
         let compose = planned.compose.take();
         let landed = tk::spawn_blocking(move || {
-            apply_moves(moves)?;
-            write_files(files)?;
+            apply_moves(moves).map_err(EmitError::Write)?;
+            write_files(files).map_err(EmitError::Write)?;
             compose.map(Compose::write).transpose()
         });
         match landed.await {
             Ok(Ok(Some(line))) => planned.line = line,
             Ok(Ok(None)) => {}
-            Ok(Err(reason)) => return Err(EmitError::Write(reason)),
+            Ok(Err(e)) => return Err(e),
             Err(e) => return Err(EmitError::Write(format!("the inbox write failed: {e}"))),
         }
         self.channel.finish_emit(planned)

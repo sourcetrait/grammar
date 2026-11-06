@@ -53,6 +53,11 @@ Inbox-relative, since a message carries data rather than a path of the host's.
 `<id>.nuon` takes in rather than a file in `<id>/`.
 
 ## enum EmitError
+### variant Unparseable
+A peer's spilled event is read back as NUON on the receiver, and a peer may
+write anything there; the face logs it under the kind the link gives an inline
+event that doesn't parse, `event_unparseable`.
+
 ### variant Write
 The moves and writes go before the line, so a failed one refuses the emit, and
 no packet goes out whose files aren't there.

@@ -180,7 +180,9 @@ pub enum EmitError {
     Render(String),
     /// The gate refused it.
     Refused(ChannelSendError),
-    /// Its files could not be written.
+    /// The event its peer spilled to a file did not parse as NUON.
+    Unparseable(String),
+    /// Its files could not be moved, read, or written.
     Write(String),
 }
 

@@ -60,13 +60,16 @@ pub(crate) struct Compose {
 
 impl Compose {
     /// The packet rendered whole with the spilled event and written: its line.
-    pub(crate) fn write(self) -> Result<String, String> {
+    pub(crate) fn write(self) -> Result<String, EmitError> {
         let text = fs::read_to_string(&self.spill)
-            .map_err(|e| format!("read {}: {e}", self.spill.display()))?;
-        let event = nu::from_nuon(&text, None).map_err(|e| format!("the spilled event: {e}"))?;
-        let rendered = render_packet(self.id, &self.from, &self.model, &event, self.attached.as_deref())?;
-        write_files(vec![(self.file, rendered.file)])?;
-        fs::remove_file(&self.spill).map_err(|e| format!("remove {}: {e}", self.spill.display()))?;
+            .map_err(|e| EmitError::Write(format!("read {}: {e}", self.spill.display())))?;
+        let event = nu::from_nuon(&text, None)
+            .map_err(|e| EmitError::Unparseable(format!("the spilled event: {e}")))?;
+        let rendered = render_packet(self.id, &self.from, &self.model, &event, self.attached.as_deref())
+            .map_err(EmitError::Render)?;
+        write_files(vec![(self.file, rendered.file)]).map_err(EmitError::Write)?;
+        fs::remove_file(&self.spill)
+            .map_err(|e| EmitError::Write(format!("remove {}: {e}", self.spill.display())))?;
         if let Some(dir) = self.spill.parent() {
             let _ = fs::remove_dir(dir);
         }

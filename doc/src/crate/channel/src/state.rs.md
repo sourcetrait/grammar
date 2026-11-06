@@ -131,9 +131,11 @@ As `finish_send`, the gate read again at the emit.
 ## struct Compose
 A relay whose peer spilled its event. The spill is read and parsed rather than
 copied in, so `<id>.nuon` holds a packet nushell reads whatever the peer sent,
-and a spill that won't parse refuses the relay, its files left staged. The spill
-goes once taken in, and `<id>/` with it where it was the one file; the line is
-the packet's own, held to the cap as every line is.
+and a spill that won't parse refuses the relay, `Unparseable`. The moves have
+landed by then, so a refused compose leaves the files and the spill in `<id>/`
+with no `<id>.nuon`, for a deliberate close to take. The spill goes once taken
+in, and `<id>/` with it where it was the one file; the line is the packet's own,
+held to the cap as every line is.
 
 ## fn apply_moves
 Renames within the inbox, so a peer's files land whole under the packet's id or
