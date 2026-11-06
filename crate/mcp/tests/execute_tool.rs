@@ -130,8 +130,8 @@ fn data_that_is_not_nuon_is_refused() {
     assert_eq!(error_kind(&env), Some("data::invalid"), "{env}");
     let message = &error_messages(&env)[0];
     assert!(
-        message.starts_with("data is not NUON: ") && message.contains("; error when parsing: "),
-        "the refusal carries the parse error's own words, not the nuon crate's generic line; {env}",
+        message.starts_with("data is not NUON: NUON at byte "),
+        "the refusal carries nuval's reader's offset and reason; {env}",
     );
     let env = s.execute("def execute [data: nothing]: nothing -> nothing { }", "");
     assert_eq!(error_kind(&env), Some("data::invalid"), "{env}");

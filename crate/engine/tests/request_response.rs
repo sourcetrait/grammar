@@ -54,7 +54,7 @@ impl subsys::Handler<EngineSystem> for TestHost {
             FromEngine::Host(HostAsk::Pin(_)) => {
                 Some(HostAnswer::Refused("the test host pins nothing".to_string()))
             }
-            FromEngine::Wire(_) | FromEngine::Purview(_) => None,
+            FromEngine::Wire(_) | FromEngine::Purview(_) | FromEngine::Defined(_) => None,
         };
         std::future::ready(answer.map(ToEngine::Host))
     }
