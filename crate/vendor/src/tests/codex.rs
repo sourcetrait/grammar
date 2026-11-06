@@ -19,6 +19,7 @@ fn the_daemons_answer_names_its_socket_or_is_refused() {
 mod client {
     use crate::*;
     use serde_json::{Value, json};
+    use std::io::Write;
     use std::os::unix::net::UnixListener;
     use std::thread::JoinHandle;
     use tungstenite::Message;
@@ -64,6 +65,46 @@ mod client {
         Some(json!({"jsonrpc": "2.0", "id": request["id"], "result": {}}))
     }
 
+    /// A test app-server answering `initialize` whole and every later request slowly.
+    ///
+    /// A later answer is one unmasked text frame, as a server sends it, written a
+    /// byte at a time `gap` apart, so every socket read returns well inside a
+    /// client's bound while the frame takes far longer than the bound to arrive.
+    fn serve_slowly(
+        dir: &Path,
+        gap: Duration,
+    ) -> PathBuf {
+        let socket = dir.join("app-server.sock");
+        let listener = UnixListener::bind(&socket).expect("a socket");
+        std::thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("a client");
+            let mut ws = tungstenite::accept(stream).expect("the handshake");
+            while let Ok(message) = ws.read() {
+                let Message::Text(text) = message else {
+                    continue;
+                };
+                let request: Value = serde_json::from_str(text.as_str()).expect("a request");
+                let Some(id) = request.get("id") else {
+                    continue;
+                };
+                let reply = json!({"jsonrpc": "2.0", "id": id, "result": {}}).to_string();
+                if request["method"] == "initialize" {
+                    let _ = ws.send(Message::text(reply));
+                    continue;
+                }
+                let mut frame = vec![0x81, u8::try_from(reply.len()).expect("a short answer")];
+                frame.extend_from_slice(reply.as_bytes());
+                for byte in frame {
+                    if ws.get_mut().write_all(&[byte]).is_err() {
+                        return;
+                    }
+                    std::thread::sleep(gap);
+                }
+            }
+        });
+        socket
+    }
+
     #[test]
     fn a_client_initializes_and_starts_a_turn_with_the_tool_output() {
         let dir = tempfile::tempdir().expect("a directory");
@@ -106,6 +147,17 @@ mod client {
         let late = client.turn_start("thread-1", &OUTPUT).expect_err("no answer");
         assert!(late.contains("no answer to turn/start within 300 ms"), "{late}");
         assert!(started.elapsed() < Duration::from_secs(3), "the bound holds: {:?}", started.elapsed());
+    }
+
+    #[test]
+    fn a_frame_read_slowly_times_out_by_its_bound() {
+        let dir = tempfile::tempdir().expect("a directory");
+        let socket = serve_slowly(dir.path(), Duration::from_millis(50));
+        let mut client = AppServerClient::connect(&socket, "grammar", "0.0.0-0", Duration::from_millis(300)).expect("a session");
+        let started = Instant::now();
+        let late = client.turn_start("thread-1", &OUTPUT).expect_err("a frame past the bound");
+        assert!(late.contains("no answer to turn/start within 300 ms"), "{late}");
+        assert!(started.elapsed() < Duration::from_secs(1), "the bound holds over a slow frame: {:?}", started.elapsed());
     }
 
     #[test]
