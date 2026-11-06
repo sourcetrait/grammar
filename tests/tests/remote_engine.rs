@@ -159,6 +159,13 @@ fn the_interface_commands_run_on_the_engine_their_host_names() {
     assert_eq!(remote["result"]["id"].as_str(), Some(SSH_ID), "{info}");
     let local = envelope(&host.info());
     assert_ne!(remote["result"]["nom"].as_str(), local["result"]["nom"].as_str(), "grammar-ssh's nom, not the MCP's");
+    let ai = account.home("run").join("ai").join(SSH_ID).display().to_string();
+    assert_eq!(remote["result"]["transient"]["ai"].as_str(), Some(ai.as_str()), "grammar-ssh's record: {info}");
+    let grammar = remote["result"]["transient"]["grammar"].as_str().unwrap_or_default();
+    assert!(
+        grammar.starts_with(&account.home("run").display().to_string()),
+        "and its own transient directory under the account's runtime home: {info}",
+    );
 
     let source = account.workdir().join("equip").join("sourcetrait").join("probe");
     let made = host.call("interface", json!({"host": "lab", "subcommand": format!("interface equip new '{}'", source.display())}));
