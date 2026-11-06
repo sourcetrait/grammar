@@ -1,0 +1,24 @@
+[package]
+name = "sourcetrait_grammar_vendor"
+description = "Grammar's harness-specific code, a module a harness: Claude Code's and Codex's"
+version.workspace    = true
+authors.workspace    = true
+license.workspace    = true
+edition.workspace    = true
+repository.workspace = true
+homepage.workspace   = true
+categories.workspace = true
+keywords.workspace   = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+tungstenite.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[package.metadata]
+rein = "ai"

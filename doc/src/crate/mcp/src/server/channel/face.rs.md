@@ -37,6 +37,13 @@ The Channel's system starts first, on the config's thresholds, its handler the
 face's hub pump; the peer links' after it, their handler holding the Channel,
 so a link's first relay has a Channel to reach.
 
+## fn ChannelFace::keep_thread / fn ChannelFace::codex_thread
+Codex names its calling thread in each tool call's `_meta`, and the MCP server
+it starts has no thread id of its own, so the thread is learned from the agent's
+own `interface info`, the call a boot makes first, and each one replaces the
+last; a call naming none leaves the kept one, so a client that sends no `_meta`
+loses nothing. The kept thread is where a Codex delivery goes.
+
 ## fn peer_params
 The links take the config's values as plain strings, every path expanded: the
 key pair as the config resolved it, the remotes file the config's sibling, and

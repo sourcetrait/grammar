@@ -6708,6 +6708,7 @@ dependencies = [
  "sourcetrait_grammar_peer",
  "sourcetrait_grammar_protocol",
  "sourcetrait_grammar_scratch",
+ "sourcetrait_grammar_vendor",
  "sourcetrait_process",
  "srcert_lib",
  "tempfile",
@@ -6848,6 +6849,16 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tokio-tungstenite",
+]
+
+[[package]]
+name = "sourcetrait_grammar_vendor"
+version = "0.0.0-10"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tungstenite",
 ]
 
 [[package]]

@@ -175,6 +175,8 @@ pub(crate) use sourcetrait_grammar_interface::{
     RemoteEngineSetParams, RemoteListenParams, RemoteSetParams, parse_command,
 };
 
+pub(crate) use sourcetrait_grammar_vendor::THREAD_ID_META;
+
 pub(crate) use sourcetrait_grammar_peer::{
     ExpandDefault, FromPeerSys, HostSendRequest, IdentityKeys, InboxRequest, Payload, PeerHandle,
     PeerSysParams,
@@ -260,7 +262,10 @@ pub(crate) mod mcp {
         ErrorData, ServerHandler, ServiceExt,
         handler::server::router::tool::ToolRouter,
         handler::server::wrapper::Parameters,
-        model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig},
+        model::{
+            CallToolResult, ContentBlock, Implementation, MetaObject, RequestMetaObject,
+            ServerCapabilities, ServerConfig,
+        },
         tool, tool_handler, tool_router,
         transport::stdio,
     };

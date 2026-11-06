@@ -1,11 +1,11 @@
 # interface.rs
 
-The `interface` tool: every tool but `execute`, `rerun`, `call`, and `bed`, folded into
-one `subcommand` string (User's `grammar/interface`, its parameters his
-`doc/human/tools.md`), the `interface` word optional and undocumented (User).
-The commands convert those tools as they were: same parameters, same results,
-same refusals. The parse is the interface crate's (`crate/interface`); this
-host binds it to its deny set and routes what it parses.
+The `interface` tool: every tool but `execute`, `rerun`, `call`, and `bed`,
+folded into one `subcommand` string (User's `grammar/interface`, its parameters
+his `doc/human/tools.md`), the `interface` word optional and undocumented
+(User). The commands convert those tools as they were: same parameters, same
+results, same refusals. The parse is the interface crate's (`crate/interface`);
+this host binds it to its deny set and routes what it parses.
 
 ## const INTERFACE_PRETEXT
 User's `include/human/mcp/interface.md`, verbatim by `include_str!`: his pretext
@@ -25,7 +25,7 @@ The router's stub, which `interface_description` replaces on the router.
 The interface crate's engine, its commands the deny set leaves, the deny set
 naming a command by its words.
 
-## fn ChannelFace::run_channel / fn ChannelFace::run_peer / fn ChannelFace::run_chat
+## fn ChannelFace::run_channel / run_peer / run_chat
 The routing table's three groups on the face: the Channel's commands, the
 remote channels', and the chat's run through the face that holds their systems.
 
@@ -34,7 +34,10 @@ The nonce is minted first, over the tool's name and the command text, so a
 refusal at the parse carries one exactly as a dispatched command's answer does.
 The host is routed before the parse (`NuSh::route`, `common.rs`), so an unknown
 alias is refused first. The dispatched command answers under that same nonce:
-each command's method takes the nonce rather than minting its own.
+each command's method takes the nonce rather than minting its own. The request's
+`_meta` rides beside its parameters, rmcp's `RequestMetaObject` extractor, and
+`interface info` alone hands it to the face, which keeps the Codex thread it
+names (`face.rs`).
 
 ## fn run_interface
 Each group to its system: the face's two and the remote engines' whatever the

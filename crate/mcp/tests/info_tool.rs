@@ -6,19 +6,21 @@ use sourcetrait_grammar_mcp::guts::{
 };
 use sourcetrait_common::testing::prelude::*;
 
-/// One shared in-process server per test binary: constructing a TestServer runs
-/// the namespace substrate (keypair, equip repo git config), which must not race
-/// itself across parallel tests.
+/// One shared in-process server per test binary.
+///
+/// Constructing a TestServer runs the namespace substrate (keypair, equip repo git
+/// config), which must not race itself across parallel tests.
 static TESTING: testing::ModuleWith<TestServer> = testing::module_with!(Integration, {
     .using_temp_dir()
     .setup(|_| TestServer::new())
 });
 
-/// Read a committed golden under `<crate>/testing/goldens/`, comparing it to
-/// `actual`. `BLESS=1 cargo test` (re)writes it from the actual value; without
-/// the golden present (and no BLESS) the read fails loudly.
+/// A committed golden under `<crate>/testing/goldens/` compared to `actual`.
 ///
-/// The signature block is WHITESPACE-SIGNIFICANT, which is what makes it a good
+/// `BLESS=1 cargo test` (re)writes it from the actual value; without the golden
+/// present (and no BLESS) the read fails loudly.
+///
+/// The signature block is whitespace-significant, which is what makes it a good
 /// golden: an indentation bug shows up as a plain file diff rather than as a
 /// structural assertion nobody reads.
 fn golden_text(
@@ -94,6 +96,23 @@ fn info_returns_static_server_state() {
     assert_eq!(trees.file_name().and_then(|n| n.to_str()), Some("grammar"), "the trees sit in grammar/; got {env}");
     let runtime = trees.parent().expect("the runtime base");
     assert_eq!(ai, runtime.join("ai").join(id), "an agent's scratch is <runtime>/ai/<id>; got {env}");
+}
+
+/// `interface info` keeps the thread its request's `_meta.threadId` names.
+///
+/// A later one replaces it, one naming none leaves it, and no other command takes
+/// it.
+#[test]
+fn info_keeps_the_thread_its_meta_names() {
+    let s = TESTING.harness();
+    let _ = s.interface_with_meta("interface info", &[("threadId", "thread-one")]);
+    assert_eq!(s.codex_thread().as_deref(), Some("thread-one"));
+    let _ = s.interface_with_meta("info", &[("threadId", "thread-two"), ("sessionId", "session-one")]);
+    assert_eq!(s.codex_thread().as_deref(), Some("thread-two"), "a later one replaces it, never by its session");
+    let _ = s.interface_with_meta("interface info", &[]);
+    assert_eq!(s.codex_thread().as_deref(), Some("thread-two"), "one naming none leaves it");
+    let _ = s.interface_with_meta("interface process list", &[("threadId", "thread-three")]);
+    assert_eq!(s.codex_thread().as_deref(), Some("thread-two"), "another command keeps none");
 }
 
 #[tested]

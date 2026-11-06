@@ -241,7 +241,31 @@ impl TestServer {
             host: host.to_string(),
             subcommand: subcommand.to_string(),
         };
-        Self::envelope(self.rt.block_on(self.nush.interface(mcp::Parameters(p))))
+        let meta = mcp::RequestMetaObject::default();
+        Self::envelope(self.rt.block_on(self.nush.interface(meta, mcp::Parameters(p))))
+    }
+
+    /// One local `interface` subcommand whose request carries `meta` as its `_meta`.
+    pub fn interface_with_meta(
+        &self,
+        subcommand: &str,
+        meta: &[(&str, &str)],
+    ) -> NuVal {
+        let p = InterfaceParams {
+            host: LOCAL_HOST.to_string(),
+            subcommand: subcommand.to_string(),
+        };
+        let fields = meta
+            .iter()
+            .map(|(key, value)| (key.to_string(), serde_json::Value::String(value.to_string())))
+            .collect();
+        let meta = mcp::RequestMetaObject(mcp::MetaObject(fields));
+        Self::envelope(self.rt.block_on(self.nush.interface(meta, mcp::Parameters(p))))
+    }
+
+    /// The Codex thread the face keeps from the last `interface info` naming one.
+    pub fn codex_thread(&self) -> Option<String> {
+        self.nush.controller.face.codex_thread()
     }
 
     /// `bed` of an embedded command's subcommand.

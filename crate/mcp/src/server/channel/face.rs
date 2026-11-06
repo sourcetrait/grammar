@@ -19,6 +19,8 @@ pub(crate) struct ChannelFace {
     pub(crate) nonce_gen: Arc<datum::NonceGenerator>,
     /// This host process's identity, minted once at startup.
     pub(crate) mcp_nom: datum::NomPair,
+    /// The Codex thread the last `interface info` named, the Channel's to deliver to.
+    pub(crate) codex_thread: std::sync::Mutex<Option<String>>,
 }
 
 impl ChannelFace {
@@ -49,7 +51,24 @@ impl ChannelFace {
             channel_open_lock: Arc::new(tk::AsyncMutex::new(())),
             nonce_gen,
             mcp_nom,
+            codex_thread: std::sync::Mutex::new(None),
         })
+    }
+
+    /// The thread a request's `_meta` names, kept; one naming none leaves the last.
+    pub(crate) fn keep_thread(
+        &self,
+        meta: &mcp::RequestMetaObject,
+    ) {
+        let named = meta.get(THREAD_ID_META).and_then(|thread| thread.as_str()).filter(|thread| !thread.is_empty());
+        if let Some(thread) = named {
+            *self.codex_thread.lock().unwrap_or_else(|e| e.into_inner()) = Some(thread.to_string());
+        }
+    }
+
+    /// The Codex thread kept last, if any.
+    pub(crate) fn codex_thread(&self) -> Option<String> {
+        self.codex_thread.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
     /// What a server's end and its signal sweep close the Channel through.

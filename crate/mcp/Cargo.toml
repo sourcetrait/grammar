@@ -50,6 +50,7 @@ sourcetrait_grammar_operator.workspace = true
 sourcetrait_grammar_peer.workspace = true
 sourcetrait_grammar_protocol.workspace = true
 sourcetrait_grammar_scratch.workspace = true
+sourcetrait_grammar_vendor.workspace = true
 sourcetrait_process.workspace = true
 
 srcert_lib.workspace              = true

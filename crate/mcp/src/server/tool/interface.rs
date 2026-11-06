@@ -89,6 +89,7 @@ impl NuSh {
     #[mcp::tool(description = INTERFACE_DESCRIPTION)]
     pub(crate) async fn interface(
         &self,
+        meta: mcp::RequestMetaObject,
         mcp::Parameters(p): mcp::Parameters<InterfaceParams>,
     ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
         let nonce = self.mint(INTERFACE_TOOL, &p).to_nonce();
@@ -97,7 +98,12 @@ impl NuSh {
             Err(error) => return error_to_call_result(error, nonce),
         };
         match parse_command(&self.interface_engine, &p.subcommand) {
-            Ok(command) => self.run_interface(nonce, route, command).await,
+            Ok(command) => {
+                if matches!(command, InterfaceCommand::Engine(EngineInterfaceCommand::Info)) {
+                    self.controller.face.keep_thread(&meta);
+                }
+                self.run_interface(nonce, route, command).await
+            }
             Err(diagnostics) => {
                 error_to_call_result(GrammarMcpError::InterfaceViolations { diagnostics }, nonce)
             }
