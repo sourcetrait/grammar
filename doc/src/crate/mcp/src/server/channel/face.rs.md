@@ -7,6 +7,10 @@ piece of code. The face is the controller of two systems, the Channel's
 binds each async open's hub, keeps the open's verify timer, pumps the Channel's
 lines into the hub, and hands the links' relays and reports to the Channel.
 
+## type ThreadSlot
+Shared rather than owned by the face, since the Codex face's delivery task reads
+it at each delivery while `interface info` writes it.
+
 ## struct ChannelFace
 What a server needs of the Channel and the remote channels: their two systems,
 the open's hub, the lock that serializes an open, the config each open binds
@@ -68,10 +72,18 @@ link logs an inline one. Its files stay where the refusal left them: staged
 when the gate or the render refused it, and in `<id>/` when a write or the
 compose failed after the moves, until a deliberate close or the host's end.
 
+## enum HubFace
+The two ways an async open's agent reads its Channel: a Monitor on the wss hub's
+endpoint, or the Codex face's deliveries into the agent's thread (`codex.rs`),
+which leave the agent nothing to connect to. The open reports the endpoint
+alone, null for the Codex face.
+
 ## struct Hub
-One async open's hub as the face holds it: its epoch, its endpoint, the queue
-its peer task writes to the socket, the close lane, and the shutdown sender,
-whose drop ends the accept loop.
+One async open's hub as the face holds it: its epoch, its face, the queue its
+peer task writes to the socket or delivers, the close lane, and, for the wss
+hub, the shutdown sender whose drop ends the accept loop. The Codex face has no
+accept loop, and a dropped hub drops its close lane, which ends its delivery
+task as surely.
 
 ## struct HubSlot
 The face's side of the open, shared with its pump and its timer: the hub, the

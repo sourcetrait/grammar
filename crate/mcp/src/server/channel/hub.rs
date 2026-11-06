@@ -110,10 +110,10 @@ pub(crate) async fn start(
     ));
     Ok(Hub {
         epoch,
-        url,
+        face: HubFace::Wss(url),
         packets: packet_tx,
         close: close_tx,
-        _shutdown: shutdown_tx,
+        _shutdown: Some(shutdown_tx),
     })
 }
 

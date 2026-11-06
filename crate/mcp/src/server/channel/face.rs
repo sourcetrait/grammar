@@ -4,6 +4,9 @@ use crate::*;
 /// What a planned close carries: the code, the reason, and an optional ack.
 pub(crate) type CloseSignal = (u16, String, Option<tk::oneshot::Sender<()>>);
 
+/// The Codex thread the last `interface info` named, shared with its deliveries.
+pub(crate) type ThreadSlot = Arc<std::sync::Mutex<Option<String>>>;
+
 /// The Channel's face to a server: its systems, hub, open lock, and identity.
 pub(crate) struct ChannelFace {
     /// The runtime config, which each open's hub binds and presents by.
@@ -20,7 +23,7 @@ pub(crate) struct ChannelFace {
     /// This host process's identity, minted once at startup.
     pub(crate) mcp_nom: datum::NomPair,
     /// The Codex thread the last `interface info` named, the Channel's to deliver to.
-    pub(crate) codex_thread: std::sync::Mutex<Option<String>>,
+    pub(crate) codex_thread: ThreadSlot,
 }
 
 impl ChannelFace {
@@ -51,24 +54,23 @@ impl ChannelFace {
             channel_open_lock: Arc::new(tk::AsyncMutex::new(())),
             nonce_gen,
             mcp_nom,
-            codex_thread: std::sync::Mutex::new(None),
+            codex_thread: ThreadSlot::default(),
         })
     }
 
-    /// The thread a request's `_meta` names, kept; one naming none leaves the last.
+    /// The thread a caller names, kept; a caller naming none leaves the last.
     pub(crate) fn keep_thread(
         &self,
-        meta: &mcp::RequestMetaObject,
+        thread: Option<&str>,
     ) {
-        let named = meta.get(THREAD_ID_META).and_then(|thread| thread.as_str()).filter(|thread| !thread.is_empty());
-        if let Some(thread) = named {
-            *self.codex_thread.lock().unwrap_or_else(|e| e.into_inner()) = Some(thread.to_string());
+        if let Some(thread) = thread {
+            *held(&self.codex_thread) = Some(thread.to_string());
         }
     }
 
     /// The Codex thread kept last, if any.
     pub(crate) fn codex_thread(&self) -> Option<String> {
-        self.codex_thread.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        held(&self.codex_thread).clone()
     }
 
     /// What a server's end and its signal sweep close the Channel through.
@@ -191,14 +193,33 @@ async fn relay_onto(
     );
 }
 
-/// One open's async hub: its endpoint and the senders to its tasks.
+/// How an open's agent reads the Channel its hub serves.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum HubFace {
+    /// The wss endpoint a Monitor connects to.
+    Wss(String),
+    /// Deliveries into a Codex thread through its app-server, nothing to connect to.
+    Codex,
+}
+
+impl HubFace {
+    /// The endpoint an open reports, none for a face that delivers on its own.
+    pub(crate) fn wss(&self) -> Option<String> {
+        match self {
+            Self::Wss(url) => Some(url.clone()),
+            Self::Codex => None,
+        }
+    }
+}
+
+/// One open's async hub: its face and the senders to its tasks.
 pub(crate) struct Hub {
     pub(crate) epoch: ChannelEpoch,
-    pub(crate) url: String,
+    pub(crate) face: HubFace,
     pub(crate) packets: tk::UnboundedSender<String>,
     pub(crate) close: tk::oneshot::Sender<CloseSignal>,
-    /// Held for its drop, which ends the accept loop.
-    pub(crate) _shutdown: tk::oneshot::Sender<()>,
+    /// Held for its drop, which ends a wss hub's accept loop; none for the Codex face.
+    pub(crate) _shutdown: Option<tk::oneshot::Sender<()>>,
 }
 
 /// The face's hub, its verify timer, and the emergency policy its pump applies.
@@ -236,15 +257,15 @@ impl HubSlot {
         Ok(())
     }
 
-    /// The endpoint of the open of `epoch`'s hub.
-    pub(crate) fn url(
+    /// The face of the open of `epoch`'s hub, none where no hub is that open's.
+    pub(crate) fn face(
         &self,
         epoch: ChannelEpoch,
-    ) -> Option<String> {
+    ) -> Option<HubFace> {
         held(&self.hub)
             .as_ref()
             .filter(|hub| hub.epoch == epoch)
-            .map(|hub| hub.url.clone())
+            .map(|hub| hub.face.clone())
     }
 
     /// Whether the open of `epoch`'s hub has lost its peer, or has no hub.

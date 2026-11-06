@@ -15,6 +15,35 @@ pub struct InterfaceParams {
     pub subcommand: String,
 }
 
+/// What a request says of its caller: its client's name and the thread it names.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct Caller {
+    /// The client's `clientInfo` name, the request's own or its `initialize`'s.
+    pub(crate) client: Option<String>,
+    /// The thread the request's `_meta` names, Codex's `threadId`.
+    pub(crate) thread: Option<String>,
+}
+
+impl Caller {
+    /// The caller a tool call's context describes.
+    pub(crate) fn of(context: &mcp::RequestContext<mcp::RoleServer>) -> Self {
+        Self::named(context.client_info().map(|info| info.name), &context.meta)
+    }
+
+    /// The caller a client's name and a request's `_meta` describe.
+    pub(crate) fn named(
+        client: Option<String>,
+        meta: &mcp::RequestMetaObject,
+    ) -> Self {
+        let thread = meta
+            .get(THREAD_ID_META)
+            .and_then(|thread| thread.as_str())
+            .filter(|thread| !thread.is_empty())
+            .map(str::to_string);
+        Self { client, thread }
+    }
+}
+
 /// The tool's description: the pretext, then the commands the deny set leaves.
 pub(crate) fn interface_description(deny: &DenySet) -> String {
     format!("{}\n\n{}", INTERFACE_PRETEXT.trim_end(), render_command_list(deny))
@@ -44,9 +73,10 @@ impl ChannelFace {
         &self,
         nonce: datum::Nonce,
         command: ChannelCommand,
+        caller: &Caller,
     ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
         match command {
-            ChannelCommand::Open(p) => self.channel_open(nonce, p).await,
+            ChannelCommand::Open(p) => self.channel_open(nonce, p, caller).await,
             ChannelCommand::Sync => self.channel_sync(nonce).await,
             ChannelCommand::Ready => self.channel_ready(nonce).await,
             ChannelCommand::Close => self.channel_close(nonce).await,
@@ -89,8 +119,19 @@ impl NuSh {
     #[mcp::tool(description = INTERFACE_DESCRIPTION)]
     pub(crate) async fn interface(
         &self,
-        meta: mcp::RequestMetaObject,
+        context: mcp::RequestContext<mcp::RoleServer>,
         mcp::Parameters(p): mcp::Parameters<InterfaceParams>,
+    ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
+        self.interface_as(Caller::of(&context), p).await
+    }
+}
+
+impl NuSh {
+    /// The `interface` tool for a caller: the parse, then the command its system runs.
+    pub(crate) async fn interface_as(
+        &self,
+        caller: Caller,
+        p: InterfaceParams,
     ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
         let nonce = self.mint(INTERFACE_TOOL, &p).to_nonce();
         let route = match self.route(&p.host) {
@@ -100,28 +141,27 @@ impl NuSh {
         match parse_command(&self.interface_engine, &p.subcommand) {
             Ok(command) => {
                 if matches!(command, InterfaceCommand::Engine(EngineInterfaceCommand::Info)) {
-                    self.controller.face.keep_thread(&meta);
+                    self.controller.face.keep_thread(caller.thread.as_deref());
                 }
-                self.run_interface(nonce, route, command).await
+                self.run_interface(nonce, route, command, &caller).await
             }
             Err(diagnostics) => {
                 error_to_call_result(GrammarMcpError::InterfaceViolations { diagnostics }, nonce)
             }
         }
     }
-}
 
-impl NuSh {
     /// Run a parsed command under the interface call's nonce, routed to its system.
     pub(crate) async fn run_interface(
         &self,
         nonce: datum::Nonce,
         route: Route,
         command: InterfaceCommand,
+        caller: &Caller,
     ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
         let face = &self.controller.face;
         match command {
-            InterfaceCommand::Channel(command) => face.run_channel(nonce, command).await,
+            InterfaceCommand::Channel(command) => face.run_channel(nonce, command, caller).await,
             InterfaceCommand::Peer(command) => face.run_peer(nonce, command).await,
             InterfaceCommand::Chat(command) => face.run_chat(nonce, command).await,
             InterfaceCommand::RemoteEngine(command) => self.run_remote_engine(nonce, command).await,

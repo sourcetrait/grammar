@@ -5,6 +5,11 @@ use sourcetrait_grammar_protocol::ChannelSpamWarningEmergency;
 
 const EPOCH: ChannelEpoch = ChannelEpoch(1);
 
+/// The face each test's hub carries.
+fn wss() -> HubFace {
+    HubFace::Wss("wss://127.0.0.1:1".to_string())
+}
+
 /// A hub-shaped slot entry without a hub: its senders, the receivers held here.
 fn installed(
     slot: &HubSlot,
@@ -19,10 +24,10 @@ fn installed(
     let (shutdown, shutdown_rx) = tk::oneshot::channel::<()>();
     let hub = Hub {
         epoch,
-        url: "wss://127.0.0.1:1".to_string(),
+        face: wss(),
         packets,
         close,
-        _shutdown: shutdown,
+        _shutdown: Some(shutdown),
     };
     assert!(slot.install(hub).is_ok(), "an open epoch's hub is installed");
     (packet_rx, close_rx, shutdown_rx)
@@ -45,8 +50,14 @@ fn a_line_reaches_only_the_hub_of_its_open() {
     slot.deliver(EPOCH, "x".to_string());
     assert_eq!(packets.try_recv().ok().as_deref(), Some("x"), "the stale line was dropped");
     assert!(packets.try_recv().is_err());
-    assert_eq!(slot.url(EPOCH).as_deref(), Some("wss://127.0.0.1:1"));
-    assert_eq!(slot.url(ChannelEpoch(9)), None);
+    assert_eq!(slot.face(EPOCH), Some(wss()));
+    assert_eq!(slot.face(ChannelEpoch(9)), None);
+}
+
+#[test]
+fn only_a_wss_face_reports_an_endpoint() {
+    assert_eq!(wss().wss().as_deref(), Some("wss://127.0.0.1:1"));
+    assert_eq!(HubFace::Codex.wss(), None, "the Codex face delivers on its own");
 }
 
 #[test]
@@ -80,7 +91,7 @@ fn a_hub_close_signals_on_its_own_lane_and_ends_the_accept_loop() {
         matches!(shutdown.try_recv(), Err(tk::oneshot::error::TryRecvError::Closed)),
         "the hub's shutdown sender dropped with it, which ends the accept loop",
     );
-    assert_eq!(slot.url(EPOCH), None, "the slot is empty after");
+    assert_eq!(slot.face(EPOCH), None, "the slot is empty after");
 }
 
 #[test]
@@ -93,10 +104,10 @@ fn a_hub_starting_after_its_open_closed_is_refused() {
     let (shutdown, mut shutdown_rx) = tk::oneshot::channel::<()>();
     let late = Hub {
         epoch,
-        url: "wss://127.0.0.1:1".to_string(),
+        face: wss(),
         packets,
         close,
-        _shutdown: shutdown,
+        _shutdown: Some(shutdown),
     };
     let refused = slot.install(late);
     assert!(refused.is_err(), "the closed open's hub is handed back");
@@ -105,10 +116,10 @@ fn a_hub_starting_after_its_open_closed_is_refused() {
         matches!(shutdown_rx.try_recv(), Err(tk::oneshot::error::TryRecvError::Closed)),
         "dropping the refused hub ends its accept loop",
     );
-    assert_eq!(slot.url(epoch), None, "no hub serves the closed open");
+    assert_eq!(slot.face(epoch), None, "no hub serves the closed open");
     let next = slot.next_epoch();
     let (_packets, _close, _shutdown) = installed(&slot, next);
-    assert!(slot.url(next).is_some(), "a later open's hub still installs");
+    assert!(slot.face(next).is_some(), "a later open's hub still installs");
 }
 
 #[test]

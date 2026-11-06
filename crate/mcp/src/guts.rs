@@ -241,8 +241,7 @@ impl TestServer {
             host: host.to_string(),
             subcommand: subcommand.to_string(),
         };
-        let meta = mcp::RequestMetaObject::default();
-        Self::envelope(self.rt.block_on(self.nush.interface(meta, mcp::Parameters(p))))
+        Self::envelope(self.rt.block_on(self.nush.interface_as(Caller::default(), p)))
     }
 
     /// One local `interface` subcommand whose request carries `meta` as its `_meta`.
@@ -260,7 +259,8 @@ impl TestServer {
             .map(|(key, value)| (key.to_string(), serde_json::Value::String(value.to_string())))
             .collect();
         let meta = mcp::RequestMetaObject(mcp::MetaObject(fields));
-        Self::envelope(self.rt.block_on(self.nush.interface(meta, mcp::Parameters(p))))
+        let caller = Caller::named(None, &meta);
+        Self::envelope(self.rt.block_on(self.nush.interface_as(caller, p)))
     }
 
     /// The Codex thread the face keeps from the last `interface info` naming one.

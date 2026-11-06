@@ -11,7 +11,38 @@ apart.
 
 ## const CLOSE_UNSTARTED
 A hub that fails to bind closes the open it was for; no peer hears it, so the
-code is for the record.
+code is for the record. A Codex face whose daemon or socket fails closes its
+open the same way.
+
+## const CODEX_NO_THREAD
+The Codex face delivers into a thread, and only `interface info` names one, so
+an open before it has nowhere to send its greeting; it is refused before the
+Channel opens, leaving nothing to undo.
+
+## const CODEX_NEEDS_UNIX
+Codex's app-server listens on a Unix socket alone, and the vendor crate's client
+is Unix's, so a Codex client elsewhere is told to open sync rather than handed a
+wss hub it can't read.
+
+## enum OpenFace
+The face an async open takes, decided by the caller before anything opens: the
+wss hub for Claude Code and every client not named, the Codex face for Codex.
+
+## type CodexStart
+What the Codex face's start leaves to run once its hub is installed, and
+nothing off Unix, where no Codex face starts, so one shape serves `start_open`
+on every platform.
+
+## fn open_face
+The caller's `clientInfo` name decides, through the vendor crate's `Harness`,
+so no harness argument is passed and nothing here names a client; the name is
+the request's own where the client sends one per request, else `initialize`'s
+(`interface.rs`'s `Caller`).
+
+## fn serve_codex
+The Codex face's claim waits for the install: its greeting goes through the
+Channel to the hub's lane, which a slot without the hub would drop as a line for
+no open.
 
 ## fn resend_open_packet
 A gone peer is the only way to learn the connection has gone: the peer task's
@@ -31,7 +62,8 @@ message - it cannot be missed.
 The Channel opens before the hub binds, so the hub's claim can never reach the
 system ahead of the open it belongs to. A hub that fails to start closes the
 open again, the Channel and the peer links letting the directory go, its files
-left where they are.
+left where they are. The face decides the hub: the wss hub binds and waits for
+a Monitor, and the Codex face connects to the app-server and claims at once.
 
 A close can land while the hub starts, the agent's own `interface channel
 close` or an early send's teardown, neither of which takes the open's lock.

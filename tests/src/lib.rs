@@ -26,9 +26,17 @@ pub mod remote;
 pub use remote::*;
 
 #[cfg(unix)]
+pub mod codex;
+#[cfg(unix)]
+pub use codex::*;
+
+#[cfg(unix)]
 pub mod sshd;
 #[cfg(unix)]
 pub use sshd::*;
+
+/// The `clientInfo` name the harness's client gives unless a test names one.
+pub const TEST_CLIENT: &str = "grammar-system-tests";
 
 /// The `grammar-mcp` host binary, beside the running test binary's `deps/`.
 ///
@@ -184,6 +192,22 @@ impl Host {
     /// `spawn_uninitialized` with extra CLI args.
     pub fn spawn_uninitialized_args(scratch: &Path, args: &[&str], stderr_log: &Path) -> Self {
         Self::start(scratch, args, &[], None, Some(stderr_log))
+    }
+
+    /// A host whose client names itself `client` at `initialize`.
+    ///
+    /// Its extra env vars and its working directory, where given, as
+    /// `spawn_full` and `spawn_in` take them.
+    pub fn spawn_as(
+        scratch: &Path,
+        client: &str,
+        args: &[&str],
+        envs: &[(&str, &str)],
+        cwd: Option<&Path>,
+    ) -> Self {
+        let mut host = Self::start(scratch, args, envs, cwd, None);
+        host.initialize_as(client);
+        host
     }
 
     fn spawn_core(
@@ -438,9 +462,15 @@ impl Host {
         }
     }
 
-    /// The legacy handshake: `initialize`, then `notifications/initialized`; the
-    /// `initialize` response, its server info and instructions.
+    /// The legacy handshake: `initialize`, then `notifications/initialized`.
+    ///
+    /// Answers the `initialize` response, its server info and instructions.
     pub fn initialize(&mut self) -> Value {
+        self.initialize_as(TEST_CLIENT)
+    }
+
+    /// The legacy handshake, the client naming itself `client` in `clientInfo`.
+    pub fn initialize_as(&mut self, client: &str) -> Value {
         let id = self.next_id();
         self.send(&json!({
             "jsonrpc": "2.0",
@@ -449,7 +479,7 @@ impl Host {
             "params": {
                 "protocolVersion": "2025-06-18",
                 "capabilities": {},
-                "clientInfo": {"name": "grammar-system-tests", "version": "0.0.1"}
+                "clientInfo": {"name": client, "version": "0.0.1"}
             }
         }));
         let reply = self.read_id(id);
@@ -508,6 +538,19 @@ impl Host {
     /// Send an `interface` subcommand without reading its response; the request id.
     pub fn request_interface(&mut self, subcommand: &str) -> u64 {
         self.request("interface", json!({"subcommand": subcommand}))
+    }
+
+    /// One `interface` subcommand whose `tools/call` carries `meta` as its `_meta`.
+    pub fn interface_with_meta(&mut self, subcommand: &str, meta: Value) -> Value {
+        let id = self.next_id();
+        let args = author_prefixed("interface", hosted(json!({"subcommand": subcommand})));
+        self.send(&json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": "tools/call",
+            "params": {"name": "interface", "arguments": args, "_meta": meta}
+        }));
+        self.read_id(id)
     }
 
     /// One `bed` call of an embedded command's subcommand.
@@ -730,8 +773,7 @@ pub fn has_kind(resp: &Value, kind: &str) -> bool {
     error_kinds(resp).iter().any(|k| k == kind)
 }
 
-/// The envelope's error table as its raw NUON, or the whole response's JSON
-/// when it carries none.
+/// The envelope's error table as raw NUON, else the whole response's JSON.
 pub fn error_message(resp: &Value) -> String {
     envelope_error(resp)
         .map(|e| e.to_string())

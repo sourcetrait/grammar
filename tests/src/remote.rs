@@ -1,6 +1,8 @@
-//! RemoteChannel test harness: a reusable simulated rmcp consumer - the existing
-//! stdio `Host` plus a REAL WSS Channel client that trusts a one-off test CA - and
-//! the one-off keys and the `.grammar/` files two linked hosts need.
+//! RemoteChannel's test harness: a simulated rmcp consumer, keys, and config files.
+//!
+//! The consumer is the existing stdio `Host` plus a real WSS Channel client that
+//! trusts a one-off test CA; the keys are one-off, and the `.grammar/` files the
+//! ones two linked hosts need.
 //!
 //! No test seam: the consumer connects to a host's Channel exactly as
 //! claude-code's Monitor does (a real TLS + WebSocket client), so it settles the
@@ -23,8 +25,6 @@ use tokio_rustls::rustls::pki_types::CertificateDer;
 use tokio_rustls::rustls::pki_types::pem::PemObject;
 
 use crate::{Host, NuVal, envelope, has_error_path, try_nuon};
-
-// ---- one-off keys (trusted directly; never the OS trust store) ----
 
 /// The key material a `generate` run leaves under `<dir>/certs`.
 pub struct GeneratedKeys {
@@ -57,9 +57,10 @@ fn key_config(name: &str) -> lib_cert::config::CertGenConfig {
     }
 }
 
-/// Mint a fresh self-signed CA + public/private key pair named `name` into
-/// `<dir>/certs`, its entity SANs loopback, so one pair serves a host's Channel
-/// and its remote links alike; a peer knows it by byte match.
+/// A fresh self-signed CA and key pair named `name`, minted into `<dir>/certs`.
+///
+/// Its entity's SANs are loopback, so one pair serves a host's Channel and its
+/// remote links alike; a peer knows it by byte match.
 pub fn generate_keys(name: &str, dir: &Path) -> GeneratedKeys {
     let files = lib_cert::generate(&key_config(name), dir).expect("generate keys");
     GeneratedKeys {
@@ -69,12 +70,11 @@ pub fn generate_keys(name: &str, dir: &Path) -> GeneratedKeys {
     }
 }
 
-// ---- the host's config files ----
-
-/// Write `<cwd>/.grammar/config.toml`, `identity` its `[identity]`, and `remote`,
-/// `[[channel]]` entries or nothing, as `remotes.toml` beside it. Returns the
-/// config file's path. Each path is a TOML literal string, so a Windows path's
-/// backslashes stay as written.
+/// `<cwd>/.grammar/config.toml` written, `identity` its `[identity]`; its path.
+///
+/// `remote`, `[[channel]]` entries or nothing, goes to `remotes.toml` beside it.
+/// Each path is a TOML literal string, so a Windows path's backslashes stay as
+/// written.
 pub fn write_host_config(cwd: &Path, identity: &GeneratedKeys, remote: &str) -> PathBuf {
     let dir = cwd.join(".grammar");
     std::fs::create_dir_all(&dir).expect("mkdir .grammar");
@@ -117,17 +117,17 @@ pub fn remote_listener_as(alias: &str, listen: &str, peer_public: &Path) -> Stri
     )
 }
 
-/// A free loopback TCP port (bind :0, read it back, release). The tiny race is
-/// made negligible by the `--test-threads=1` serial run.
+/// A free loopback TCP port: bound at :0, read back, and released.
+///
+/// The tiny race is made negligible by the `--test-threads=1` serial run.
 pub fn free_port() -> u16 {
     let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).expect("bind probe port");
     listener.local_addr().expect("probe local_addr").port()
 }
 
-// ---- the packet ----
-
-/// One Channel packet: the scalar envelope fields, plus `event` rendered as its
-/// raw NUON for coarse `contains` assertions.
+/// One Channel packet: its scalar envelope fields, and `event` as its raw NUON.
+///
+/// The raw NUON serves coarse `contains` assertions.
 #[derive(Debug, Clone)]
 pub struct Packet {
     pub id: String,
@@ -136,13 +136,15 @@ pub struct Packet {
     /// The files in the packet's own directory, `<id>/`, each with its size.
     pub attached: Option<Vec<(String, i64)>>,
     pub event: String,
-    /// The full raw NUON wire line - what the client renders (and truncates) as a
-    /// notification, so a spilled-pointer packet can be asserted under the cap.
+    /// The full raw NUON wire line, which a client renders as a notification.
+    ///
+    /// A client truncates it, so a spilled-pointer packet can be asserted under the
+    /// cap.
     pub raw: String,
 }
 
 /// Parse one NUON wire line. Returns None when the line is not a packet.
-fn parse_line(line: &str) -> Option<Packet> {
+pub fn parse_line(line: &str) -> Option<Packet> {
     let packet = try_nuon(line)?;
     let field = |k: &str| packet.get(k).and_then(NuVal::as_str).unwrap_or("").to_string();
     let model = field("model");
@@ -170,8 +172,6 @@ fn parse_line(line: &str) -> Option<Packet> {
     })
 }
 
-// ---- the WSS reader ----
-
 fn wss_host_port(wss: &str) -> (String, u16) {
     let rest = wss.strip_prefix("wss://").unwrap_or(wss);
     let (host, port) = rest.rsplit_once(':').expect("wss host:port");
@@ -191,9 +191,11 @@ fn client_config(ca_pem: &Path) -> Arc<tokio_rustls::rustls::ClientConfig> {
     Arc::new(config)
 }
 
-/// Connect a real TLS+WebSocket client to `wss`, trusting only `ca_pem`, and
-/// forward every raw packet line to `tx`. The thread ends when the socket closes
-/// (the host died) or the receiver is dropped.
+/// A real TLS WebSocket client on `wss`, trusting `ca_pem` alone, lines to `tx`.
+///
+/// Every raw packet line is forwarded. The thread ends when the socket closes (the
+/// host died) or the receiver is dropped. TLS is established before the WebSocket
+/// handshake, so the handshake rides a `ws://` request.
 fn spawn_ws_reader(wss: String, ca_pem: PathBuf, tx: Sender<String>) -> JoinHandle<()> {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
@@ -209,7 +211,6 @@ fn spawn_ws_reader(wss: String, ca_pem: PathBuf, tx: Sender<String>) -> JoinHand
             let ip: IpAddr = host.parse().expect("wss host is an ip");
             let server_name = tokio_rustls::rustls::pki_types::ServerName::IpAddress(ip.into());
             let tls = connector.connect(server_name, tcp).await.expect("wss tls");
-            // TLS is already established, so the ws handshake rides a `ws://` request.
             let request = format!("ws://{host}:{port}");
             let (mut ws, _resp) = tokio_tungstenite::client_async(request.as_str(), tls)
                 .await
@@ -231,8 +232,6 @@ fn spawn_ws_reader(wss: String, ca_pem: PathBuf, tx: Sender<String>) -> JoinHand
     })
 }
 
-// ---- the simulated consumer ----
-
 /// A simulated rmcp consumer: the stdio `Host` plus a live WSS Channel client.
 pub struct Consumer {
     pub host: Host,
@@ -245,8 +244,10 @@ pub struct Consumer {
 }
 
 impl Consumer {
-    /// Open the host's Channel, connect a real WSS client trusting `ca_pem`, see
-    /// the `mcp/channel/Open` packet, then verify - the claude-code handshake.
+    /// The claude-code handshake: the open, a real WSS client on it, then the verify.
+    ///
+    /// The client trusts `ca_pem` and sees the `mcp/channel/Open` packet before the
+    /// verify.
     pub fn attach(mut host: Host, ca_pem: &Path) -> Self {
         let open = host.interface("interface channel open async");
         let result = &envelope(&open)["result"];
@@ -288,8 +289,9 @@ impl Consumer {
             .unwrap_or_else(|e| panic!("read inbox file {}: {e}", path.display()))
     }
 
-    /// Block until a packet matching `pred` arrives, or `timeout` elapses. Each
-    /// received line is parsed before the predicate sees it.
+    /// The first packet matching `pred` within `timeout`, or none.
+    ///
+    /// Each received line is parsed before the predicate sees it.
     pub fn await_packet(
         &mut self,
         pred: impl Fn(&Packet) -> bool,

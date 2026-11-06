@@ -7,6 +7,18 @@ his `doc/human/tools.md`), the `interface` word optional and undocumented
 results, same refusals. The parse is the interface crate's (`crate/interface`);
 this host binds it to its deny set and routes what it parses.
 
+## struct Caller
+What a command may need of the request beyond its text: the client's name,
+which chooses the face an async open takes (`channel_open.rs`), and the thread
+`interface info` keeps for the Codex face (`face.rs`). It is read once from the
+request's context, so the tool's body takes plain values that the in-process
+harness and the one-shot CLI build without a client.
+
+### fn Caller::of
+rmcp's `client_info` reads the request's own `clientInfo` where the client
+sends one per request, as the newer spec has it, and the `initialize` it kept
+otherwise, so the server keeps no copy of its own.
+
 ## const INTERFACE_PRETEXT
 User's `include/human/mcp/interface.md`, verbatim by `include_str!`: his pretext
 and nothing else, the command list being the code's to render.
@@ -34,10 +46,14 @@ The nonce is minted first, over the tool's name and the command text, so a
 refusal at the parse carries one exactly as a dispatched command's answer does.
 The host is routed before the parse (`NuSh::route`, `common.rs`), so an unknown
 alias is refused first. The dispatched command answers under that same nonce:
-each command's method takes the nonce rather than minting its own. The request's
-`_meta` rides beside its parameters, rmcp's `RequestMetaObject` extractor, and
-`interface info` alone hands it to the face, which keeps the Codex thread it
+each command's method takes the nonce rather than minting its own. The tool
+takes the request's context beside its parameters and hands its body the
+`Caller` it describes; `interface info` alone hands the face the thread it
 names (`face.rs`).
+
+## fn interface_as
+The tool's body, its caller given: the server's tool, the in-process harness
+(`guts.rs`), and the one-shot CLI (`server/oneshot.rs`) all run this.
 
 ## fn run_interface
 Each group to its system: the face's two and the remote engines' whatever the

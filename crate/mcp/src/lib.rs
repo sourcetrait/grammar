@@ -4,6 +4,8 @@ pub(crate) mod run;
 pub(crate) mod server {
     pub(crate) mod cert;
     pub(crate) mod channel {
+        #[cfg(unix)]
+        pub(crate) mod codex;
         pub(crate) mod face;
         pub(crate) mod hub;
     }
@@ -96,8 +98,8 @@ pub(crate) use crate::{
         cert::ensure_cert_profile,
         channel::{
             face::{
-                ChannelFace, CloseSignal as ChannelCloseSignal, Hub, channel_failed, peer_failed,
-                spawn_signal_sweep,
+                ChannelFace, CloseSignal as ChannelCloseSignal, Hub, HubFace, channel_failed,
+                peer_failed, spawn_signal_sweep,
             },
             hub::{FROM_MCP, open_packet, start as start_channel_hub},
         },
@@ -112,8 +114,8 @@ pub(crate) use crate::{
                 success_void,
             },
             interface::{
-                INTERFACE_TOOL, InterfaceParams, interface_description, interface_engine_for,
-                render_signatures,
+                Caller, INTERFACE_TOOL, InterfaceParams, interface_description,
+                interface_engine_for, render_signatures,
             },
             execute::ExecuteParams,
             remote_engines::engine_invalid,
@@ -175,7 +177,13 @@ pub(crate) use sourcetrait_grammar_interface::{
     RemoteEngineSetParams, RemoteListenParams, RemoteSetParams, parse_command,
 };
 
-pub(crate) use sourcetrait_grammar_vendor::THREAD_ID_META;
+#[cfg(unix)]
+pub(crate) use crate::server::channel::codex::{CodexSession, start as start_codex_face};
+
+pub(crate) use sourcetrait_grammar_vendor::{Harness, THREAD_ID_META};
+
+#[cfg(unix)]
+pub(crate) use sourcetrait_grammar_vendor::{AppServerClient, ToolOutput, daemon_status};
 
 pub(crate) use sourcetrait_grammar_peer::{
     ExpandDefault, FromPeerSys, HostSendRequest, IdentityKeys, InboxRequest, Payload, PeerHandle,
@@ -259,13 +267,14 @@ pub(crate) mod schema {
 
 pub(crate) mod mcp {
     pub(crate) use rmcp::{
-        ErrorData, ServerHandler, ServiceExt,
+        ErrorData, RoleServer, ServerHandler, ServiceExt,
         handler::server::router::tool::ToolRouter,
         handler::server::wrapper::Parameters,
         model::{
             CallToolResult, ContentBlock, Implementation, MetaObject, RequestMetaObject,
             ServerCapabilities, ServerConfig,
         },
+        service::RequestContext,
         tool, tool_handler, tool_router,
         transport::stdio,
     };
