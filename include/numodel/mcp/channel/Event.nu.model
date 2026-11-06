@@ -1,10 +1,10 @@
 # Channel packet
 @namepath mcp/channel/Event
-@version 0.0.0-1
+@version 0.0.0-2
 record<
-  id: string,  # base62, minted by the host per packet
-  from: string,  # stamped by the host: thread/<nonce>, mcp, or remote/channel/<nom>
+  id: string,  # base62, minted by the host per packet; names <id>.nuon and <id>/ in the Channel's directory
+  from: string,  # stamped by the host: thread/<nonce>, <alias>/thread/<nonce>, mcp, or remote/channel/<nom>
   model: string,  # namepath of the event's shape; mcp/ and remote/ are the host's alone
-  event: oneof<record<>, table<>>,  # the summary, or {spilled_event_path, event_bytes}
-  attached: string,  # present only with files: <id>.nuon, or <sender nom>/<send id>
+  event: oneof<record<>, table<>>,  # the summary, or {size: <filesize>} when spilled; <id>.nuon holds it whole
+  attached: list<string>,  # present only with files: the names of the files in <id>/
 >
