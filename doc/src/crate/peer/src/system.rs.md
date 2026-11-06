@@ -45,17 +45,17 @@ The bind runs on the loop, the listen's synchronous half, so its answer carries
 the address bound; the accept runs behind on a task of its own.
 
 ## fn PeerSystem::send
-The send's reservation is held here as on the sender's side. The id is minted
-over the model and the event as rendered, then an event the receiver's cap
-would truncate spills into the files under `EVENT_SPILL_DEST`, `{size}` riding
-the wire in its place, and the frames queue on the link to the peer the send
-names.
+The send's reservation and its model's bound are held here as on the sender's
+side. The id is minted over the model and the event as rendered, then an event
+the receiver's cap would truncate spills into the files under
+`EVENT_SPILL_DEST`, `{size}` riding the wire in its place, and the frames queue
+on the link to the peer the send names.
 
 ## fn spill_remote_event
 The sender's half of the event spill: an event over 1 MiB cannot ride the
-inline Deliver frame at all, so only the file transfer reaches the agent.
-`{size}` is the event's own size, which the file keeps as the receiving
-Channel's `<id>.nuon`, so nothing on the way rewrites it.
+inline Deliver frame at all, so only the file transfer reaches the agent. The
+receiving Channel renders the packet from the file and holds its own line to
+the cap, so the `{size}` sent in the event's place is the sender's alone.
 
 ## fn PeerSystem::on_event
 Each registry change a link's task asked for, made in the order asked, and

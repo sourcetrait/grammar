@@ -430,6 +430,9 @@ impl PeerSystem {
                  choose a model path outside it",
             ));
         }
+        if model_too_long(&model) {
+            return Err(model_too_long_reason());
+        }
         let id = mint_msg_id(&self.nonce_gen, "remote/send", &model, &event_nuon, None).to_string();
         let payloads = payloads.into_iter().map(|p| (p.dest, p.bytes)).collect();
         let (wire_event_nuon, payloads) = spill_remote_event(event_nuon, payloads)?;

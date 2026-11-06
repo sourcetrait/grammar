@@ -32,9 +32,14 @@ Answers the epoch it verified, so the face stands down that open's verify timer
 alone.
 
 ## struct HostRequest
-The greeting, which the face renders and the gate never holds. Its id and its
-event's NUON ride beside the line, so the system writes `<id>.nuon` before the
-line goes out, as it does for every other packet.
+The greeting, which the face renders and the gate never holds. Its id and the
+whole packet's NUON ride beside the line, so the system writes `<id>.nuon`
+before the line goes out, as it does for every other packet.
+
+## struct AttachedFile
+A file's path in `<id>/` and its size, the row of a packet's `attached` table.
+The size is the sender's to give, a body's attachment's length or a peer's
+landed file's, so the Channel stats nothing on its loop.
 
 ## struct EmitRequest
 A host packet through the gate - an emergency's announcement, a remote link's
@@ -44,8 +49,8 @@ them under the id it mints, so the Channel's directory has one owner.
 
 ## struct Staged
 Inbox-relative, since a message carries data rather than a path of the host's.
-`spill` names the peer's spilled event among the files, which becomes the
-packet's `<id>.nuon` rather than a file in `<id>/`.
+`spill` names the peer's spilled event among the files, which the packet's
+`<id>.nuon` takes in rather than a file in `<id>/`.
 
 ## enum EmitError
 ### variant Write

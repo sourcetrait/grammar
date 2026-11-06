@@ -18,7 +18,8 @@ table, each local `src` beside the `dest` the receiver lands it under.
 The reservation is refused first, as the send always refused it before reading
 anything, then the event and the files table cross as data; the controller reads
 each file, rendering the event after (`crate/mcp`'s `server/host.rs`). A model under
-`mcp/` or `remote/` is host-origin only, as for a channel send.
+`mcp/` or `remote/` is host-origin only, as for a channel send, and one past
+`MODEL_MAX_CHARS` is refused beside it, as the receiver would refuse its relay.
 
 ## fn shell_error
 As channel send's: the command titles a refusal, and the host's reason labels it.

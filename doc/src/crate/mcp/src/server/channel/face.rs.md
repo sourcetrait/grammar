@@ -53,8 +53,8 @@ links sent them up.
 
 ## fn relay_onto
 The relay's staging goes to the Channel whole, its spilled event named apart
-from the files the packet's `attached` lists, so the Channel's system makes
-every move under the id it mints. A relay the Channel refuses is logged by its
+from the files the packet's `attached` lists with their sizes, so the Channel's
+system makes every move under the id it mints. A relay the Channel refuses is logged by its
 delivery's id, the one record of a peer's message that reached no agent; its
 files stay staged until a deliberate close or the host's end.
 

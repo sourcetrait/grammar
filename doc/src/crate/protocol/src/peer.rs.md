@@ -56,4 +56,5 @@ the model, and the payload, data alone. The MCP names the packet
 `remote/channel/<nom>`.
 ### fn check
 A relay keeps base62 ids and a model outside both reservations, so a peer can
-pose neither as this host's nor as a remote link's report.
+pose neither as this host's nor as a remote link's report, and a model within
+`MODEL_MAX_CHARS`, so the relayed line fits the cap once spilled.

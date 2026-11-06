@@ -135,16 +135,27 @@ async fn relay_onto(
 ) {
     let staged = relay.staged().map(|dir| Staged {
         dir,
-        spill: relay.files.iter().any(|name| name == EVENT_SPILL_DEST).then(|| EVENT_SPILL_DEST.to_string()),
+        spill: relay
+            .files
+            .iter()
+            .any(|landed| landed.name == EVENT_SPILL_DEST)
+            .then(|| EVENT_SPILL_DEST.to_string()),
     });
     let Relay { packet, files } = relay;
-    let names: Vec<String> = files.into_iter().filter(|name| name != EVENT_SPILL_DEST).collect();
+    let attached: Vec<AttachedFile> = files
+        .into_iter()
+        .filter(|landed| landed.name != EVENT_SPILL_DEST)
+        .map(|landed| AttachedFile {
+            file: landed.name,
+            size: landed.size,
+        })
+        .collect();
     let from = packet.packet_from();
     let emit = EmitRequest {
         from,
         model: packet.model,
         event: packet.event,
-        attached: (!names.is_empty()).then_some(names),
+        attached: (!attached.is_empty()).then_some(attached),
         staged,
     };
     let (kind, message) = match channel.request(emit).await {

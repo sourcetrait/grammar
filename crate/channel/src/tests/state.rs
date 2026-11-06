@@ -20,7 +20,7 @@ fn open_request(mode: ChannelMode) -> OpenRequest {
         inbox: "/tmp/grammar.channel.x".to_string(),
         greeting: matches!(mode, ChannelMode::Sync).then(|| HostRequest {
             id: "greetingid".to_string(),
-            event_nuon: "{}".to_string(),
+            packet_nuon: "{}".to_string(),
             line: "greeting".to_string(),
         }),
     }
@@ -422,8 +422,21 @@ fn a_send_on_a_verified_channel_goes_up_under_its_id() {
     assert_eq!(record.get("from").and_then(|v| v.as_str().ok()), Some("thread/a"));
 }
 
+/// The `attached` table of a packet record, each row's file and size.
+fn attached_rows(record: &nu::Record) -> Option<Vec<(String, i64)>> {
+    let rows = record.get("attached")?.as_list().ok()?;
+    rows.iter()
+        .map(|row| {
+            let row = row.as_record().ok()?;
+            let file = row.get("file")?.as_str().ok()?.to_string();
+            let size = row.get("size")?.as_filesize().ok()?.get();
+            Some((file, size))
+        })
+        .collect()
+}
+
 #[test]
-fn a_send_writes_its_event_and_its_attachment_and_spills_by_size() {
+fn a_send_writes_its_packet_and_its_attachment_and_spills_whole() {
     let mut channel = verified_async();
     let big = NuVal::Record(vec![("text".to_string(), NuVal::String("x".repeat(1_000)))]);
     let data = ChannelSendData {
@@ -438,24 +451,60 @@ fn a_send_writes_its_event_and_its_attachment_and_spills_by_size() {
     assert_eq!(
         paths,
         [inbox.join(format!("{}.nuon", planned.id)), inbox.join(&planned.id).join(ATTACHED_FILE)],
-        "the event as <id>.nuon, then the attachment in <id>/",
+        "the packet as <id>.nuon, then the attachment in <id>/",
     );
     let line = nuon::from_nuon(&planned.line, None).expect("NUON");
     let record = line.as_record().expect("record");
-    let attached: Vec<&str> = record
-        .get("attached")
-        .and_then(|v| v.as_list().ok())
-        .expect("a list")
-        .iter()
-        .filter_map(|v| v.as_str().ok())
-        .collect();
-    assert_eq!(attached, vec![ATTACHED_FILE]);
+    assert!(record.get("attached").is_none(), "a spilled line carries no attached table");
     let event = record.get("event").and_then(|v| v.as_record().ok()).expect("event");
     assert_eq!(
         event.get(EVENT_SIZE_KEY).and_then(|v| v.as_filesize().ok()).map(|size| size.get()),
         Some(planned.files[0].1.len() as i64),
-        "the event's file's size rides the wire in the event's place",
+        "the packet's file's size rides the wire in the event's place",
     );
+    let file = nuon::from_nuon(&planned.files[0].1, None).expect("the packet's file");
+    let file = file.as_record().expect("record");
+    assert_eq!(
+        attached_rows(file),
+        Some(vec![(ATTACHED_FILE.to_string(), planned.files[1].1.len() as i64)]),
+        "the file holds the attached table, each file's size",
+    );
+    let text = file
+        .get("event")
+        .and_then(|v| v.as_record().ok())
+        .and_then(|event| event.get("text"))
+        .and_then(|v| v.as_str().ok());
+    assert_eq!(text.map(str::len), Some(1_000), "and the whole event");
+}
+
+#[test]
+fn a_send_under_the_cap_carries_its_attached_table_on_the_line() {
+    let mut channel = verified_async();
+    let data = ChannelSendData {
+        attached: Some(small_event()),
+        ..send_data("thread/a", "foo/Bar", small_event())
+    };
+    let planned = channel
+        .plan_send(data, Instant::now())
+        .unwrap_or_else(|_| panic!("a verified channel takes a body's send"));
+    let line = nuon::from_nuon(&planned.line, None).expect("NUON");
+    let record = line.as_record().expect("record");
+    assert_eq!(
+        attached_rows(record),
+        Some(vec![(ATTACHED_FILE.to_string(), planned.files[1].1.len() as i64)]),
+    );
+    assert_eq!(planned.files[0].1, planned.line, "the file is the packet the line carries");
+}
+
+#[test]
+fn a_send_refuses_a_model_past_its_bound() {
+    use sourcetrait_grammar_protocol::MODEL_MAX_CHARS;
+    let mut channel = verified_async();
+    let model = format!("foo/{}", "m".repeat(MODEL_MAX_CHARS));
+    match channel.plan_send(send_data("thread/a", &model, small_event()), Instant::now()) {
+        Err(SendVerdict::Refused(reason)) => assert!(reason.contains("at most"), "{reason}"),
+        _ => panic!("a model past {MODEL_MAX_CHARS} characters is refused"),
+    }
 }
 
 #[test]
@@ -536,6 +585,14 @@ fn a_host_packet_through_the_gate_is_rendered_and_minted_here() {
     assert!(line.contains(&id), "the line carries its minted id");
 }
 
+/// One attached file's entry.
+fn attached_file(file: &str, size: u64) -> AttachedFile {
+    AttachedFile {
+        file: file.to_string(),
+        size,
+    }
+}
+
 #[test]
 fn a_relayed_packet_moves_its_staged_files_under_its_id() {
     let mut channel = verified_async();
@@ -543,7 +600,36 @@ fn a_relayed_packet_moves_its_staged_files_under_its_id() {
         from: "remote/channel/peer".to_string(),
         model: "foo/Bar".to_string(),
         event: small_event(),
-        attached: Some(vec!["notes.nuon".to_string()]),
+        attached: Some(vec![attached_file("notes.nuon", 6)]),
+        staged: Some(Staged {
+            dir: ".incoming/peer/abc".to_string(),
+            spill: None,
+        }),
+    };
+    let planned = channel.plan_emit(req).unwrap_or_else(|_| panic!("planned"));
+    let inbox = PathBuf::from("/tmp/grammar.channel.x");
+    assert_eq!(
+        planned.moves,
+        [(inbox.join(".incoming/peer/abc"), inbox.join(&planned.id))],
+        "the staged directory becomes <id>/",
+    );
+    assert!(planned.compose.is_none(), "nothing spilled, so the packet renders here");
+    let line = nuon::from_nuon(&planned.line, None).expect("NUON");
+    assert_eq!(
+        attached_rows(line.as_record().expect("record")),
+        Some(vec![("notes.nuon".to_string(), 6)]),
+        "the files it names, each with its size",
+    );
+}
+
+#[test]
+fn a_relay_its_peer_spilled_is_composed_once_its_files_land() {
+    let mut channel = verified_async();
+    let req = EmitRequest {
+        from: "remote/channel/peer".to_string(),
+        model: "foo/Bar".to_string(),
+        event: small_event(),
+        attached: Some(vec![attached_file("notes.nuon", 6)]),
         staged: Some(Staged {
             dir: ".incoming/peer/abc".to_string(),
             spill: Some(".mcp_event.nuon".to_string()),
@@ -552,18 +638,45 @@ fn a_relayed_packet_moves_its_staged_files_under_its_id() {
     let planned = channel.plan_emit(req).unwrap_or_else(|_| panic!("planned"));
     let inbox = PathBuf::from("/tmp/grammar.channel.x");
     let own = inbox.join(&planned.id);
-    assert_eq!(
-        planned.moves,
-        [
-            (inbox.join(".incoming/peer/abc"), own.clone()),
-            (own.join(".mcp_event.nuon"), inbox.join(format!("{}.nuon", planned.id))),
-        ],
-        "the staged directory becomes <id>/, its spilled event <id>.nuon",
-    );
-    assert!(planned.files.is_empty(), "a spilled event's file is moved, not written");
-    let line = nuon::from_nuon(&planned.line, None).expect("NUON");
-    let attached = line.as_record().expect("record").get("attached").and_then(|v| v.as_list().ok()).map(|names| names.len());
-    assert_eq!(attached, Some(1), "the files it names, the spill not among them");
+    assert_eq!(planned.moves, [(inbox.join(".incoming/peer/abc"), own.clone())]);
+    assert!(planned.files.is_empty(), "the packet's file waits on the spilled event");
+    let compose = planned.compose.expect("a compose");
+    assert_eq!(compose.spill, own.join(".mcp_event.nuon"));
+    assert_eq!(compose.file, inbox.join(format!("{}.nuon", planned.id)));
+}
+
+#[test]
+fn a_composed_packet_takes_its_spilled_event_whole() {
+    let dir = std::env::temp_dir().join(format!("grammar_channel_compose_{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    let own = dir.join("xyz");
+    fs::create_dir_all(&own).expect("its directory");
+    let big = format!("{{text: \"{}\"}}", "x".repeat(1_000));
+    fs::write(own.join(".mcp_event.nuon"), &big).expect("the spill");
+    fs::write(own.join("notes.nuon"), "{a: 1}").expect("a file");
+    let compose = Compose {
+        id: mint_msg_id(&datum::NonceGenerator::new(), "remote/channel/peer", "foo/Bar", "{}", None),
+        from: "remote/channel/peer".to_string(),
+        model: "foo/Bar".to_string(),
+        attached: Some(vec![attached_file("notes.nuon", 6)]),
+        spill: own.join(".mcp_event.nuon"),
+        file: dir.join("xyz.nuon"),
+    };
+    let line = compose.write().expect("composed");
+    let packet = nuon::from_nuon(&fs::read_to_string(dir.join("xyz.nuon")).expect("the file"), None).expect("NUON");
+    let packet = packet.as_record().expect("record");
+    let text = packet
+        .get("event")
+        .and_then(|v| v.as_record().ok())
+        .and_then(|event| event.get("text"))
+        .and_then(|v| v.as_str().ok());
+    assert_eq!(text.map(str::len), Some(1_000), "the file holds the event the peer spilled");
+    assert_eq!(attached_rows(packet), Some(vec![("notes.nuon".to_string(), 6)]));
+    assert!(!own.join(".mcp_event.nuon").exists(), "the spill goes once taken in");
+    assert!(own.join("notes.nuon").exists(), "the packet's files stay");
+    let line = nuon::from_nuon(&line, None).expect("the line");
+    assert!(line.as_record().expect("record").get("attached").is_none(), "the line spills whole");
+    let _ = fs::remove_dir_all(&dir);
 }
 
 #[test]

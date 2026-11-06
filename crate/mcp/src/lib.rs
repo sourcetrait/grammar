@@ -155,7 +155,7 @@ pub(crate) use sourcetrait_grammar_engine::{
 };
 
 pub(crate) use sourcetrait_grammar_channel::{
-    ChannelHandle, ChannelSendError, ChannelStatus, ChannelSyncError, ChannelSysParams,
+    AttachedFile, ChannelHandle, ChannelSendError, ChannelStatus, ChannelSyncError, ChannelSysParams,
     ChannelSysPaths, ChannelSystem, ChannelVerifyError, CloseHub, CloseRequest, EmitError,
     EmitRequest, ExpireRequest, FromChannelSys, HostRequest, HubNotice, Line, OpenRequest,
     ReadyRequest, SendRequest, SendVerdict, SpamThresholds, Staged, StatusRequest, StoppedNotice,

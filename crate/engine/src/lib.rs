@@ -111,7 +111,7 @@ pub(crate) use crate::{
 
 pub(crate) use sourcetrait_grammar_protocol::{
     ChannelSendData, ChannelSpamErrorEmergency, PreparedSend, PurviewRow, PurviewView,
-    RemoteSendData, RuntimeError, SendFile, reserved_prefix, safe_dest, with_head,
+    RemoteSendData, RuntimeError, SendFile, model_too_long, model_too_long_reason, reserved_prefix, safe_dest, with_head,
 };
 
 pub(crate) use std::{

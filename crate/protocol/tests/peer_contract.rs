@@ -164,6 +164,7 @@ fn a_relayed_packet_is_held_to_a_relays_rules() {
         ("a host model", packet("mcp/channel/Open", NuVal::Nothing)),
         ("a host's remote report", packet(MODEL_SENT, NuVal::Nothing)),
         ("no model", packet("", NuVal::Nothing)),
+        ("a model past its bound", packet(&format!("peer/{}", "m".repeat(MODEL_MAX_CHARS)), NuVal::Nothing)),
         ("an origin that escapes", RemotePacket { origin: "../..".to_string(), ..packet("peer/Note", NuVal::Nothing) }),
         ("a delivery that escapes", RemotePacket { delivery: "/srv/other".to_string(), ..packet("peer/Note", NuVal::Nothing) }),
     ];

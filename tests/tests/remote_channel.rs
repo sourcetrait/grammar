@@ -440,7 +440,7 @@ fn channel_send_spills_oversized_event() {
     let content = c.read_inbox(&spill_path(&pkt));
     assert!(
         content.contains("SPILL_MARKER_42"),
-        "the full event survives in the spill file; got {content}",
+        "the whole packet, its full event, survives in <id>.nuon; got {content}",
     );
 }
 
@@ -525,8 +525,8 @@ fn remote_send_with_returns_its_event_id() {
     assert!(relayed.event.contains("files-1"), "the relayed event carries the payload; got {relayed:?}");
     assert_eq!(
         relayed.attached,
-        Some(vec!["note.txt".to_string()]),
-        "the relayed packet names the files in its own directory; got {relayed:?}",
+        Some(vec![("note.txt".to_string(), 7)]),
+        "the relayed packet names each file in its own directory with its size; got {relayed:?}",
     );
     assert_eq!(
         b.read_inbox(&format!("{}/note.txt", relayed.id)),

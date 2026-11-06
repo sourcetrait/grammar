@@ -81,12 +81,19 @@ pub struct RemoteSendRequest {
 #[cereal::derived(Data, Eq)]
 pub struct InboxRequest(pub Option<String>);
 
-/// A peer's message for the Channel, and the names its files landed under.
+/// A peer's message for the Channel, and the files it landed.
 #[cereal::derived(Data)]
 pub struct Relay {
     pub packet: RemotePacket,
-    /// Each file's name in its staged directory, sorted; none for a message alone.
-    pub files: Vec<String>,
+    /// Each file in its staged directory, sorted by name; none for a message alone.
+    pub files: Vec<RelayFile>,
+}
+
+/// A file a delivery landed: its name in the staged directory, and its size.
+#[cereal::derived(Data, Eq)]
+pub struct RelayFile {
+    pub name: String,
+    pub size: u64,
 }
 
 impl Relay {

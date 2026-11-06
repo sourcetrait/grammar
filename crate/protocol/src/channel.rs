@@ -13,6 +13,19 @@ pub fn reserved_prefix(model: &str) -> Option<&'static str> {
         .find(|prefix| model.starts_with(prefix))
 }
 
+/// The most characters a packet's model takes, so a spilled line fits the cap.
+pub const MODEL_MAX_CHARS: usize = 128;
+
+/// Whether `model` is past `MODEL_MAX_CHARS`, which a sender and a relay refuse.
+pub fn model_too_long(model: &str) -> bool {
+    model.chars().count() > MODEL_MAX_CHARS
+}
+
+/// The refusal of a model past `MODEL_MAX_CHARS`.
+pub fn model_too_long_reason() -> String {
+    format!("a model is at most {MODEL_MAX_CHARS} characters")
+}
+
 /// The usable frame maximum.
 pub const MAX_FRAME_BYTES: usize = 1_048_575;
 

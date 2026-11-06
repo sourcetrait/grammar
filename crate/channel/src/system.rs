@@ -90,7 +90,7 @@ impl ChannelSystem {
         Some(match msg {
             ToChannelSys::Open(req) => {
                 let greeting = req.greeting.as_ref().map(|greeting| {
-                    (PathBuf::from(&req.inbox).join(event_file(&greeting.id)), greeting.event_nuon.clone())
+                    (PathBuf::from(&req.inbox).join(event_file(&greeting.id)), greeting.packet_nuon.clone())
                 });
                 self.channel.open(req);
                 if let Some(file) = greeting {
@@ -113,9 +113,9 @@ impl ChannelSystem {
             ToChannelSys::Thresholds(update) => FromChannelSys::Thresholds(
                 self.channel.set_thresholds(update).map(SpamThresholds::data),
             ),
-            ToChannelSys::Host(HostRequest { id, event_nuon, line }) => {
+            ToChannelSys::Host(HostRequest { id, packet_nuon, line }) => {
                 if let Some(dir) = self.channel.inbox_dir() {
-                    let file = (dir.join(event_file(&id)), event_nuon);
+                    let file = (dir.join(event_file(&id)), packet_nuon);
                     self.write_host_file(file).await;
                 }
                 FromChannelSys::Hosted(self.channel.send_control(line))
@@ -152,8 +152,15 @@ impl ChannelSystem {
         let mut planned = self.channel.plan_emit(req)?;
         let moves = std::mem::take(&mut planned.moves);
         let files = std::mem::take(&mut planned.files);
-        match tk::spawn_blocking(move || apply_moves(moves).and_then(|()| write_files(files))).await {
-            Ok(Ok(())) => {}
+        let compose = planned.compose.take();
+        let landed = tk::spawn_blocking(move || {
+            apply_moves(moves)?;
+            write_files(files)?;
+            compose.map(Compose::write).transpose()
+        });
+        match landed.await {
+            Ok(Ok(Some(line))) => planned.line = line,
+            Ok(Ok(None)) => {}
             Ok(Err(reason)) => return Err(EmitError::Write(reason)),
             Err(e) => return Err(EmitError::Write(format!("the inbox write failed: {e}"))),
         }

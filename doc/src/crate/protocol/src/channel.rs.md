@@ -30,9 +30,14 @@ silence.
 
 ## const NOTIFICATION_CAP
 The client's task-notification cap, the one coupling point to the client: a
-client-cap change is a one-line edit. A rendered event over it spills: its own
-file's size, `{size}`, rides in its place, the event already written as
-`<id>.nuon`.
+client-cap change is a one-line edit. A rendered line over it spills whole:
+the packet's own file's size, `{size}`, rides as its event, the packet already
+written as `<id>.nuon`.
+
+## const MODEL_MAX_CHARS / fn model_too_long
+The one field a spilled line keeps that its sender chooses, bounded so a spill
+always fits the cap. Held wherever the reservation is: a definition's send, a
+remote send on the sender's side, and a peer's relay.
 
 ## const EVENT_SIZE_KEY
 The spill's one key, a filesize, so the agent knows how much it is about to read

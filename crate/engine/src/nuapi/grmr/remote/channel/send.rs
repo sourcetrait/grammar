@@ -117,6 +117,9 @@ fn remote_send(
              choose a model path outside it",
         ));
     }
+    if model_too_long(&model) {
+        return Err(model_too_long_reason());
+    }
     let data = RemoteSendData {
         mcp_nom,
         model,

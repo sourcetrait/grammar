@@ -30,28 +30,64 @@ pub fn render_nuon(value: &nu::Value) -> Result<String, String> {
         .map_err(|e| e.to_string())
 }
 
-/// Render one packet as the single NUON line the wire carries.
+/// A packet's two forms: its file, the packet whole, and the line the wire carries.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RenderedPacket {
+    /// The whole packet's NUON, written as `<id>.nuon`.
+    pub file: String,
+    /// The packet on one line, or its spill where that line passes the cap.
+    pub line: String,
+}
+
+/// Render one packet whole, and the line the wire carries for it.
 ///
-/// `attached` names the files in the packet's `<id>/`, none where it has none.
+/// A line past `NOTIFICATION_CAP` spills whole: its event goes as `{size}`.
 pub fn render_packet(
     id: MsgId,
     from: &str,
     model: &str,
     event: &nu::Value,
-    attached: Option<&[String]>,
-) -> Result<String, String> {
+    attached: Option<&[AttachedFile]>,
+) -> Result<RenderedPacket, String> {
+    let file = render_nuon(&packet_value(id, from, model, event.clone(), attached))?;
+    let whole = escape_line(&file);
+    let line = if whole.chars().count() > NOTIFICATION_CAP {
+        let spilled = packet_value(id, from, model, event_spill_pointer(file.len()), None);
+        escape_line(&render_nuon(&spilled)?)
+    } else {
+        whole
+    };
+    Ok(RenderedPacket { file, line })
+}
+
+/// A packet as one record, `attached` a table of each file's path and size.
+fn packet_value(
+    id: MsgId,
+    from: &str,
+    model: &str,
+    event: nu::Value,
+    attached: Option<&[AttachedFile]>,
+) -> nu::Value {
     let span = nu::Span::unknown();
     let mut record = nu::Record::new();
     record.insert("id", nu::Value::string(id.to_string(), span));
     record.insert("from", nu::Value::string(from.to_string(), span));
     record.insert("model", nu::Value::string(model.to_string(), span));
-    record.insert("event", event.clone());
-    if let Some(names) = attached.filter(|names| !names.is_empty()) {
-        let names = names.iter().map(|name| nu::Value::string(name.clone(), span)).collect();
-        record.insert("attached", nu::Value::list(names, span));
+    record.insert("event", event);
+    if let Some(files) = attached.filter(|files| !files.is_empty()) {
+        let rows = files
+            .iter()
+            .map(|attached| {
+                let mut row = nu::Record::new();
+                row.insert("file", nu::Value::string(attached.file.clone(), span));
+                let size = i64::try_from(attached.size).unwrap_or(i64::MAX);
+                row.insert("size", nu::Value::filesize(size, span));
+                nu::Value::record(row, span)
+            })
+            .collect();
+        record.insert("attached", nu::Value::list(rows, span));
     }
-    let rendered = render_nuon(&nu::Value::record(record, span))?;
-    Ok(escape_line(&rendered))
+    nu::Value::record(record, span)
 }
 
 /// Re-escape raw newlines so one packet is always one line.
@@ -59,10 +95,10 @@ pub fn escape_line(rendered: &str) -> String {
     rendered.replace('\n', "\\n").replace('\r', "\\r")
 }
 
-/// What the packet's wrapper takes of the cap around its event.
+/// What a packet's wrapper takes of the cap around its event, as a sender guesses.
 const NOTIFICATION_WRAPPER_RESERVE: usize = 120;
 
-/// Would this rendered event NUON overflow the notification cap once wrapped?
+/// Whether a remote sender carries its event as a file rather than inline.
 pub fn event_overflows(event_nuon: &str) -> bool {
     event_nuon.chars().count() > NOTIFICATION_CAP - NOTIFICATION_WRAPPER_RESERVE
 }
@@ -70,16 +106,17 @@ pub fn event_overflows(event_nuon: &str) -> bool {
 /// The name a local send's attachment takes in its packet's `<id>/`.
 pub const ATTACHED_FILE: &str = "attached.nuon";
 
-/// The name a packet's event takes in the Channel's directory, `<id>.nuon`.
+/// The name a packet takes whole in the Channel's directory, `<id>.nuon`.
 pub fn event_file(id: impl Display) -> String {
     format!("{id}.nuon")
 }
 
-/// The event replacing an oversized one on the wire: its own file's size.
-pub fn event_spill_pointer(event_bytes: usize) -> nu::Value {
+/// The event of a spilled line: the size of the packet's own file.
+pub fn event_spill_pointer(file_bytes: usize) -> nu::Value {
     let span = nu::Span::unknown();
     let mut r = nu::Record::new();
-    r.insert(EVENT_SIZE_KEY, nu::Value::filesize(event_bytes as i64, span));
+    let size = i64::try_from(file_bytes).unwrap_or(i64::MAX);
+    r.insert(EVENT_SIZE_KEY, nu::Value::filesize(size, span));
     nu::Value::record(r, span)
 }
 

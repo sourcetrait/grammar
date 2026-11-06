@@ -131,6 +131,26 @@ fn a_definition_cannot_claim_a_host_reservation() {
     }
 }
 
+/// A model past 128 characters is refused at a local send and at a remote send's
+/// sender, so a spilled line, which keeps its model, always fits the cap.
+#[test]
+fn a_definition_cannot_send_a_model_past_its_bound() {
+    let s = TESTING.harness();
+    let model = format!("test/{}", "m".repeat(128));
+    for send in [
+        format!("grmr channel send '{model}' {{x: 1}}"),
+        format!("grmr remote channel send 'abcdefghijk' '{model}' {{x: 1}}"),
+    ] {
+        let env = s.execute(&ok_after(&send), "null");
+        assert!(has_error(&env), "`{send}` should be refused; got {env}");
+        assert!(
+            error_text(&env).contains("at most 128"),
+            "the refusal should name the bound; got {}",
+            error_text(&env),
+        );
+    }
+}
+
 /// A literal is rejected by the signature's `oneof<record, table>` shape at parse
 /// time; a DYNAMIC value reaches `run` unchecked, which is what the runtime guard
 /// is for. Both must fail.

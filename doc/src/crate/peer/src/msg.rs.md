@@ -30,8 +30,12 @@ the Channel's own directory, and the answer comes once the links hold it, so a
 close removes the directory only after no link reads it there.
 
 ## struct Relay
-A peer's message for the Channel, and the names of the files it staged, sorted
-so a packet's `attached` reads the same however its chunks landed.
+A peer's message for the Channel, and the files it staged, sorted by name so a
+packet's `attached` reads the same however its chunks landed.
+
+## struct RelayFile
+A landed file's name and size, read by the link where the file was staged, so
+the Channel's loop stats nothing.
 
 ### fn staged
 The inbox-relative directory the relay's files are staged in,

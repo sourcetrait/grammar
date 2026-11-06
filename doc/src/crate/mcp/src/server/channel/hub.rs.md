@@ -18,9 +18,9 @@ tell apart.
 Built in one place because it has three emitters: the hub greets a freshly
 connected peer with it, a sync open queues it as its first line, and `interface
 channel open` re-sends it on an existing channel, where a gone peer is what a
-re-greeting reveals. It answers a `HostRequest`, its id and event beside its
-line, so each of the three goes through the Channel's system, which writes its
-`<id>.nuon` before the line goes out.
+re-greeting reveals. It answers a `HostRequest`, its id and whole packet beside
+its line, so each of the three goes through the Channel's system, which writes
+its `<id>.nuon` before the line goes out.
 
 ## fn server_config
 The certificate and key are the host's `[identity]`, the same pair its remote

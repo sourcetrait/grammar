@@ -24,11 +24,11 @@ pub(crate) fn open_packet(
     let event = nu::Value::record(data, span);
     let event_nuon = render_nuon(&event)?;
     let id = mint_msg_id(nonce_gen, FROM_MCP, MODEL_OPEN, &event_nuon, None);
-    let line = render_packet(id, FROM_MCP, MODEL_OPEN, &event, None)?;
+    let rendered = render_packet(id, FROM_MCP, MODEL_OPEN, &event, None)?;
     Ok(HostRequest {
         id: id.to_string(),
-        event_nuon,
-        line,
+        packet_nuon: rendered.file,
+        line: rendered.line,
     })
 }
 

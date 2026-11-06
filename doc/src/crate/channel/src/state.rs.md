@@ -29,7 +29,7 @@ open it concerns already ended.
 
 ### field inbox
 The host tree's `channel/` (`scratch.rs`'s `make_channel_dir`), flat: every
-packet's event as `<id>.nuon` and its files in `<id>/`, whoever sent it, so the
+packet whole as `<id>.nuon` and its files in `<id>/`, whoever sent it, so the
 agent reads any packet's files by its id alone. A remote link's files are staged
 under `.incoming/` and moved under the relayed packet's id, so a relayed
 packet's layout is a local one's. A deliberate `interface channel close` takes
@@ -90,7 +90,9 @@ A body's send, its order deliberate. The `mcp/` and `remote/` refusal comes
 first, before the phase is read: a definition is not the host, so letting it
 stamp a model under either prefix would let it forge a host packet and lose the
 property the reservation exists for, that provenance is checkable from the path
-alone. A peer's relay is held to the same check (`link.rs`).
+alone. A peer's relay is held to the same check (`link.rs`). A model past
+`MODEL_MAX_CHARS` is refused beside it, so a spilled line, which keeps the
+model, always fits the cap.
 
 Open-but-unverified does not merely refuse - it tears the channel down.
 Telemetry must not reach a peer that has not proven it owns the stdio session,
@@ -102,11 +104,11 @@ emergency (`stopped`).
 
 The id is minted before the files are named because their names derive from
 it, which is also why the hash covers the attached content rather than its
-path. The event is written as `<id>.nuon` whatever its size, so every packet's
-event is on disk; one over the notification cap goes out as `{size}`, the
-file's size, and the agent reads the event by the packet's id. The attachment
-is `<id>/attached.nuon`, and the packet's `attached` names it: a big event and
-an attachment both survive, in separate files.
+path. The packet is written whole as `<id>.nuon` whatever its size, so every
+packet is on disk; a line past the cap goes out spilled, `{size}` alone, and
+the agent reads the packet by its id (`render.rs`). The attachment is
+`<id>/attached.nuon`, and the packet's `attached` table names it with its size:
+a big event and an attachment both survive, in separate files.
 
 The plan stops at the files, which the system writes before it finishes the
 send (`system.rs`).
@@ -118,19 +120,26 @@ the plan and the finish changes it, since the system runs one step at a time.
 ### fn plan_emit
 A host packet's send, a relay's or a report's, gated as `emit` is. Its files are
 already on disk, a peer's staged by the link, so the id is minted over their
-names rather than their content. A staged directory moves to `<id>/` and its
-spilled event to `<id>.nuon`, so the event the agent reads is the one the peer
-spilled, never a copy; an event with no spill is written as a send's.
+names rather than their content, and their sizes come from the link. A staged
+directory moves to `<id>/`. Where the peer spilled its event, the event the
+packet carries is only the peer's pointer, so the packet can't be rendered here:
+the plan hands the system a `Compose`, which renders it once the moves land.
 
 ### fn finish_emit
 As `finish_send`, the gate read again at the emit.
 
+## struct Compose
+A relay whose peer spilled its event. The spill is read and parsed rather than
+copied in, so `<id>.nuon` holds a packet nushell reads whatever the peer sent,
+and a spill that won't parse refuses the relay, its files left staged. The spill
+goes once taken in, and `<id>/` with it where it was the one file; the line is
+the packet's own, held to the cap as every line is.
+
 ## fn apply_moves
 Renames within the inbox, so a peer's files land whole under the packet's id or
-not at all, and the moves go before the writes, since the event file may be the
-moved spill. The directories the moves emptied go after them: `<id>/` when the
-spill was its one file, and the peer's staging directory once its send's
-directory has left it.
+not at all, and the moves go before the writes. The directories the moves
+emptied go after them: `<id>/` when nothing was left in it, and the peer's
+staging directory once its send's directory has left it.
 
 ## fn write_files
 Each file's directory is made before its write, so an inbox removed from under

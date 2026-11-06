@@ -41,7 +41,37 @@ pub(crate) struct PlannedSend {
     /// Each staged path renamed into place, in order, before the writes.
     pub(crate) moves: Vec<(PathBuf, PathBuf)>,
     pub(crate) files: Vec<(PathBuf, String)>,
+    /// A relay whose peer spilled its event, rendered once the moves have landed.
+    pub(crate) compose: Option<Compose>,
     pub(crate) line: String,
+}
+
+/// A relay's packet, to be rendered from the event its peer spilled to a file.
+pub(crate) struct Compose {
+    pub(crate) id: MsgId,
+    pub(crate) from: String,
+    pub(crate) model: String,
+    pub(crate) attached: Option<Vec<AttachedFile>>,
+    /// The spilled event, in the packet's `<id>/` once moved.
+    pub(crate) spill: PathBuf,
+    /// The packet's file, `<id>.nuon`.
+    pub(crate) file: PathBuf,
+}
+
+impl Compose {
+    /// The packet rendered whole with the spilled event and written: its line.
+    pub(crate) fn write(self) -> Result<String, String> {
+        let text = fs::read_to_string(&self.spill)
+            .map_err(|e| format!("read {}: {e}", self.spill.display()))?;
+        let event = nu::from_nuon(&text, None).map_err(|e| format!("the spilled event: {e}"))?;
+        let rendered = render_packet(self.id, &self.from, &self.model, &event, self.attached.as_deref())?;
+        write_files(vec![(self.file, rendered.file)])?;
+        fs::remove_file(&self.spill).map_err(|e| format!("remove {}: {e}", self.spill.display()))?;
+        if let Some(dir) = self.spill.parent() {
+            let _ = fs::remove_dir(dir);
+        }
+        Ok(rendered.line)
+    }
 }
 
 /// The logical Channel: its phase, its claim, its gate, its sink, and its spam.
@@ -315,31 +345,41 @@ impl Channel {
         }
         let event = nu_value(event).map_err(EmitError::Render)?;
         let event_nuon = render_nuon(&event).map_err(EmitError::Render)?;
-        let names = attached.as_ref().map(|names| names.join("\n"));
+        let names = attached
+            .as_ref()
+            .map(|files| files.iter().map(|file| file.file.as_str()).collect::<Vec<_>>().join("\n"));
         let id = mint_msg_id(&self.nonce_gen, &from, &model, &event_nuon, names.as_deref());
         let inbox = self.inbox.clone().ok_or(EmitError::Refused(ChannelSendError::NotOpen))?;
-        let wire_event = if event_overflows(&event_nuon) {
-            event_spill_pointer(event_nuon.len())
-        } else {
-            event
-        };
-        let line = render_packet(id, &from, &model, &wire_event, attached.as_deref())
-            .map_err(EmitError::Render)?;
         let own = inbox.join(id.to_string());
+        let file = inbox.join(event_file(id));
         let mut moves = Vec::new();
-        let mut files = Vec::new();
         if let Some(staged) = &staged {
             moves.push((inbox.join(&staged.dir), own.clone()));
         }
-        match staged.and_then(|staged| staged.spill) {
-            Some(spill) => moves.push((own.join(spill), inbox.join(event_file(id)))),
-            None => files.push((inbox.join(event_file(id)), event_nuon)),
+        if let Some(spill) = staged.and_then(|staged| staged.spill) {
+            return Ok(PlannedSend {
+                id: id.to_string(),
+                moves,
+                files: Vec::new(),
+                compose: Some(Compose {
+                    id,
+                    from,
+                    model,
+                    attached,
+                    spill: own.join(spill),
+                    file,
+                }),
+                line: String::new(),
+            });
         }
+        let rendered = render_packet(id, &from, &model, &event, attached.as_deref())
+            .map_err(EmitError::Render)?;
         Ok(PlannedSend {
             id: id.to_string(),
             moves,
-            files,
-            line,
+            files: vec![(file, rendered.file)],
+            compose: None,
+            line: rendered.line,
         })
     }
 
@@ -387,6 +427,9 @@ impl Channel {
                 "`{prefix}` is reserved for host-originated models; \
                  choose a model path outside it",
             )));
+        }
+        if model_too_long(&model) {
+            return Err(SendVerdict::Refused(model_too_long_reason()));
         }
         match self.phase {
             ChannelPhase::Closed => {
@@ -448,26 +491,24 @@ impl Channel {
             attached_nuon.as_deref(),
         );
 
-        let wire_event = if event_overflows(&event_nuon) {
-            event_spill_pointer(event_nuon.len())
-        } else {
-            event
-        };
-        let mut files = vec![(self.inbox_path(&event_file(id))?, event_nuon)];
-        let attached_names = match attached_nuon {
-            Some(nuon) => {
-                files.push((self.inbox_path(&id.to_string())?.join(ATTACHED_FILE), nuon));
-                Some(vec![ATTACHED_FILE.to_string()])
-            }
-            None => None,
-        };
-        let line = render_packet(id, &from, &model, &wire_event, attached_names.as_deref())
+        let attached_files = attached_nuon.as_ref().map(|nuon| {
+            vec![AttachedFile {
+                file: ATTACHED_FILE.to_string(),
+                size: nuon.len() as u64,
+            }]
+        });
+        let rendered = render_packet(id, &from, &model, &event, attached_files.as_deref())
             .map_err(SendVerdict::Refused)?;
+        let mut files = vec![(self.inbox_path(&event_file(id))?, rendered.file)];
+        if let Some(nuon) = attached_nuon {
+            files.push((self.inbox_path(&id.to_string())?.join(ATTACHED_FILE), nuon));
+        }
         Ok(PlannedSend {
             id: id.to_string(),
             moves: Vec::new(),
             files,
-            line,
+            compose: None,
+            line: rendered.line,
         })
     }
 

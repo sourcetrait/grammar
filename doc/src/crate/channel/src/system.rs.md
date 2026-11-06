@@ -20,10 +20,11 @@ The files are written on a blocking thread, the loop awaiting them, so a bulky
 attachment never holds a runtime worker. The Channel's next message waits
 behind the write, since the line must not go up before its files exist. An
 emit's moves go first on the same thread, a relayed packet's staged files
-renamed under its id before its event is written.
+renamed under its id before its packet is written, and a peer's spilled event
+is composed into the packet there too, its line taken from that render.
 
 ## fn ChannelSystem::write_host_file
-The greeting's event, written before its line as every packet's is. A failed
+The greeting's packet, written before its line as every packet's is. A failed
 write is logged and the greeting still goes out: the greeting is the handshake
 itself, which a missing record of it must not break.
 

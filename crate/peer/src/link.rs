@@ -863,11 +863,39 @@ fn try_finalize(
     };
     let Some(slot) = taken else { return };
     let info = slot.deliver.expect("ready implies a deliver");
-    let mut files: Vec<String> = slot.expected.unwrap_or_default().into_iter().collect();
-    files.sort();
-    if let Err((kind, message)) = relay_to_channel(ctx, id, &info, files) {
+    let mut names: Vec<String> = slot.expected.unwrap_or_default().into_iter().collect();
+    names.sort();
+    let relayed = landed_files(ctx, id, names).and_then(|files| relay_to_channel(ctx, id, &info, files));
+    if let Err((kind, message)) = relayed {
         eprintln!("grammar: remote delivery `{id}` not relayed onto the Channel: {kind}: {message}");
     }
+}
+
+/// Each landed file of a delivery with its size, read where it is staged.
+fn landed_files(
+    ctx: &RecvContext,
+    id: &str,
+    names: Vec<String>,
+) -> Result<Vec<RelayFile>, (String, String)> {
+    if names.is_empty() {
+        return Ok(Vec::new());
+    }
+    let failed = |message: String| ("files".to_string(), message);
+    let inbox = ctx
+        .ctx
+        .inbox()
+        .ok_or_else(|| failed("the Channel has no inbox".to_string()))?;
+    names
+        .into_iter()
+        .map(|name| {
+            let path = delivery_path(&inbox, &ctx.peer_nom, id, &name)
+                .ok_or_else(|| failed(format!("`{name}` isn't beneath the inbox")))?;
+            let size = fs::metadata(&path)
+                .map_err(|e| failed(format!("{}: {e}", path.display())))?
+                .len();
+            Ok(RelayFile { name, size })
+        })
+        .collect()
 }
 
 /// Append one chunk to `<inbox>/.incoming/<peer_nom>/<id>/<dest>`; true iff `last`.
@@ -902,13 +930,16 @@ fn relay_to_channel(
     ctx: &RecvContext,
     id: &str,
     info: &DeliverInfo,
-    files: Vec<String>,
+    files: Vec<RelayFile>,
 ) -> Result<(), (String, String)> {
     if let Some(prefix) = reserved_prefix(&info.model) {
         return Err((
             "reserved_model".to_string(),
             format!("model `{}` lies under the host's `{prefix}` reservation", info.model),
         ));
+    }
+    if model_too_long(&info.model) {
+        return Err(("model_too_long".to_string(), model_too_long_reason()));
     }
     let event = nu::from_nuon(&info.event_nuon, None)
         .map_err(|e| ("event_unparseable".to_string(), e.to_string()))?;

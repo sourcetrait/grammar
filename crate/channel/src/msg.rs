@@ -87,11 +87,18 @@ pub struct ThresholdsRequest {
 /// A host packet rendered outside the Channel, past the verification gate.
 #[cereal::derived(Data)]
 pub struct HostRequest {
-    /// Its id, which names its event's file.
+    /// Its id, which names its file.
     pub id: String,
-    /// Its event's NUON, written as `<id>.nuon`.
-    pub event_nuon: String,
+    /// The whole packet's NUON, written as `<id>.nuon`.
+    pub packet_nuon: String,
     pub line: String,
+}
+
+/// One file in a packet's `<id>/`: its path there and its size in bytes.
+#[cereal::derived(Data, Eq)]
+pub struct AttachedFile {
+    pub file: String,
+    pub size: u64,
 }
 
 /// A host packet through the gate, rendered and its id minted by the Channel.
@@ -100,8 +107,8 @@ pub struct EmitRequest {
     pub from: String,
     pub model: String,
     pub event: NuVal,
-    /// The names of the files in the packet's `<id>/`, if any.
-    pub attached: Option<Vec<String>>,
+    /// The files in the packet's `<id>/`, if any.
+    pub attached: Option<Vec<AttachedFile>>,
     /// A relayed packet's files staged in the inbox, moved to `<id>/` once minted.
     pub staged: Option<Staged>,
 }
@@ -111,7 +118,7 @@ pub struct EmitRequest {
 pub struct Staged {
     /// The inbox-relative directory they sit in.
     pub dir: String,
-    /// The spilled event's file among them, which becomes `<id>.nuon`.
+    /// The spilled event's file among them, which `<id>.nuon` takes in.
     pub spill: Option<String>,
 }
 

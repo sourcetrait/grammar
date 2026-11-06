@@ -172,9 +172,11 @@ the causes) is logged on the receiver alone, never reported to the sender as
 Unsent. The slot-map is what makes the files exist on disk before the agent
 observes the emission. land_file_chunk appends under
 `<inbox>/.incoming/<peer_nom>/<id>/<dest>`, the Channel's own directory, staged
-apart from its packets; try_finalize hands the relay the files' names, sorted,
-and the Channel moves the directory to `<id>/` once it mints the packet's id, so
-a relayed packet's files sit where a local one's do. The inbox is read from the
+apart from its packets; try_finalize hands the relay the files, sorted by name,
+each with its size as landed_files reads it there, and the Channel moves the
+directory to `<id>/` once it mints the packet's id, so a relayed packet's files
+sit where a local one's do. A file that can't be read refuses the relay, logged
+as `files`. The inbox is read from the
 context as each chunk lands: a closed Channel has none and lands nothing, and a
 delivery that spans a deliberate close loses its earlier chunks with the
 directory the close removed.
@@ -182,14 +184,14 @@ directory the close removed.
 relay_to_channel refuses a model under `mcp/` or `remote/` first,
 `reserved_model`, as the sending grmr commands do: the reservation is what
 lets an agent take a model's path as proof of the host's origin, and a peer is
-not the local host. Its files have landed by then and stay, as for any refused
+not the local host. A model past `MODEL_MAX_CHARS` is refused after it,
+`model_too_long`. Its files have landed by then and stay, as for any refused
 relay.
 
 A sender spills an oversized event to the reserved `EVENT_SPILL_DEST` file,
 `{size}` riding as its event. The file lands with the rest and is named among
-the relay's files; the face tells it apart, and the Channel moves it to
-`<id>.nuon`, so a relayed spill reads as a local one does, with nothing on the
-way rewritten.
+the relay's files; the face tells it apart, and the Channel renders the packet
+from it into `<id>.nuon`, so a relayed spill reads as a local one does.
 
 ## the McpNom handshake
 A Hello variant in each language (codec.rs), exchanged over the same Framed
