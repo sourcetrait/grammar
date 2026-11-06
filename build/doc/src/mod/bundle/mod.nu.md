@@ -13,9 +13,11 @@ mirrored into the workspace: upstream's own `main` and its own lockfile
 build each one, so the list of names is the one thing kept here.
 
 ## const SYSTEMD_FILES
-The runtime cleanup, a user tmpfiles rule and the script that installs it once
-(`build/sys/systemd/`): the package carries them for a person to run by hand,
-since an OptZst's install links `bin/` and runs nothing of its own.
+The runtime cleanup, a user tmpfiles rule (`build/sys/systemd/`): the package
+carries it for a person to link once by hand, since an OptZst's install links
+`bin/` and runs nothing of its own. That one link is the whole install, so no
+script carries it: the clean timer is systemd's own, which its user preset
+enables (`grammar.conf.md`).
 
 ## const EQUIPS
 The builtins the package carries for the host to install into a new namespace:
@@ -88,8 +90,8 @@ its plugins apart by kind: `core/` nushell's, `grammar/` the workspace's own;
 each builtin's equip as its source holds it, the host's install taking its
 `lib/` and `rig/`. `sys/` holds what a platform's own services take, the
 cleanup's `sys/systemd/` in every Linux tree, glibc's and musl's alike, since a
-musl build may run on a systemd host and the install script refuses one with
-no user manager; an install links nothing from it. On Unix, `chmod
+musl build may run on a systemd host; an install links nothing from it. On
+Unix, `chmod
 u=rwX,go=rX` leaves directories and executables at 0755 and everything else at
 0644, the modes the archive records; Windows keeps no such modes.
 

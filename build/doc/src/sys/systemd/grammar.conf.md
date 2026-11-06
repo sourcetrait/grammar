@@ -1,9 +1,20 @@
 # grammar.conf
 
 The runtime cleanup's rule, which the user's systemd-tmpfiles reads from its
-`user-tmpfiles.d/` once `install.bash` links it there. `%t` is the user
-manager's runtime directory, `XDG_RUNTIME_DIR`, where every host keeps its tree
-under `grammar/` and an agent its scratch under `ai/`.
+`user-tmpfiles.d/` once the rule is linked there, by hand once after an
+install: `mkdir -p ~/.config/user-tmpfiles.d && ln -sf
+<home>/sys/systemd/grammar.conf ~/.config/user-tmpfiles.d/`. A link rather than
+a copy, so a package's update of the rule takes effect with the install. `%t`
+is the user manager's runtime directory, `XDG_RUNTIME_DIR`, where every host
+keeps its tree under `grammar/` and an agent its scratch under `ai/`.
+
+## The install
+No systemctl command places a tmpfiles rule: the rule is a file the user's
+systemd-tmpfiles finds in its search path, and the clean timer is systemd's
+own, `systemd-tmpfiles-clean.timer`, which systemd's user preset enables, its
+`90-systemd.preset` reading `enable systemd-tmpfiles-clean.timer` on Fedora.
+Where a distribution's preset leaves it off, `systemctl --user enable --now
+systemd-tmpfiles-clean.timer` once turns it on.
 
 ## The lines
 An `e` line clears a directory that exists by age and creates nothing: the

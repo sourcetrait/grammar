@@ -21,8 +21,8 @@ const CORE_PLUGINS = [
 # The MCP's skills the package carries, from `agent/skill/`.
 const SKILLS = ['nu' 'grammar-mcp' 'grammar-mcp-dev']
 
-# The runtime cleanup a Linux package carries, from `build/sys/systemd/`.
-const SYSTEMD_FILES = ['grammar.conf' 'install.bash']
+# The runtime cleanup's rule a Linux package carries, from `build/sys/systemd/`.
+const SYSTEMD_FILES = ['grammar.conf']
 
 # The builtins' equips the package carries: grammar's own, gram's through `ext/gram`.
 const EQUIPS = [
