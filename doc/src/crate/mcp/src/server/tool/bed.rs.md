@@ -30,6 +30,5 @@ as its own call.
 
 ## fn withheld
 The `grmr` command a call names is the name its text opens with as whole words,
-the command's word prepended as the parse prepends it, so `grmr get_config` is
-never `grmr get_config_all`; the longest wins should one name ever lead
-another.
+the command's word prepended as the parse prepends it, so a name never matches one
+it merely begins; the longest wins should one name ever lead another.

@@ -99,7 +99,8 @@ grammar-ssh holding it.
 grammar-ssh's `thread/<nonce>` under its engine's alias.
 
 ## fn config_record
-The record `grmr get_config_all` returns mirrors the config file - the same
+The record `grmr config list` and `grmr config get` read mirrors the config file -
+the same
 tables, the same key names - so one shape describes the file, the `.nutype`
 model beside it, and what a definition sees. The remotes file stays out: a
 definition addresses a linked host by its nom, which `interface remote channel

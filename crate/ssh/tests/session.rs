@@ -190,7 +190,7 @@ fn an_evals_asks_reach_the_mcp_and_its_answers_come_back() {
         let nonces = datum::NonceGenerator::new();
         let send = "def execute [data: nothing]: nothing -> record<event_id: string> { grmr channel send test/Model {x: 1} }";
         assert_eq!(value(&session, execute(nonces.generate(), send)).await, record(&[("event_id", NuVal::String("sent1".to_string()))]));
-        let config = "def execute [data: nothing]: nothing -> record<cpu: float, rate: int> { let c = (grmr get_config_all); {cpu: $c.supervisor.cpu_warn_fraction, rate: $c.channel.spam_warn_rate} }";
+        let config = "def execute [data: nothing]: nothing -> record<cpu: float, rate: int> { let c = (grmr config get [supervisor.cpu_warn_fraction channel.spam_warn_rate]); {cpu: ($c | get 0.value), rate: ($c | get 1.value)} }";
         assert_eq!(
             value(&session, execute(nonces.generate(), config)).await,
             record(&[("cpu", NuVal::Float(0.5)), ("rate", NuVal::Int(10))]),

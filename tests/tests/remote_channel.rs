@@ -488,7 +488,7 @@ fn remote_send_spills_oversized_event() {
     );
 }
 
-/// `grmr remote_channel_send_with` returns `{event_id}`, and that id is the one
+/// `grmr remote channel send` with files returns `{event_id}`, and that id is the one
 /// the sender's own Sent notice carries; the files reach the receiver beside the
 /// relayed packet, one named `.mcp_event.nuon` a file like any other, and their
 /// table in `<id>.attached.nuon`.
@@ -502,14 +502,14 @@ fn remote_send_with_returns_its_event_id() {
     let src = root.join("note.txt");
     std::fs::write(&src, "files-1").expect("write the attachment");
     let resp = a.host.execute(
-        "def execute [data: record<nom: string, src: string>]: nothing -> record<id: string> {\n    let sent = (grmr remote_channel_send_with $data.nom 'test/Files' {note: 'files-1'} [[src dest]; [$data.src 'note.txt'] [$data.src '.mcp_event.nuon']])\n    {id: $sent.event_id}\n}",
+        "def execute [data: record<nom: string, src: string>]: nothing -> record<id: string> {\n    let sent = (grmr remote channel send $data.nom 'test/Files' {note: 'files-1'} [[src dest]; [$data.src 'note.txt'] [$data.src '.mcp_event.nuon']])\n    {id: $sent.event_id}\n}",
         &NuVal::Record(vec![
             ("nom".to_string(), NuVal::from(nom_b.to_string())),
             ("src".to_string(), NuVal::from(src.to_str().expect("utf-8 path"))),
         ])
         .to_string(),
     );
-    assert!(!has_error_path(&resp), "remote_channel_send_with failed: {resp}");
+    assert!(!has_error_path(&resp), "the remote channel send with files failed: {resp}");
     let send_id = envelope(&resp)["result"]["id"]
         .as_str()
         .expect("the send returns {event_id}")

@@ -1,6 +1,6 @@
 use crate::*;
 
-/// `grmr channel send <model> <event> [attached]` - the state-update lane.
+/// `grmr channel send <model> <data> [attached]` - the state-update lane.
 #[derive(Clone)]
 pub(crate) struct GrmrChannelSend {
     pub(crate) host: Option<HostLink>,
@@ -13,7 +13,7 @@ impl nu::Command for GrmrChannelSend {
         nu::Signature::build(Self::DEF.name)
             .vocab(&Self::DEF)
             .vocab_required(&Self::DEF_MODEL, nu::SyntaxShape::String)
-            .vocab_required(&Self::DEF_EVENT, data_shape())
+            .vocab_required(&Self::DEF_DATA, data_shape())
             .vocab_optional(&Self::DEF_ATTACHED, data_shape())
             .input_output_types(vec![(nu::Type::Nothing, event_id_type())])
     }
@@ -30,8 +30,8 @@ impl nu::Command for GrmrChannelSend {
         _input: nu::PipelineData,
     ) -> Result<nu::PipelineData, nu::ShellError> {
         let model: String = call.req(engine_state, stack, 0)?;
-        let event: nu::Value = call.req(engine_state, stack, 1)?;
-        require_record_or_table(&event, call.head)?;
+        let data: nu::Value = call.req(engine_state, stack, 1)?;
+        require_record_or_table(&data, call.head)?;
         let attached: Option<nu::Value> = call.opt(engine_state, stack, 2)?;
         if let Some(value) = &attached {
             require_record_or_table(value, call.head)?;
@@ -40,13 +40,13 @@ impl nu::Command for GrmrChannelSend {
         let host = asked_host(&self.host, name, call.head)?;
         let from = NuapiCall::current(engine_state, stack, call.head)?.origin();
         let refused = |message: String| shell_error(name, &message, call.head);
-        let data = ChannelSendData {
+        let send = ChannelSendData {
             from: from.clone(),
             model,
-            event: sendable(event).map_err(refused)?,
+            event: sendable(data).map_err(refused)?,
             attached: attached.map(sendable).transpose().map_err(refused)?,
         };
-        let id = match host.ask(HostAsk::ChannelSend(data)).map_err(refused)? {
+        let id = match host.ask(HostAsk::ChannelSend(send)).map_err(refused)? {
             HostAnswer::Sent(id) => id,
             HostAnswer::Refused(reason) => return Err(refused(reason)),
             HostAnswer::Stopped(stop) => {

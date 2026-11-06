@@ -65,7 +65,7 @@ fn face_down() -> HostAnswer {
 pub(crate) struct HostRoute {
     /// The face's handles, which the controller binds once its engine has started.
     pub(crate) face: FaceLink,
-    /// The runtime config, which `grmr get_config_all` reads.
+    /// The runtime config, which `grmr config get` and `config list` read.
     pub(crate) config: Arc<Config>,
     /// The controller's shutdown flag, under which the engine's end goes unsaid.
     pub(crate) stopping: Arc<AtomicBool>,

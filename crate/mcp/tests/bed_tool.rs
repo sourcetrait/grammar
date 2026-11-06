@@ -18,9 +18,9 @@ fn result_of(env: &NuVal) -> &NuVal {
 #[test]
 fn a_grmr_command_runs_with_or_without_its_word() {
     let s = TESTING.harness();
-    for subcommand in ["get_config_all", "grmr get_config_all", "  get_config_all"] {
+    for subcommand in ["config list", "grmr config list", "  config list"] {
         let config = s.bed("grmr", subcommand);
-        assert!(result_of(&config).as_record().is_some(), "`{subcommand}`: {config}");
+        assert!(result_of(&config).as_list().is_some(), "`{subcommand}`: {config}");
         assert!(config["nonce"].as_str().is_some(), "the bed call mints its nonce; got {config}");
     }
 }
@@ -39,7 +39,7 @@ fn a_bed_call_is_a_call_of_its_own() {
 #[test]
 fn a_grmr_command_that_fails_answers_its_eval_error() {
     let s = TESTING.harness();
-    let refused = s.bed("grmr", "pin_config 'supervisor.nosuch' 1 0.5");
+    let refused = s.bed("grmr", "config pin 'supervisor.nosuch' 1 0.5");
     assert_eq!(error_kind(&refused), Some("thread::returned_error"), "it ran and failed; got {refused}");
     assert!(refused["nonce"].as_str().is_some(), "got {refused}");
 }

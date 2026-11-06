@@ -26,7 +26,7 @@ impl GrmrChannelSend {
                         "id" => nu::Value::string("987654321X", SPAN),
                         "from" => nu::Value::string("thread/0123456789A", SPAN),
                         "model" => nu::Value::string("my/adhoc/Thing", SPAN),
-                        "event" => nu::Value::record(
+                        "data" => nu::Value::record(
                             nu::record! {
                                 "foo" => nu::Value::string("bar", SPAN),
                                 "num" => nu::Value::int(3, SPAN),
@@ -41,10 +41,10 @@ impl GrmrChannelSend {
     };
     pub(crate) const DEF_MODEL: nuin::ParameterDef = nuin::ParameterDef {
         name: "model",
-        description: "Namepath of the event data type",
+        description: "Namepath of the data's shape",
     };
-    pub(crate) const DEF_EVENT: nuin::ParameterDef = nuin::ParameterDef {
-        name: "event",
+    pub(crate) const DEF_DATA: nuin::ParameterDef = nuin::ParameterDef {
+        name: "data",
         description: "Notification data",
     };
     pub(crate) const DEF_ATTACHED: nuin::ParameterDef = nuin::ParameterDef {
@@ -60,10 +60,17 @@ impl GrmrRemoteChannelSend {
         category: GrmrCategory::Tool,
         examples: &[
             nuin::ExampleDef {
-                description: "Send arbitrary event data to a remote",
+                description: "Send arbitrary data to a remote",
                 example: "grmr remote channel send '0123456789B' 'my/model/Event' {foo:'bar', num:3}",
                 result_fn: || nu::Value::record(nu::record!{
                     "event_id" => nu::Value::string("0987654321Z", nu::Span::unknown()),
+                }, nu::Span::unknown()),
+            },
+            nuin::ExampleDef {
+                description: "Send data to a remote with a file, received as report.nuon",
+                example: "grmr remote channel send '0123456789B' 'my/model/Event' {foo:'bar'} [[src dest]; ['out.nuon' 'report.nuon']]",
+                result_fn: || nu::Value::record(nu::record!{
+                    "event_id" => nu::Value::string("0987654321Y", nu::Span::unknown()),
                 }, nu::Span::unknown()),
             },
         ],

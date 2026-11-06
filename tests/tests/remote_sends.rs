@@ -69,7 +69,7 @@ fn a_remote_evals_sends_and_asks_reach_the_mcp() {
         "the eval reads the id the Channel gave its packet",
     );
 
-    let config = "def execute [data: nothing]: nothing -> record<cert: string> { {cert: (grmr get_config_all | get identity.cert)} }";
+    let config = "def execute [data: nothing]: nothing -> record<cert: string> { {cert: (grmr config get [identity.cert] | get 0.value)} }";
     let answered = consumer.host.call("execute", json!({"host": "lab", "definition": config, "data": "null"}));
     assert_eq!(
         envelope(&answered)["result"]["cert"].as_str(),

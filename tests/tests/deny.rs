@@ -106,7 +106,7 @@ fn deny_bed_removes_the_tool_whole() {
     let t = testing::test!({ .using_temp_dir() });
     let mut host = Host::spawn_args(t.temp_dir(), &["--deny", "bed"]);
     assert_eq!(sorted_names(&mut host), vec!["call", "execute", "interface", "rerun"]);
-    let resp = host.bed("grmr", "get_config_all");
+    let resp = host.bed("grmr", "config list");
     assert!(envelope(&resp).is_nothing(), "a denied bed answers no envelope at all; got {resp}");
 }
 
@@ -123,13 +123,13 @@ fn a_denied_grmr_command_leaves_bed() {
         .unwrap_or_else(|| panic!("bed stands; got {tools:?}"));
     let description = bed["description"].as_str().expect("its description");
     assert!(!description.contains("`grmr dbg ["), "got {description}");
-    assert!(description.contains("`grmr get_config_all ["), "got {description}");
+    assert!(description.contains("`grmr config list ["), "got {description}");
     for subcommand in ["dbg {a: 1}", "grmr dbg {a: 1}"] {
         let refused = host.bed("grmr", subcommand);
         assert_eq!(envelope_error_kind(&refused).as_deref(), Some("bed::invalid"), "got {refused}");
         assert!(error_message(&refused).contains("withheld"), "got {refused}");
     }
-    let config = host.bed("grmr", "get_config_all");
+    let config = host.bed("grmr", "config list");
     assert!(!has_error_path(&config), "an undenied grmr command runs; got {config}");
 }
 

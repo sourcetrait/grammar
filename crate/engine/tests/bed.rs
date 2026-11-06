@@ -62,9 +62,9 @@ fn a_grmr_command_holds_with_or_without_its_word_and_literal_arguments() {
             "channel send 'my/Thing' {n: 1.5, on: true, none: null, at: 2026-11-02, took: 3sec}",
             "grmr channel send 'my/Thing' {n: 1.5, on: true, none: null, at: 2026-11-02, took: 3sec}",
         ),
-        ("get_config 'supervisor.cpu'", "grmr get_config 'supervisor.cpu'"),
-        ("pin_config 'supervisor.cpu' 1234 0.5", "grmr pin_config 'supervisor.cpu' 1234 0.5"),
-        ("  get_config_all", "grmr   get_config_all"),
+        ("config get [supervisor.cpu]", "grmr config get [supervisor.cpu]"),
+        ("config pin 'supervisor.cpu' 1234 0.5", "grmr config pin 'supervisor.cpu' 1234 0.5"),
+        ("  config list", "grmr   config list"),
     ] {
         let held = analyze_bed(engine, "grmr", subcommand).unwrap_or_else(|rows| panic!("`{subcommand}`: {rows:?}"));
         assert_eq!(held, text, "{subcommand}");

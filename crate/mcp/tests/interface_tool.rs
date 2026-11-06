@@ -44,9 +44,9 @@ fn help_answers_the_interfaces_and_grmrs_signatures() {
     let block = result_of(&grmr)["doc"]["signatures"].as_str().unwrap_or_default();
     assert!(block.starts_with("## grmr Signatures\n"), "got {grmr}");
     assert!(block.contains("`grmr channel send ["), "got {grmr}");
-    assert!(block.contains("`grmr remote_channel_send_with ["), "got {grmr}");
+    assert!(block.contains("`grmr config list ["), "got {grmr}");
     let lines = block.lines().filter(|line| line.starts_with("`grmr ")).count();
-    assert_eq!(lines, 7, "every grmr command; got {grmr}");
+    assert_eq!(lines, sourcetrait_grammar_engine::GRMR_COMMANDS.len(), "every grmr command; got {grmr}");
 }
 
 #[tested]

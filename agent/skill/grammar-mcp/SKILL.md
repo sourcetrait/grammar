@@ -26,7 +26,7 @@ own, gone when the host ends; `interface info`'s `tmp` names it.
 ## grmr
 The commands a definition reaches the host with, which the bed tool lists. A
 `channel send`'s `attached` is kept in the Channel's inbox;
-`remote_channel_send_with` takes a `table<src, dest>` of files.
+`remote channel send`'s takes a `table<src, dest>` of files.
 
 ## info and help
 `interface info` indents one space a level: author, rig, modules, calls. A

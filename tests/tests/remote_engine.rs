@@ -102,9 +102,9 @@ fn bed_runs_on_the_engine_its_host_names() {
     let debug = std::fs::read_to_string(&log).unwrap_or_else(|e| panic!("grammar-ssh's call log {}: {e}", log.display()));
     assert_eq!(debug.trim(), "{from: lab}", "the call ran on grammar-ssh, its log grammar-ssh's");
 
-    let config = host.call("bed", json!({"host": "lab", "command": "grmr", "subcommand": "get_config_all"}));
+    let config = host.call("bed", json!({"host": "lab", "command": "grmr", "subcommand": "config list"}));
     let config = extract_envelope(&config).unwrap_or_else(|| panic!("a result: {}", error_message(&config)));
-    assert!(config["result"].as_record().is_some(), "the config ask answered through the session; got {config}");
+    assert!(config["result"].as_list().is_some(), "the config ask answered through the session; got {config}");
     let refused = host.call("bed", json!({"host": "lab", "command": "grmr", "subcommand": "dbg $env"}));
     assert_eq!(envelope_error_kind(&refused).as_deref(), Some("bed::invalid"), "grammar-ssh's engine holds it to the rules; got {refused}");
 }

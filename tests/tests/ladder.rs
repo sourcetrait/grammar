@@ -64,8 +64,8 @@ fn a_real_engine_holds_across_idle_and_its_close_leaves_no_cache() {
     assert_eq!(held, first, "the connection holds across {idle} s idle, one grammar-ssh serving");
     let (rerun, _) = pid_of(&on_ladder(&mut host, "rerun", json!({"nonce": nonce, "data": "null"})));
     assert_eq!(rerun, first, "a rerun on the same grammar-ssh");
-    let config = answered(&on_ladder(&mut host, "bed", json!({"command": "grmr", "subcommand": "get_config_all"})));
-    assert!(config.as_record().is_some(), "bed reads the config through the session: {config}");
+    let config = answered(&on_ladder(&mut host, "bed", json!({"command": "grmr", "subcommand": "config list"})));
+    assert!(config.as_list().is_some(), "bed reads the config through the session: {config}");
     let traced = answered(&on_ladder(&mut host, "bed", json!({"command": "grmr", "subcommand": "dbg {ladder: true}"})));
     assert!(traced.is_nothing(), "{traced}");
     let row = answered(&host.interface("remote engine get 'ladder'"));

@@ -150,14 +150,13 @@ pub(crate) fn event_id_type() -> nu::Type {
 pub const GRMR: &str = "grmr";
 
 /// The `grmr` commands' names, in the order the signature block lists them.
-pub const GRMR_COMMANDS: [&str; 7] = [
+pub const GRMR_COMMANDS: [&str; 6] = [
     "grmr dbg",
     "grmr channel send",
-    "grmr get_config_all",
-    "grmr get_config",
-    "grmr pin_config",
+    "grmr config get",
+    "grmr config list",
+    "grmr config pin",
     "grmr remote channel send",
-    "grmr remote_channel_send_with",
 ];
 
 /// The `grmr *` decls, in the order the signature block lists them.
@@ -166,11 +165,10 @@ fn grmr_decls(host: Option<&HostLink>) -> Vec<Box<dyn nu::Command>> {
     vec![
         Box::new(GrmrDbg),
         Box::new(GrmrChannelSend { host: link() }),
-        Box::new(GrmrGetConfigAll { host: link() }),
-        Box::new(GrmrGetConfig { host: link() }),
-        Box::new(GrmrPinConfig { host: link() }),
+        Box::new(GrmrConfigGet { host: link() }),
+        Box::new(GrmrConfigList { host: link() }),
+        Box::new(GrmrConfigPin { host: link() }),
         Box::new(GrmrRemoteChannelSend { host: link() }),
-        Box::new(GrmrRemoteChannelSendWith { host: link() }),
     ]
 }
 

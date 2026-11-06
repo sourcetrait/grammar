@@ -7,7 +7,7 @@ lines, with one addition - a pin is bound to the LIFETIME OF A PROCESS rather th
 to be unset by hand.
 
 The table is PROCESS-WIDE because two sides use it: the operator's watchdog reads it on
-its tick, and the host's evals write it through `grmr pin_config`, which the host
+its tick, and the host's evals write it through `grmr config pin`, which the host
 answers by calling `pin` on the eval's thread.
 
 THE MOTIVATING CASE is a training run: pin `vram_warn_headroom_mib` to 0 for the
@@ -77,7 +77,8 @@ tick happens to be doing.
 ## fn effective_supervisor
 EVERY reader goes through this rather than its base lines alone, the watchdog with its
 parameters' and the host's config record with the config's, which is what keeps a pin
-from being something the watchdog honors while `get_config` reports the old value. The
+from being something the watchdog honors while `grmr config get` reports the old value.
+The
 base is an argument, so the pins hold no copy of the lines.
 
 The unreachable arm is ignored rather than panicking: `validate` is the only

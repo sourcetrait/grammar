@@ -86,7 +86,7 @@ pub enum CliTool {
         /// The subcommand, its arguments Nu literals.
         subcommand: String,
     },
-    /// Run one embedded engine command, such as `grmr` and `get_config_all`.
+    /// Run one embedded engine command, such as `grmr` and `config list`.
     Bed {
         /// The embedded command: `grmr`.
         command: String,

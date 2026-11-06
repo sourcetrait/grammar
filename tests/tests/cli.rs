@@ -26,10 +26,10 @@ fn cli_takes_a_subcommand_bare_and_runs_bed() {
     let out = run_output(t.temp_dir(), &["--id", "cid", "cli", "interface", "info"]);
     assert!(out.status.success(), "cli interface info, bare, should exit 0; got {out:?}");
     assert_eq!(stdout_envelope(&out)["result"]["name"].as_str(), Some("grammar"));
-    let out = run_output(t.temp_dir(), &["--id", "cid", "cli", "bed", "grmr", "get_config_all"]);
-    assert!(out.status.success(), "cli bed grmr get_config_all should exit 0; got {out:?}");
+    let out = run_output(t.temp_dir(), &["--id", "cid", "cli", "bed", "grmr", "config list"]);
+    assert!(out.status.success(), "cli bed grmr config list should exit 0; got {out:?}");
     let v = stdout_envelope(&out);
-    assert!(v["result"].as_record().is_some(), "the config in force; got {v}");
+    assert!(v["result"].as_list().is_some(), "the config's keys; got {v}");
     let out = run_output(t.temp_dir(), &["--id", "cid", "cli", "bed", "grmr", "dbg $env"]);
     assert!(!out.status.success(), "a refused bed call exits 1; got {out:?}");
     let v = stdout_envelope(&out);

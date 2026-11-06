@@ -24,12 +24,12 @@ fn grmr_config_surface_is_sequenced() {
             clear_config_pins();
             testing::StepState((), ())
         })
-        .step("get_config_all_mirrors_the_toml_tables", |t, s, p| {
-            get_config_all_mirrors_the_toml_tables(t);
+        .step("config_list_names_every_key_in_the_tomls_order", |t, s, p| {
+            config_list_names_every_key_in_the_tomls_order(t);
             testing::StepState(s, p)
         })
-        .step("a_dotted_key_is_a_path_into_the_record", |t, s, p| {
-            a_dotted_key_is_a_path_into_the_record(t);
+        .step("config_get_answers_each_key_beside_its_value", |t, s, p| {
+            config_get_answers_each_key_beside_its_value(t);
             testing::StepState(s, p)
         })
         .step("an_unknown_key_errors_and_names_the_valid_ones", |t, s, p| {
@@ -93,88 +93,68 @@ fn my_pid() -> String {
     format!("{{pid: {}}}", me())
 }
 
-fn get_config_all_mirrors_the_toml_tables(_t: &testing::Testable<'_, '_, '_>) {
+/// Every key the in-process host's config holds, in the TOML's order; a host
+/// whose file names no `[identity]` holds it as one null key.
+const ALL_KEYS: &str = "[channel.port, channel.spam_warn_window_secs, channel.spam_warn_rate, \
+                        channel.spam_error_window_secs, channel.spam_error_rate, \
+                        supervisor.cpu_warn_fraction, supervisor.ram_warn_fraction, \
+                        supervisor.vram_warn_headroom_mib, supervisor.disk_warn_fraction, identity]";
+
+fn config_list_names_every_key_in_the_tomls_order(_t: &testing::Testable<'_, '_, '_>) {
     let s = TESTING.harness();
     let env = s.execute(
-        &reading(
-            "record<tables: list<string>, channel_keys: list<string>, supervisor_keys: list<string>, \
-             identity_absent: bool>",
-            "let cfg = (grmr get_config_all)\n\
-             { tables: ($cfg | columns), channel_keys: ($cfg.channel | columns), \
-               supervisor_keys: ($cfg.supervisor | columns), \
-               identity_absent: ($cfg.identity == null) }",
-        ),
+        &reading("record<keys: list<string>>", "{ keys: (grmr config list) }"),
         "null",
     );
-    assert!(!has_error(&env), "get_config_all should run; got {env}");
-    assert_eq!(
-        env["result"]["tables"],
-        nuon("[channel, supervisor, identity]"),
-        "the record mirrors the TOML's tables; got {env}",
-    );
-    assert_eq!(
-        env["result"]["identity_absent"].as_bool(),
-        Some(true),
-        "a host whose file names no [identity] reads it as null; got {env}",
-    );
-    assert_eq!(
-        env["result"]["channel_keys"],
-        nuon(
-            "[port, spam_warn_window_secs, spam_warn_rate, spam_error_window_secs, \
-             spam_error_rate]",
-        ),
-        "got {env}",
-    );
-    assert_eq!(
-        env["result"]["supervisor_keys"],
-        nuon(
-            "[cpu_warn_fraction, ram_warn_fraction, vram_warn_headroom_mib, \
-             disk_warn_fraction]",
-        ),
-        "got {env}",
-    );
+    assert!(!has_error(&env), "config list should run; got {env}");
+    assert_eq!(env["result"]["keys"], nuon(ALL_KEYS), "the TOML's keys, dotted; got {env}");
 }
 
-fn a_dotted_key_is_a_path_into_the_record(_t: &testing::Testable<'_, '_, '_>) {
+fn config_get_answers_each_key_beside_its_value(_t: &testing::Testable<'_, '_, '_>) {
     let s = TESTING.harness();
-    // The coherence property: the key is a path into what get_config_all returns,
-    // not a parallel naming scheme. If these ever disagree, one of the two
-    // surfaces is lying about where a setting lives.
-    //
-    // The walked form uses a literal cell path, which is what an author writes.
-    // A string variable would not do: `get $key` binds a one-member cell path
-    // whose single member is the whole string, dots included, so it looks for a
-    // column literally named "supervisor.cpu_warn_fraction" and fails. Splitting
-    // a string on dots is the source parser's job, not `get`'s.
+    // The keys answer in the order asked, each beside its value, and the list
+    // `config list` gives is one `config get` takes whole.
     let env = s.execute(
         &reading(
-            "record<agree: bool, value: float>",
-            "let direct = (grmr get_config 'supervisor.cpu_warn_fraction')\n\
-             let walked = (grmr get_config_all | get supervisor.cpu_warn_fraction)\n\
-             { agree: ($direct == $walked), value: $direct }",
+            "record<asked: list<string>, cpu: float, port_null: bool, all: int, identity_null: bool>",
+            "let got = (grmr config get [supervisor.cpu_warn_fraction channel.port])\n\
+             let every = (grmr config get (grmr config list))\n\
+             { asked: ($got | get key), cpu: ($got | get 0.value), \
+               port_null: (($got | get 1.value) == null), all: ($every | length), \
+               identity_null: (($every | where key == identity | get 0.value) == null) }",
         ),
         "null",
     );
     assert!(!has_error(&env), "got {env}");
-    assert_eq!(env["result"]["agree"].as_bool(), Some(true), "got {env}");
     assert_eq!(
-        env["result"]["value"].as_f64(),
-        Some(0.80),
-        "the embedded default; got {env}",
+        env["result"]["asked"],
+        nuon("[supervisor.cpu_warn_fraction, channel.port]"),
+        "the keys in the order asked; got {env}",
+    );
+    assert_eq!(env["result"]["cpu"].as_f64(), Some(0.80), "the embedded default; got {env}");
+    assert_eq!(env["result"]["port_null"].as_bool(), Some(true), "got {env}");
+    assert_eq!(env["result"]["all"].as_i64(), Some(10), "every key listed answers; got {env}");
+    assert_eq!(
+        env["result"]["identity_null"].as_bool(),
+        Some(true),
+        "a host whose file names no [identity] reads it as null; got {env}",
     );
 }
 
 fn an_unknown_key_errors_and_names_the_valid_ones(_t: &testing::Testable<'_, '_, '_>) {
     let s = TESTING.harness();
     let env = s.execute(
-        &reading("record<out: int>", "grmr get_config 'supervisor.nonesuch'\n{ out: 0 }"),
+        &reading(
+            "record<out: int>",
+            "grmr config get [supervisor.cpu_warn_fraction supervisor.nonesuch]\n{ out: 0 }",
+        ),
         "null",
     );
     // An error rather than a null: a typo and a genuinely-null setting are
     // indistinguishable at the call site, and only one is a bug worth hearing about.
     assert!(has_error(&env), "an unknown key must error; got {env}");
     let text = error_text(&env);
-    assert!(text.contains("not a config key"), "got {text}");
+    assert!(text.contains("`supervisor.nonesuch` is not a config key"), "got {text}");
     assert_eq!(
         text.matches("supervisor.vram_warn_headroom_mib").count(),
         1,
@@ -187,7 +167,7 @@ fn an_unpinned_port_reads_as_null_rather_than_a_sentinel(_t: &testing::Testable<
     let env = s.execute(
         &reading(
             "record<is_null: bool>",
-            "{ is_null: ((grmr get_config 'channel.port') == null) }",
+            "{ is_null: ((grmr config get [channel.port] | get 0.value) == null) }",
         ),
         "null",
     );
@@ -205,13 +185,13 @@ fn a_pin_changes_what_the_config_surface_reports(_t: &testing::Testable<'_, '_, 
         &pinning(
             "record<before: float, after: float>",
             "let key = 'supervisor.cpu_warn_fraction'\n\
-             let before = (grmr get_config $key)\n\
-             grmr pin_config $key $data.pid 0.25\n\
-             { before: $before, after: (grmr get_config $key) }",
+             let before = (grmr config get [$key] | get 0.value)\n\
+             grmr config pin $key $data.pid 0.25\n\
+             { before: $before, after: (grmr config get [$key] | get 0.value) }",
         ),
         &my_pid(),
     );
-    assert!(!has_error(&env), "pin_config should run; got {env}");
+    assert!(!has_error(&env), "config pin should run; got {env}");
     assert_eq!(env["result"]["before"].as_f64(), Some(0.80), "got {env}");
     assert_eq!(
         env["result"]["after"].as_f64(),
@@ -230,8 +210,8 @@ fn the_motivating_case_is_zero_vram_headroom(_t: &testing::Testable<'_, '_, '_>)
     let env = s.execute(
         &pinning(
             "record<headroom: int>",
-            "grmr pin_config 'supervisor.vram_warn_headroom_mib' $data.pid 0\n\
-             { headroom: (grmr get_config 'supervisor.vram_warn_headroom_mib') }",
+            "grmr config pin 'supervisor.vram_warn_headroom_mib' $data.pid 0\n\
+             { headroom: (grmr config get [supervisor.vram_warn_headroom_mib] | get 0.value) }",
         ),
         &my_pid(),
     );
@@ -248,7 +228,7 @@ fn last_write_wins_across_calls(_t: &testing::Testable<'_, '_, '_>) {
             &pinning(
                 "record<ok: bool>",
                 &format!(
-                    "grmr pin_config 'supervisor.disk_warn_fraction' $data.pid {value}\n\
+                    "grmr config pin 'supervisor.disk_warn_fraction' $data.pid {value}\n\
                      {{ ok: true }}",
                 ),
             ),
@@ -259,7 +239,7 @@ fn last_write_wins_across_calls(_t: &testing::Testable<'_, '_, '_>) {
     let env = s.execute(
         &reading(
             "record<value: float>",
-            "{ value: (grmr get_config 'supervisor.disk_warn_fraction') }",
+            "{ value: (grmr config get [supervisor.disk_warn_fraction] | get 0.value) }",
         ),
         "null",
     );
@@ -281,7 +261,7 @@ fn only_the_supervisor_lines_are_pinnable(_t: &testing::Testable<'_, '_, '_>) {
         let env = s.execute(
             &pinning(
                 "record<out: int>",
-                &format!("grmr pin_config '{key}' $data.pid 1\n{{ out: 0 }}"),
+                &format!("grmr config pin '{key}' $data.pid 1\n{{ out: 0 }}"),
             ),
             &my_pid(),
         );
@@ -306,7 +286,7 @@ fn a_pin_is_held_to_the_config_files_own_bounds(_t: &testing::Testable<'_, '_, '
             &pinning(
                 "record<out: int>",
                 &format!(
-                    "grmr pin_config 'supervisor.ram_warn_fraction' $data.pid {value}\n\
+                    "grmr config pin 'supervisor.ram_warn_fraction' $data.pid {value}\n\
                      {{ out: 0 }}",
                 ),
             ),
@@ -325,7 +305,7 @@ fn a_pin_against_a_dead_process_is_refused(_t: &testing::Testable<'_, '_, '_>) {
     let env = s.execute(
         &reading(
             "record<out: int>",
-            "grmr pin_config 'supervisor.cpu_warn_fraction' 0 0.5\n{ out: 0 }",
+            "grmr config pin 'supervisor.cpu_warn_fraction' 0 0.5\n{ out: 0 }",
         ),
         "null",
     );
@@ -339,7 +319,7 @@ fn a_pin_against_a_dead_process_is_refused(_t: &testing::Testable<'_, '_, '_>) {
     let after = s.execute(
         &reading(
             "record<value: float>",
-            "{ value: (grmr get_config 'supervisor.cpu_warn_fraction') }",
+            "{ value: (grmr config get [supervisor.cpu_warn_fraction] | get 0.value) }",
         ),
         "null",
     );
@@ -354,12 +334,12 @@ fn a_pin_against_a_dead_process_is_refused(_t: &testing::Testable<'_, '_, '_>) {
 fn the_config_decls_reach_the_stateful_lane_too(_t: &testing::Testable<'_, '_, '_>) {
     let s = TESTING.harness();
     let env = s.execute(
-        "def --env execute [data: nothing]: nothing -> record<tables: int> { { tables: (grmr get_config_all | columns | length) } }",
+        "def --env execute [data: nothing]: nothing -> record<keys: int> { { keys: (grmr config list | length) } }",
         "null",
     );
     assert_eq!(
-        env["result"]["tables"].as_i64(),
-        Some(3),
+        env["result"]["keys"].as_i64(),
+        Some(10),
         "the whole grmr family registers per eval, on both lanes; got {env}",
     );
 }

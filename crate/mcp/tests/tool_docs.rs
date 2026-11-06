@@ -76,7 +76,7 @@ fn bed_is_described_by_its_pretext_then_the_grmr_signatures() {
         assert!(block.contains(&format!("`{name} [")), "{name}: {description}");
     }
     let lines = block.lines().filter(|line| line.starts_with("`grmr ")).count();
-    assert_eq!(lines, 7, "every grmr command; {description}");
+    assert_eq!(lines, sourcetrait_grammar_engine::GRMR_COMMANDS.len(), "every grmr command; {description}");
 }
 
 #[test]
