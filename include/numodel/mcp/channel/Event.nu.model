@@ -1,10 +1,10 @@
 # Channel packet
 @namepath mcp/channel/Event
-@version 0.0.0-3
+@version 0.0.0-4
 record<
   id: string,  # base62, minted by the host per packet; <id>.nuon holds the packet whole, <id>/ its files
   from: string,  # stamped by the host: thread/<nonce>, <alias>/thread/<nonce>, mcp, or remote/channel/<nom>
-  model: string,  # namepath of the event's shape, at most 128 characters; mcp/ and remote/ are the host's alone
+  model: string,  # namepath of the event's shape, at most 128 characters; mcp/, remote/, and channel/ are the host's alone
   event: oneof<record<>, table<>>,  # the summary, or {size: <filesize>}, <id>.nuon's, where the line passed the cap
   attached: table<file: path, size: filesize>,  # present only with files and no spill: each file in <id>/
 >

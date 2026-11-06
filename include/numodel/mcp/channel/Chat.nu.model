@@ -1,0 +1,7 @@
+# Chat event
+@namepath channel/Chat
+@version 0.0.0-1
+record<
+  summary: string,  # one line of 80 characters at most, always on the packet's line
+  message: oneof<string, record<size: filesize>>,  # the message inline, or message.md's size where the line would pass the cap
+>
