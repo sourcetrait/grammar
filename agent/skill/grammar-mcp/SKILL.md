@@ -15,6 +15,8 @@ skill; equip authoring is in grammar-mcp-dev.
   `use equip/<author>/<name>/lib/<module>`, then `<module> <export> ...`.
 - A check reports at most three errors at a time; fix them and resubmit.
 - `thread::dispatch`: the eval pool was busy; retry.
+- `interface info`'s `transient` names two: `grammar`, the host's tree,
+  `$env.EQUIP_TRANSIENT`, and `ai`, an agent's own runtime scratch for its id.
 
 ## Bulk
 A result carries a summary. Bulk goes to a file under `$env.EQUIP_TMP`, its
@@ -53,9 +55,10 @@ Packets from a definition to you: small summaries, never payloads.
 - Opened by OpenGrammarChannel, async or sync; on a sync Channel each
   `interface channel sync` takes what queued since the last.
 - A send before `ready` is refused and closes the Channel.
-- A packet is `{id, from, model, event, attached?}`; models under `mcp/` and
-  `remote/` are the host's. An oversized event spills to
-  `<inbox>/<spilled_event_path>`.
+- A packet is `{id, from, model, event, attached?}`, `attached` a table of
+  `{file, size}` in `<inbox>/<id>/`; models under `mcp/`, `remote/`, and
+  `channel/` are the host's. Every packet is whole at `<inbox>/<id>.nuon`; a
+  line too long to show carries `event: {size}`, and the file is read.
 - Sending too fast warns, then stops the sender.
 
 ## RemoteChannel
@@ -64,6 +67,9 @@ starts in, names its key pair as `[identity]`; `.grammar/remotes.toml` beside
 it names each peer as a `[[channel]]` alias with its `cert`, read at each
 command. Peers trust each other by known public key. A send reports
 `remote/channel/Sent` or `Unsent`; a reply comes from `remote/channel/<nom>`.
+`interface chat send <nom> <summary> <message>` sends a `channel/Chat`, its
+summary on the line and its message in `<id>/message.md`; `interface chat read
+<id>` reads it a page at a time.
 
 ## RemoteEngine
 `.grammar/remotes.toml` names each remote engine as an `[[engine]]` alias:
@@ -75,14 +81,20 @@ not found: <command>` when missing, and ends with its session, opened at the
 first call or a connect.
 
 ## SEQUENCE: OpenGrammarChannel
-1. `interface channel open async`, or `interface channel open sync` where
-   requested.
-2. async: on `new`, a Monitor on the returned `wss`; on `existing`, the
-   running Monitor; on `channel::peer_gone`, `interface channel close`, then
-   step 1.
-3. The `mcp/channel/Open` packet: async on the Monitor, sync by the first
-   `interface channel sync`.
-4. `interface channel ready`, nothing sent before it.
+1. To begin, `interface info` must have already been ran for the session.
+2. Conditionally, per mode of operation:
+   - async: `interface channel open async`. The MCP selects the transport
+     based on the harness, filling the `wss` field if it uses it. With a
+     `wss`: on `new`, a Monitor on it; on `existing`, the running Monitor.
+     With none: no Monitor, each packet arriving in the thread as a
+     `grammar.channel` tool output. Either way the `mcp/channel/Open`
+     packet comes first.
+   - sync: `interface channel open sync`. The first `interface channel sync`
+     takes the `mcp/channel/Open` packet, and each later sync takes what
+     queued since the last.
+3. `interface channel ready`, nothing sent before it.
+4. In async mode, on `channel::peer_gone`: `interface channel close`, then
+   step 2.
 
 ## SEQUENCE: OpenRemoteGrammarChannel
 1. OpenGrammarChannel on both hosts.
@@ -178,6 +190,11 @@ Close a remote engine's session; its grammar-ssh ends with it.
 `remote engine close [alias: string]: nothing -> nothing`
 Make or change a remote engine's entry from an ssh configuration's host.
 `remote engine import [alias: string, --from: string, --ssh-config: string]: nothing -> nothing`
+### Chat
+Send a chat, a summary and a message, to a linked host's agent.
+`chat send [nom: string, summary: string, message: string]: nothing -> record`
+Read a chat's message.md by its packet's id, a page at a time.
+`chat read [id: string, page?: int]: nothing -> record`
 ### Equip
 Register a new equip at its source and seed its rig.
 `equip new [source: string]: nothing -> record`
