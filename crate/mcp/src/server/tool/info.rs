@@ -15,8 +15,8 @@ pub(crate) struct InfoResult {
     pub work_dir: String,
     /// The engine's bulk scratch directory, exported as $env.EQUIP_TMP.
     pub tmp: String,
-    /// The engine's transient scratch directory, exported as $env.EQUIP_TRANSIENT.
-    pub transient: String,
+    /// An agent's transient scratch, `ai`, and the engine's own, `grammar`.
+    pub transient: TransientPaths,
     pub plugins: Vec<PluginInfo>,
     /// The callable surface within the reported purview, as one block.
     pub signatures: String,
@@ -54,7 +54,12 @@ impl NuSh {
                 nom: self.mcp_nom.as_str().to_string(),
                 work_dir: self.controller.config.work_dir.display().to_string(),
                 tmp: tmp_dir().map(|dir| dir.display().to_string()).unwrap_or_default(),
-                transient: transient_dir().map(|dir| dir.display().to_string()).unwrap_or_default(),
+                transient: TransientPaths {
+                    ai: ai_transient_dir(&self.controller.config.id)
+                        .map(|dir| dir.display().to_string())
+                        .unwrap_or_default(),
+                    grammar: transient_dir().map(|dir| dir.display().to_string()).unwrap_or_default(),
+                },
                 plugins: list_registered_plugins(),
                 signatures,
                 purview: view.views,

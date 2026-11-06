@@ -51,11 +51,12 @@ pub(crate) use sourcetrait_grammar_operator::{
     emergency_line, emergency_log_path, pin,
 };
 pub(crate) use sourcetrait_grammar_protocol::{
-    ASK_DEADLINE, ClientHello, DRAIN_DEADLINE, DecodeBudget, Emergency, EngineRequest,
+    AI_TRANSIENT_DIR, ASK_DEADLINE, ClientHello, DRAIN_DEADLINE, DecodeBudget, Emergency, EngineRequest,
     EngineResponse, FrameCodec, FromEngineSys, HELLO_BUDGET, HELLO_DEADLINE, HelloReply, Host,
     HostAnswer, Instance, LIMITS_DEFAULT, Limits, McpFrame, NuVal, Observation, PurviewAnswer,
     PurviewRequest, RuntimeError, SESSION_IDLE, SessionAsk, SessionClose, SshFrame, SshInfo,
-    SshProfile, ToEngineSys, TransportError, ValueAnswer, decode_payload, payload, valid_name,
+    SshProfile, ToEngineSys, TransientPaths, TransportError, ValueAnswer, decode_payload, payload,
+    valid_name,
 };
 pub(crate) use sourcetrait_grammar_scratch::{
     HostProbe, LOCK_FILE, LockError, LockRecord, NamespaceLock, OwnedDir, Owner, current_uid, sweep,

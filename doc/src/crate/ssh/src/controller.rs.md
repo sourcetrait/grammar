@@ -61,7 +61,8 @@ than blocked.
 ### fn profile, fn info
 What a hello's reply and `interface info` report of grammar-ssh: its namespace,
 its uid and pid for the MCP's own log, and its engine's nom; its workdir, its
-scratch directories, and its plugins.
+scratch directories, an agent's scratch for its id beside its transient one, and
+its plugins.
 
 ### fn teardown
 Every call in flight cancelled and its process tree reaped, the session's end's

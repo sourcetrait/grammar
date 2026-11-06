@@ -12,7 +12,7 @@ use std::time::Duration;
 
 #[cfg(unix)]
 use nix::sys::signal::Signal;
-use sourcetrait_grammar_tests::{Host, envelope, has_error_path, run_output_env};
+use sourcetrait_grammar_tests::{Host, NuVal, envelope, has_error_path, run_output_env};
 use sourcetrait_common::testing::prelude::*;
 
 static TESTING: testing::Module = testing::module!(Integration, { .using_temp_dir() });
@@ -56,14 +56,21 @@ fn spawn_on(scratch: &Path, id: &str, tmp: &Path, run: &Path) -> Host {
 /// The host's bulk and transient directories, as `interface info` reports them.
 fn scratch_dirs(host: &mut Host) -> (PathBuf, PathBuf) {
     let info = host.info();
-    let field = |name: &str| {
-        PathBuf::from(
-            envelope(&info)["result"][name]
-                .as_str()
-                .unwrap_or_else(|| panic!("info carries {name}; got {info}")),
-        )
+    let result = &envelope(&info)["result"];
+    let path = |value: &NuVal, name: &str| {
+        PathBuf::from(value.as_str().unwrap_or_else(|| panic!("info carries {name}; got {info}")))
     };
-    (field("tmp"), field("transient"))
+    (path(&result["tmp"], "tmp"), path(&result["transient"]["grammar"], "transient.grammar"))
+}
+
+/// An agent's transient scratch, as `interface info` reports it: `transient.ai`.
+fn ai_dir(host: &mut Host) -> PathBuf {
+    let info = host.info();
+    PathBuf::from(
+        envelope(&info)["result"]["transient"]["ai"]
+            .as_str()
+            .unwrap_or_else(|| panic!("info carries transient.ai; got {info}")),
+    )
 }
 
 /// The scratch directories `base` holds.
@@ -137,6 +144,9 @@ fn both_directories_are_private_marked_and_exported() {
     let (tmp_dir, transient_dir) = scratch_dirs(&mut host);
     assert_scratch(&tmp_dir, &tmp, host.pid());
     assert_tree(&transient_dir, &run, host.pid());
+    let ai = ai_dir(&mut host);
+    assert_eq!(ai, run.join("ai").join("scratchown"), "an agent's scratch sits under the runtime base by the id");
+    assert!(!ai.exists(), "the host reports it and makes nothing there");
     for decoy in ["tmp", "run"] {
         let decoy = scratch.join("decoy").join(decoy);
         assert_eq!(scratch_in(&decoy), 0, "nothing in {}", decoy.display());
@@ -178,6 +188,7 @@ fn the_standard_variables_stand_behind_the_uenv_ones() {
     let (tmp_dir, transient_dir) = scratch_dirs(&mut host);
     assert_scratch(&tmp_dir, &tmp, host.pid());
     assert_tree(&transient_dir, &run, host.pid());
+    assert_eq!(ai_dir(&mut host), run.join("ai").join("scratchstd"), "XDG_RUNTIME_DIR's, as the tree's");
 }
 
 /// With no runtime directory, transient files go under the temporary one.
@@ -202,6 +213,7 @@ fn transient_files_fall_back_to_the_temporary_directory() {
     assert_scratch(&tmp_dir, &tmp, host.pid());
     assert_tree(&transient_dir, &tmp, host.pid());
     assert_ne!(tmp_dir, transient_dir, "two directories still");
+    assert_eq!(ai_dir(&mut host), tmp.join("ai").join("scratchfall"), "an agent's scratch falls back with the tree");
     let inbox = open_inbox(&mut host);
     assert_eq!(inbox, transient_dir.join("channel"), "the Channel's directory goes in the tree");
     let stderr = std::fs::read_to_string(&log).expect("the host's stderr");

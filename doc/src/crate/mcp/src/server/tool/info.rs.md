@@ -23,8 +23,11 @@ The outside view of `$env.EQUIP_TMP`, as `id` is of `$env.EQUIP_ID`: where the
 agent itself reads the bulk a definition left in the scratch directory.
 
 ### field transient
-The outside view of `$env.EQUIP_TRANSIENT`, the host's directory for small
-runtime files.
+A record, so a boot learns both of its transient directories at once: `grammar`
+the outside view of `$env.EQUIP_TRANSIENT`, the host's directory for small
+runtime files, and `ai` an agent's own scratch for the host's id
+(`scratch.rs`'s `ai_transient_dir`). A remote engine's comes from its
+grammar-ssh, worked out against that host's runtime directory.
 
 ### field nu_version
 Baked by `build.rs` from the workspace lockfile's `nu-protocol` pin, so it

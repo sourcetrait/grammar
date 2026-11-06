@@ -12,7 +12,7 @@ const HEAD_SHOWN: usize = 64;
 
 /// The SHA-256 of `schema/v1.nuon`'s canonical form, named by both hellos.
 pub const SCHEMA_ID: [u8; 32] =
-    schema_id("a29a284b92f7ae68bc5c8f6ed755945aef1a5fb0c738574a6e88ca736b530905");
+    schema_id("b604a56ab9735e9191fef9d059c32aad52dc9623a4ce2c40719848e6fafa4268");
 
 /// An ID's 32 bytes from its 64 lowercase hex digits, checked as it builds.
 const fn schema_id(hex: &str) -> [u8; 32] {

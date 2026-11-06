@@ -83,6 +83,17 @@ fn info_returns_static_server_state() {
         "the structured hierarchy is gone; `signatures` replaces it. got {env}",
     );
     assert!(env["signatures"].as_str().is_some(), "signatures is a text block; got {env}");
+
+    let transient = &env["transient"];
+    let grammar = Path::new(transient["grammar"].as_str().expect("transient.grammar, the host's tree"));
+    let ai = Path::new(transient["ai"].as_str().expect("transient.ai, an agent's scratch"));
+    let nom = env["nom"].as_str().expect("nom field");
+    let id = env["id"].as_str().expect("id field");
+    assert_eq!(grammar.file_name().and_then(|n| n.to_str()), Some(nom), "the tree is named for the nom; got {env}");
+    let trees = grammar.parent().expect("the tree's parent");
+    assert_eq!(trees.file_name().and_then(|n| n.to_str()), Some("grammar"), "the trees sit in grammar/; got {env}");
+    let runtime = trees.parent().expect("the runtime base");
+    assert_eq!(ai, runtime.join("ai").join(id), "an agent's scratch is <runtime>/ai/<id>; got {env}");
 }
 
 #[tested]

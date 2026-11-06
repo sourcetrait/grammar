@@ -9,6 +9,8 @@ pub const SCRATCH_PREFIX: &str = "grammar-ssh.";
 pub struct ScratchDirs {
     tmp: OwnedDir,
     transient: OwnedDir,
+    /// The base the transient directory was made in, the runtime one or its fallback.
+    runtime: PathBuf,
     diagnostics: Vec<String>,
 }
 
@@ -38,6 +40,7 @@ impl ScratchDirs {
         Ok(Self {
             tmp,
             transient,
+            runtime: transient_base,
             diagnostics,
         })
     }
@@ -50,6 +53,11 @@ impl ScratchDirs {
     /// The transient directory, a definition's `$env.EQUIP_TRANSIENT`.
     pub fn transient(&self) -> &Path {
         self.transient.path()
+    }
+
+    /// An agent's transient scratch for `id`, under the base the transient one took.
+    pub fn ai_transient(&self, id: &str) -> PathBuf {
+        self.runtime.join(AI_TRANSIENT_DIR).join(id)
     }
 
     /// What the start reports: the fallback, and each directory a sweep kept.

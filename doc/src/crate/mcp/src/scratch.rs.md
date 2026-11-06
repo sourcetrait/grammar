@@ -28,7 +28,9 @@ mode bits, and a directory made there takes the ACL its parent passes down.
 
 ## struct ScratchDirs
 The bulk directory beside the tree. Both always exist, so a definition reads
-either without asking which the host could make.
+either without asking which the host could make. The base the tree took is kept
+beside them, so an agent's scratch is reported under the same base, the
+fallback's included.
 
 ## fn make_scratch_dirs
 The nom is the engine's identity's, drawn by `init_engine` before the engine
@@ -52,6 +54,10 @@ which the engine refuses, leaves none behind.
 ## fn tmp_dir / fn transient_dir
 `None` before the start, which a caller reports as the host having no scratch
 directory.
+
+## fn ai_transient_dir
+`<runtime>/ai/<id>`, joined and never made: an agent's own scratch, which
+`interface info` reports as `transient.ai` beside the tree.
 
 ## fn make_channel_dir
 One `channel/` a host, in its own tree: a teardown other than a deliberate

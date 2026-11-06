@@ -26,6 +26,8 @@ pub(crate) struct ScratchDirs {
     pub(crate) tmp: PathBuf,
     /// The host's tree, `grammar/<nom>/`: `$env.EQUIP_TRANSIENT`, holding `channel/`.
     pub(crate) transient: PathBuf,
+    /// The base the tree was made in, the runtime directory or its fallback.
+    pub(crate) runtime: PathBuf,
 }
 
 /// Make this process's scratch, its tree named for `nom`, dead hosts' swept first.
@@ -55,7 +57,12 @@ pub(crate) fn make_scratch_dirs(nom: &str) -> Result<ScratchDirs, String> {
         .inspect_err(|_| {
             let _ = fs::remove_dir_all(&tmp);
         })?;
-    Ok(SCRATCH.get_or_init(|| ScratchDirs { tmp, transient }).clone())
+    let dirs = ScratchDirs {
+        tmp,
+        transient,
+        runtime: transient_base,
+    };
+    Ok(SCRATCH.get_or_init(|| dirs).clone())
 }
 
 /// This process's bulk scratch directory, once `make_scratch_dirs` has made it.
@@ -66,6 +73,11 @@ pub(crate) fn tmp_dir() -> Option<&'static Path> {
 /// This process's tree, once made.
 pub(crate) fn transient_dir() -> Option<&'static Path> {
     SCRATCH.get().map(|dirs| dirs.transient.as_path())
+}
+
+/// An agent's transient scratch for `id`, under the base the tree took, once made.
+pub(crate) fn ai_transient_dir(id: &str) -> Option<PathBuf> {
+    SCRATCH.get().map(|dirs| dirs.runtime.join(AI_TRANSIENT_DIR).join(id))
 }
 
 /// The Channel's directory in the host's tree, made private where absent.

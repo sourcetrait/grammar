@@ -93,9 +93,21 @@ pub struct SshInfo {
     pub work_dir: String,
     /// grammar-ssh's bulk scratch directory, its `$env.EQUIP_TMP`.
     pub tmp: String,
-    /// grammar-ssh's transient scratch directory, its `$env.EQUIP_TRANSIENT`.
-    pub transient: String,
+    /// grammar-ssh's transient directories, an agent's and its own.
+    pub transient: TransientPaths,
     pub plugins: Vec<PluginInfo>,
+}
+
+/// The runtime directory's child holding each host id's agent scratch.
+pub const AI_TRANSIENT_DIR: &str = "ai";
+
+/// A host's two transient directories, as `interface info` reports them.
+#[cereal::derived(Data, Eq)]
+pub struct TransientPaths {
+    /// An agent's transient scratch for the host's id, `<runtime>/ai/<id>`.
+    pub ai: String,
+    /// The host's own transient directory, its `$env.EQUIP_TRANSIENT`.
+    pub grammar: String,
 }
 
 /// One plugin as a positional `[name, version]` pair, its version null if unknown.

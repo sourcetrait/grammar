@@ -79,8 +79,8 @@ pub(crate) use crate::{
         uenv_standard,
     },
     scratch::{
-        make_channel_dir, make_scratch_dirs, remove_channel_dir, remove_scratch_dirs, tmp_dir,
-        transient_dir,
+        ai_transient_dir, make_channel_dir, make_scratch_dirs, remove_channel_dir,
+        remove_scratch_dirs, tmp_dir, transient_dir,
     },
     mcp::ServiceExt,
     engines::{
@@ -182,7 +182,8 @@ pub(crate) use sourcetrait_grammar_protocol::{
     EngineResponse, FromEngineSys, LIMITS_DEFAULT, LOCAL_HOST, MAX_FRAME_BYTES, PreparedSend,
     PurviewAnswer,
     PurviewRequest, PurviewRow, PurviewView, RemoteResult, RemoteSendData, RuntimeError,
-    SessionAsk, SpamThresholdsData, ToEngineSys, TransportError, SshInfo,
+    SessionAsk, SpamThresholdsData, ToEngineSys, TransientPaths, TransportError, SshInfo,
+    AI_TRANSIENT_DIR,
 };
 
 pub(crate) use sourcetrait_grammar_protocol::{

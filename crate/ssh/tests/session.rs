@@ -81,7 +81,12 @@ fn a_session_serves_info_and_a_call() {
                 assert_eq!((info.id.as_str(), info.namespace.as_str()), ("fixture", "default"));
                 assert_eq!(info.work_dir, instance.workdir().display().to_string());
                 assert_eq!(info.nom, session.ssh().nom);
-                assert!(Path::new(&info.tmp).is_dir() && Path::new(&info.transient).is_dir());
+                assert!(Path::new(&info.tmp).is_dir() && Path::new(&info.transient.grammar).is_dir());
+                assert_eq!(
+                    info.transient.ai,
+                    instance.home("run").join("ai").join("fixture").display().to_string(),
+                    "an agent's scratch under the runtime home by the id",
+                );
             }
             other => panic!("info, not {other:?}"),
         }

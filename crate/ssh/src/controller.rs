@@ -206,7 +206,10 @@ impl GrammarSshController {
             nom: self.nom().to_string(),
             work_dir: self.config.workdir.display().to_string(),
             tmp: self.scratch.tmp().display().to_string(),
-            transient: self.scratch.transient().display().to_string(),
+            transient: TransientPaths {
+                ai: self.scratch.ai_transient(&self.config.id).display().to_string(),
+                grammar: self.scratch.transient().display().to_string(),
+            },
             plugins: engine::list_registered_plugins(),
         }
     }

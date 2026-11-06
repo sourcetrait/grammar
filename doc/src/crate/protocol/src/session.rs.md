@@ -57,6 +57,17 @@ What `interface info` reports of a host that only its grammar-ssh knows: its
 nom, its workdir, its two scratch directories, and its plugins. The signature
 block and the purview come from its engine's own requests.
 
+## const AI_TRANSIENT_DIR
+The name both hosts join between their runtime base and their id, so an agent
+reading either's `interface info` finds its scratch at the one place.
+
+## struct TransientPaths
+The two transient directories a boot learns from `interface info`: `grammar`,
+the host's own, and `ai`, an agent's for the host's id, which the host reports
+and never makes, the agent's first write making it. The agent keys its own
+directories under `ai` by the nom it reads beside it, so the record names the
+id's directory alone.
+
 ## struct PluginInfo
 A positional pair, as the tools have always shown it.
 

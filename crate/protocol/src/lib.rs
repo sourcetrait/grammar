@@ -71,9 +71,10 @@ pub use crate::{
         PurviewResolution, PurviewResolveRequest, PurviewRigRequest, PurviewRow, PurviewView,
     },
     session::{
-        ASK_DEADLINE, DRAIN_DEADLINE, EngineRequest, EngineResponse, HostAnswer, HostStop, McpFrame,
+        AI_TRANSIENT_DIR, ASK_DEADLINE, DRAIN_DEADLINE, EngineRequest, EngineResponse, HostAnswer,
+        HostStop, McpFrame,
         PING_INTERVAL, Ping, PluginInfo, PreparedSend, SESSION_IDLE, SendFile, SessionAsk,
-        SessionClose, SshFrame, SshInfo,
+        SessionClose, SshFrame, SshInfo, TransientPaths,
     },
     value::{ValueLimitError, ValueLimitErrorKind, ValueLimits, check_error, check_value},
 };

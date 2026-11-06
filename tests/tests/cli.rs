@@ -42,8 +42,8 @@ fn cli_removes_its_scratch_directories_at_the_end() {
     let out = run_output(t.temp_dir(), &["--id", "cid", "cli", "interface", "interface info"]);
     assert!(out.status.success(), "cli interface info should exit 0; got {out:?}");
     let v = stdout_envelope(&out);
-    for field in ["tmp", "transient"] {
-        let dir = v["result"][field].as_str().unwrap_or_default();
+    for (field, value) in [("tmp", &v["result"]["tmp"]), ("transient.grammar", &v["result"]["transient"]["grammar"])] {
+        let dir = value.as_str().unwrap_or_default();
         assert!(!dir.is_empty(), "a one-shot run makes its {field} directory too; got {v}");
         assert!(
             !std::path::Path::new(dir).exists(),

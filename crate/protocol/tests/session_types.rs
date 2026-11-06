@@ -244,7 +244,7 @@ fn info() -> SshInfo {
         nom: "sshnom01".into(),
         work_dir: "/srv/work".into(),
         tmp: "/srv/tmp/grammar-ssh.x".into(),
-        transient: "/run/user/2001/grammar-ssh.y".into(),
+        transient: TransientPaths { ai: "/run/user/2001/ai/fixture".into(), grammar: "/run/user/2001/grammar-ssh.y".into() },
         plugins: vec![PluginInfo("nu_plugin_eye".into(), Some("0.1.0".into())), PluginInfo("bad".into(), None)],
     }
 }

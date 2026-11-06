@@ -15,7 +15,11 @@ Each base is swept first, so a start cleans after a grammar-ssh killed outright;
 a base the two share is swept once. Without a runtime home the transient
 directory falls back to the tmp home with the MCP's warning. A transient
 directory that can't be made takes the bulk one with it, so a failed start
-leaves neither.
+leaves neither. The base the transient directory took is kept for `ai_transient`.
+
+### fn ai_transient
+`<runtime>/ai/<id>` on grammar-ssh's host, as the MCP's `ai_transient_dir`
+joins it on its own, never made.
 
 ### fn remove
 Each directory goes only while its marker holds the nonce it was made with; a
