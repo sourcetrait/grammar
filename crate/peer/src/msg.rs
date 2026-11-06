@@ -77,6 +77,10 @@ pub struct RemoteSendRequest {
     pub payloads: Vec<Payload>,
 }
 
+/// The host's own send to a peer, a chat's, its model under the host's `channel/`.
+#[cereal::derived(Data, Eq)]
+pub struct HostSendRequest(pub RemoteSendRequest);
+
 /// The Channel's inbox, set at each open and cleared when a close takes it.
 #[cereal::derived(Data, Eq)]
 pub struct InboxRequest(pub Option<String>);
@@ -125,6 +129,7 @@ pub enum ToPeerSys {
     Connect(RemoteConnectRequest),
     Close(RemoteCloseRequest),
     Send(RemoteSendRequest),
+    HostSend(HostSendRequest),
     Inbox(InboxRequest),
 }
 
@@ -157,6 +162,7 @@ into_to_sys! {
     RemoteConnectRequest => Connect,
     RemoteCloseRequest => Close,
     RemoteSendRequest => Send,
+    HostSendRequest => HostSend,
     InboxRequest => Inbox,
 }
 
@@ -213,6 +219,10 @@ remote_request! {
 }
 
 impl subsys::Request<PeerSystem> for RemoteSendRequest {
+    type ResponseType = Result<String, String>;
+}
+
+impl subsys::Request<PeerSystem> for HostSendRequest {
     type ResponseType = Result<String, String>;
 }
 

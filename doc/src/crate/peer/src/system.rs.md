@@ -44,9 +44,11 @@ the controller's to check first.
 The bind runs on the loop, the listen's synchronous half, so its answer carries
 the address bound; the accept runs behind on a task of its own.
 
-## fn PeerSystem::send
-The send's reservation and its model's bound are held here as on the sender's
-side, and a file may not take `EVENT_SPILL_DEST`'s name: the receiver reads a
+## fn PeerSystem::send / fn PeerSystem::host_send / fn PeerSystem::queue_send
+A body's send is held to every reservation here as on the sender's side; the
+host's own, a chat, to `channel/` alone, the one prefix the host sends a peer.
+Past that the two are one send: the model's bound, and a file may not take
+`EVENT_SPILL_DEST`'s name: the receiver reads a
 file of that name as the spilled event, so a body's file there would replace
 its event or, not being NUON, lose the message. The id is minted over the model
 and the event as rendered, then an event the receiver's cap would truncate

@@ -87,9 +87,10 @@ fn the_interface_is_described_by_its_pretext_then_its_command_list() {
         .split_once("\n\n# Command Signatures\n")
         .unwrap_or_else(|| panic!("the list follows the pretext: {description}"));
     assert_eq!(pretext, INTERFACE_DOC.trim_end(), "{description}");
-    for topic in ["General", "Process", "Purview", "Channel", "Remote", "Equip"] {
+    for topic in ["General", "Process", "Purview", "Channel", "Remote", "Chat", "Equip"] {
         assert!(list.contains(&format!("## {topic}\n")), "{topic}: {description}");
     }
+    assert!(list.contains("## Chat\n- chat send\n- chat read\n"), "{description}");
     assert!(list.starts_with("## General\n- info\n- help\n"), "{description}");
     assert!(
         list.contains("- channel open\n- channel sync\n"),
@@ -98,7 +99,7 @@ fn the_interface_is_described_by_its_pretext_then_its_command_list() {
     assert!(list.contains("- remote channel listen\n"), "{description}");
     assert!(list.contains("- remote engine import\n"), "{description}");
     let commands = list.lines().filter(|line| line.starts_with("- ")).count();
-    assert_eq!(commands, 33, "{description}");
+    assert_eq!(commands, 35, "{description}");
     assert!(!list.contains("- interface "), "the list names subcommands alone; {description}");
     assert!(!list.contains('`'), "the list names commands alone; {description}");
 }

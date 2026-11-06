@@ -7,10 +7,14 @@ the agent can't pipe commands.
 
 ## enum InterfaceCommand
 The routing table: a command grouped by the system that owns it, the Channel's
-five, the remote channels' seven, the remote engines' seven, and the engine's
-fourteen, so a controller routes the group and the group's own commands stay
-together. Each variant carries its tool's parameters struct as it stood
-(`params.rs`), a new command its own.
+five, the remote channels' seven, the chat's two, the remote engines' seven, and
+the engine's fourteen, so a controller routes the group and the group's own
+commands stay together. Each variant carries its tool's parameters struct as it
+stood (`params.rs`), a new command its own.
+
+## enum ChatCommand
+The face's: a send goes over the peer links and a read comes from the Channel's
+inbox, both of which the face holds.
 
 ## enum RemoteEngineCommand
 The remote engines' commands: an entry in the MCP's remotes file and the MCP's
@@ -66,6 +70,11 @@ than fail.
 An optional flag stays absent when not given, so a set changes only what it
 names. An empty list stays a list, so `--known-hosts []` reaches the entry's
 check and is refused there rather than read as absent.
+
+## fn page
+A positional's own `count`, its refusal naming the positional rather than a
+flag; nushell reads a bare negative literal as a flag, so a negative page is
+refused by the parse before it reaches here.
 
 ## fn mode
 The parse can hold a string only as a string, so the two modes are held here, an

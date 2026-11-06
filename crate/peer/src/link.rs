@@ -932,7 +932,7 @@ fn relay_to_channel(
     info: &DeliverInfo,
     files: Vec<RelayFile>,
 ) -> Result<(), (String, String)> {
-    if let Some(prefix) = reserved_prefix(&info.model) {
+    if let Some(prefix) = relay_reserved_prefix(&info.model) {
         return Err((
             "reserved_model".to_string(),
             format!("model `{}` lies under the host's `{prefix}` reservation", info.model),

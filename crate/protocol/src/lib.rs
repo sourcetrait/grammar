@@ -29,10 +29,11 @@ pub(crate) mod tku {
 
 pub use crate::{
     channel::{
+        CHANNEL_RESERVED_PREFIX, CHAT_MESSAGE_FILE, CHAT_MODEL, CHAT_SUMMARY_MAX_CHARS,
         ChannelEpoch, ChannelMode, ChannelPhase, ChannelSendData, ChannelState, EVENT_SIZE_KEY,
         EVENT_SPILL_DEST, MAX_FRAME_BYTES, MCP_RESERVED_PREFIX, MODEL_MAX_CHARS, NOTIFICATION_CAP,
         REMOTE_RESERVED_PREFIX, RemoteSendData, SYNC_QUEUE_CAP, SpamThresholdsData, model_too_long,
-        model_too_long_reason, reserved_prefix,
+        model_too_long_reason, relay_reserved_prefix, reserved_prefix,
     },
     codec::{
         CODEC_ID, FrameCodec, FrameError, FrameStage, PREFACE, SCHEMA_ID, check_codec,

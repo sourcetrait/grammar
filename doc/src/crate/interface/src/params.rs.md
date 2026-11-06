@@ -27,3 +27,9 @@ place of the user's, as `ssh -F` does.
 ## struct EquipParams
 One parameter for all four commands, the source path: the namepath is read off
 it, so the equip is wherever its source says it is.
+
+## struct ChatSendParams / struct ChatReadParams
+New with the chat, so no tool came before them. A send names its peer by the
+nom the remote channel list shows, never an alias, as every send to a peer does;
+a read's page is 0 where the command names none, so a short chat reads with its
+id alone.

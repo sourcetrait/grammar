@@ -6,11 +6,30 @@ pub const MCP_RESERVED_PREFIX: &str = "mcp/";
 /// The model-path prefix RESERVED for the host's packets about a remote.
 pub const REMOTE_RESERVED_PREFIX: &str = "remote/";
 
+/// The model-path prefix RESERVED for the host's messages between agents.
+pub const CHANNEL_RESERVED_PREFIX: &str = "channel/";
+
+/// The standard message between agents, which the host alone stamps.
+pub const CHAT_MODEL: &str = "channel/Chat";
+
+/// The file every chat attaches, its message's text.
+pub const CHAT_MESSAGE_FILE: &str = "message.md";
+
+/// The most characters a chat's summary takes.
+pub const CHAT_SUMMARY_MAX_CHARS: usize = 80;
+
 /// The reserved prefix `model` lies under, if any.
 pub fn reserved_prefix(model: &str) -> Option<&'static str> {
-    [MCP_RESERVED_PREFIX, REMOTE_RESERVED_PREFIX]
+    [MCP_RESERVED_PREFIX, REMOTE_RESERVED_PREFIX, CHANNEL_RESERVED_PREFIX]
         .into_iter()
         .find(|prefix| model.starts_with(prefix))
+}
+
+/// The reserved prefix a peer's relay is refused under: `channel/` passes.
+///
+/// A peer's host stamped its `channel/` model, as the link trusts it by its key.
+pub fn relay_reserved_prefix(model: &str) -> Option<&'static str> {
+    reserved_prefix(model).filter(|prefix| *prefix != CHANNEL_RESERVED_PREFIX)
 }
 
 /// The most characters a packet's model takes, so a spilled line fits the cap.

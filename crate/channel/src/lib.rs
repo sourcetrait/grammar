@@ -59,7 +59,7 @@ pub use crate::{
     },
     render::{
         ATTACHED_FILE, MsgId, RenderedPacket, escape_line, event_file, event_overflows,
-        event_spill_pointer, mint_msg_id, render_nuon, render_packet,
+        event_spill_pointer, line_fits, mint_msg_id, render_nuon, render_packet,
     },
     spam::SpamThresholds,
     system::{ChannelHandle, ChannelSysConfig, ChannelSysParams, ChannelSysPaths, ChannelSystem},

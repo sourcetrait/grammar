@@ -12,8 +12,16 @@ pub const KIND_INTERFACE: &str = "interface::invalid";
 pub enum InterfaceCommand {
     Channel(ChannelCommand),
     Peer(PeerCommand),
+    Chat(ChatCommand),
     RemoteEngine(RemoteEngineCommand),
     Engine(EngineInterfaceCommand),
+}
+
+/// The chat's two commands, the face's over the peer links and the Channel's inbox.
+#[derive(Debug)]
+pub enum ChatCommand {
+    Send(ChatSendParams),
+    Read(ChatReadParams),
 }
 
 /// The Channel's five commands, the Channel's system's.
@@ -336,6 +344,16 @@ fn count<T: TryFrom<i64>>(
     }
 }
 
+/// A chat read's page, 0 when absent; a negative one refused at its position.
+fn page(literals: &mut Literals) -> Result<u64, Refusal> {
+    match literals.remove("page") {
+        None => Ok(0),
+        Some((Literal::Whole(whole), span)) => u64::try_from(whole)
+            .map_err(|_| (Some(span), format!("`page` takes a non-negative whole number, not {whole}"))),
+        Some((_, span)) => Err((Some(span), "`page` takes an int".to_string())),
+    }
+}
+
 /// The Channel's mode, `sync` or `async`; any other value refused at its position.
 fn mode(literals: &mut Literals) -> Result<ChannelMode, Refusal> {
     match literals.remove("mode") {
@@ -444,6 +462,15 @@ fn command(
                 ssh_config: optional_text(literals, "ssh-config"),
             }))
         }
+        CommandKind::ChatSend => InterfaceCommand::Chat(ChatCommand::Send(ChatSendParams {
+            mcp_nom: text(literals, "nom"),
+            summary: text(literals, "summary"),
+            message: text(literals, "message"),
+        })),
+        CommandKind::ChatRead => InterfaceCommand::Chat(ChatCommand::Read(ChatReadParams {
+            id: text(literals, "id"),
+            page: page(literals)?,
+        })),
         CommandKind::EquipNew => engine(E::EquipNew(source(literals))),
         CommandKind::EquipInstall => engine(E::EquipInstall(source(literals))),
         CommandKind::EquipCheck => engine(E::EquipCheck(source(literals))),

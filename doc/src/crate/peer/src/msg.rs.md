@@ -23,6 +23,11 @@ A body's send with its event rendered and its files read on the sender's side:
 a source the sender can't read is its own error, surfaced at the call. The
 system mints the id, spills an oversized event, and queues the frames.
 
+## struct HostSendRequest
+The host's own send, a chat, apart from a body's so the reservation a body's
+send is held to stays unconditional: no flag on a body's request can lift it.
+Its model must lie under `channel/`, the one prefix the host sends a peer.
+
 ## struct InboxRequest
 The Channel's directory, which an open makes or takes and a deliberate close
 removes. The controller tells the system at both, so a link stages its files in

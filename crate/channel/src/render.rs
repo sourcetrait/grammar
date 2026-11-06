@@ -49,10 +49,11 @@ pub fn render_packet(
     event: &nu::Value,
     attached: Option<&[AttachedFile]>,
 ) -> Result<RenderedPacket, String> {
-    let file = render_nuon(&packet_value(id, from, model, event.clone(), attached))?;
+    let id = id.to_string();
+    let file = render_nuon(&packet_value(&id, from, model, event.clone(), attached))?;
     let whole = escape_line(&file);
     let line = if whole.chars().count() > NOTIFICATION_CAP {
-        let spilled = packet_value(id, from, model, event_spill_pointer(file.len()), None);
+        let spilled = packet_value(&id, from, model, event_spill_pointer(file.len()), None);
         escape_line(&render_nuon(&spilled)?)
     } else {
         whole
@@ -60,9 +61,25 @@ pub fn render_packet(
     Ok(RenderedPacket { file, line })
 }
 
+/// The most characters a minted id takes on a line: eleven base62 digits, quoted.
+const ID_LINE_MAX: usize = 13;
+
+/// Whether a packet of these fields goes out whole, its id not yet minted.
+///
+/// The id renders empty, `""`, and is counted at its longest in its place.
+pub fn line_fits(
+    from: &str,
+    model: &str,
+    event: &nu::Value,
+    attached: Option<&[AttachedFile]>,
+) -> Result<bool, String> {
+    let line = escape_line(&render_nuon(&packet_value("", from, model, event.clone(), attached))?);
+    Ok(line.chars().count() - 2 + ID_LINE_MAX <= NOTIFICATION_CAP)
+}
+
 /// A packet as one record, `attached` a table of each file's path and size.
 fn packet_value(
-    id: MsgId,
+    id: &str,
     from: &str,
     model: &str,
     event: nu::Value,

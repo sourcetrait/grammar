@@ -25,9 +25,9 @@ The router's stub, which `interface_description` replaces on the router.
 The interface crate's engine, its commands the deny set leaves, the deny set
 naming a command by its words.
 
-## fn ChannelFace::run_channel / fn ChannelFace::run_peer
-The routing table's two groups on the face: the Channel's commands and the
-remote channels' run through the face that holds their systems.
+## fn ChannelFace::run_channel / fn ChannelFace::run_peer / fn ChannelFace::run_chat
+The routing table's three groups on the face: the Channel's commands, the
+remote channels', and the chat's run through the face that holds their systems.
 
 ## fn interface
 The nonce is minted first, over the tool's name and the command text, so a

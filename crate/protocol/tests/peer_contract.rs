@@ -160,6 +160,9 @@ fn a_relayed_packet_is_held_to_a_relays_rules() {
     let ok = packet("peer/Checkpoint", record(&[("n", NuVal::Int(1))]));
     ok.check().expect("an ordinary relay");
     assert_eq!(ok.packet_from(), format!("remote/channel/{NOM}"));
+    packet(CHAT_MODEL, NuVal::Nothing).check().expect("a peer's host stamps its chats");
+    assert_eq!(relay_reserved_prefix(CHAT_MODEL), None, "a relay passes `channel/`");
+    assert_eq!(reserved_prefix(CHAT_MODEL), Some(CHANNEL_RESERVED_PREFIX), "which a body may not take");
     let refusals = [
         ("a host model", packet("mcp/channel/Open", NuVal::Nothing)),
         ("a host's remote report", packet(MODEL_SENT, NuVal::Nothing)),

@@ -57,6 +57,28 @@ fn attached_file(file: &str, size: u64) -> AttachedFile {
     }
 }
 
+/// An event of one text field `n` characters long.
+fn event_of(n: usize) -> nu::Value {
+    let span = nu::Span::unknown();
+    let mut data = nu::Record::new();
+    data.insert("text", nu::Value::string("t".repeat(n), span));
+    nu::Value::record(data, span)
+}
+
+#[test]
+fn a_line_fits_by_its_fields_its_id_counted_at_its_longest() {
+    let files = [attached_file("message.md", 11)];
+    let fits = |n: usize| line_fits("remote/channel/peer", "channel/Chat", &event_of(n), Some(&files)).expect("render");
+    let longest = (0..500).take_while(|n| fits(*n)).last().expect("a small event fits");
+    let line = |id: MsgId| render_packet(id, "remote/channel/peer", "channel/Chat", &event_of(longest), Some(&files)).expect("render").line;
+    assert!(!fits(longest + 1), "one character more passes the cap");
+    let worst = (0..64u64)
+        .map(|n| line(mint_msg_id(&datum::NonceGenerator::new(), "x", "y", &n.to_string(), None)).chars().count())
+        .max()
+        .expect("lines");
+    assert!(worst <= NOTIFICATION_CAP, "a line the check passed fits whatever id is minted: {worst}");
+}
+
 #[test]
 fn an_attachment_is_carried_by_its_file_and_size() {
     let files = vec![attached_file(ATTACHED_FILE, 42)];

@@ -240,6 +240,19 @@ async fn a_close_or_a_send_with_no_link_is_refused() {
         spill_named.as_ref().is_err_and(|e| e.contains("reserved")),
         "a body's file never takes the spill's name: {spill_named:?}",
     );
+    let chat = peers.request(send("channel/Chat")).await.expect("send");
+    assert!(chat.as_ref().is_err_and(|e| e.contains("reserved")), "a body never stamps a chat: {chat:?}");
+    let host_chat = peers.request(HostSendRequest(send("channel/Chat"))).await.expect("send");
+    assert_eq!(
+        host_chat,
+        Err("no open remote link to mcp_nom `peernom0001`".to_string()),
+        "the host's own chat passes the reservation",
+    );
+    let host_other = peers.request(HostSendRequest(send("proj/thing/Changed"))).await.expect("send");
+    assert!(
+        host_other.as_ref().is_err_and(|e| e.contains("`channel/` models alone")),
+        "the host's own sends take `channel/` alone: {host_other:?}",
+    );
     let inbox = Some(home.to_string_lossy().into_owned());
     let held = peers.request(InboxRequest(inbox.clone())).await.expect("inbox");
     assert_eq!(held, inbox, "the links hold the inbox they were told");

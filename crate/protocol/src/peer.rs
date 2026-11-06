@@ -193,7 +193,7 @@ impl RemotePacket {
         if self.model.is_empty() {
             return refused("a relayed packet with no model".to_string());
         }
-        if let Some(prefix) = reserved_prefix(&self.model) {
+        if let Some(prefix) = relay_reserved_prefix(&self.model) {
             return refused(format!("a relayed model under the host's `{prefix}` reservation"));
         }
         if model_too_long(&self.model) {

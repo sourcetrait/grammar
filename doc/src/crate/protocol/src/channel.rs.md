@@ -7,12 +7,22 @@ Closures and borrowed nushell values never cross: a send crosses as data and its
 eval's stop stays on the eval's side.
 
 ## const MCP_RESERVED_PREFIX / const REMOTE_RESERVED_PREFIX / fn reserved_prefix
-Every model the host stamps lives beneath one of the two: `mcp/` for the local
+Every model the host stamps lives beneath one of the three: `mcp/` for the local
 host's own packets, `remote/` for those about a remote, whose peer need not be
-an MCP (User). The value of a reservation is that it makes provenance a
-mechanical check: anything claiming either prefix from a source that is not the
-host can be rejected without interpreting it. Enforced wherever a non-host picks
-a model, a definition's send and a peer's relay, both through `reserved_prefix`.
+an MCP (User), and `channel/` for the host's messages between agents, a chat
+(User). The value of a reservation is that it makes provenance a mechanical
+check: anything claiming a prefix from a source that is not the host can be
+rejected without interpreting it. Enforced wherever a body picks a model, a
+definition's send local or remote, through `reserved_prefix`.
+
+## const CHANNEL_RESERVED_PREFIX / fn relay_reserved_prefix
+A peer's relay is held to `mcp/` and `remote/` alone, the receiving host's own:
+a `channel/` model reaches it from a peer's host, which held its own bodies to
+the reservation and is trusted by its known key, so a chat passes the relay.
+
+## const CHAT_MODEL / const CHAT_MESSAGE_FILE / const CHAT_SUMMARY_MAX_CHARS
+The chat's model, the file every chat attaches, and its summary's bound, which
+keeps the summary on the line however long the message.
 
 ## const MAX_FRAME_BYTES
 A hard `<`, never a `<=` against 1 MiB. A frame landing exactly on the cap

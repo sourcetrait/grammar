@@ -106,6 +106,26 @@ pub struct RemoteChannelCloseParams {
     pub alias: String,
 }
 
+/// Parameters for `interface chat send`.
+#[derive(Debug, ser::Deserialize, ser::Serialize)]
+pub struct ChatSendParams {
+    /// The linked host's nom.
+    pub mcp_nom: String,
+    /// One line of 80 characters at most, which the packet always carries.
+    pub summary: String,
+    /// The message's text, attached as `message.md`.
+    pub message: String,
+}
+
+/// Parameters for `interface chat read`.
+#[derive(Debug, ser::Deserialize, ser::Serialize)]
+pub struct ChatReadParams {
+    /// The chat packet's id.
+    pub id: String,
+    /// The page to read, 0 first.
+    pub page: u64,
+}
+
 /// Parameters for `interface remote engine set`: each field given is written.
 #[derive(Debug, ser::Deserialize, ser::Serialize)]
 pub struct RemoteEngineSetParams {

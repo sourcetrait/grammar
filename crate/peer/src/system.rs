@@ -140,6 +140,7 @@ impl PeerSystem {
                 Err(e) => Err(e),
             },
             ToPeerSys::Send(req) => return Some(FromPeerSys::Sent(self.send(req))),
+            ToPeerSys::HostSend(HostSendRequest(req)) => return Some(FromPeerSys::Sent(self.host_send(req))),
             ToPeerSys::Inbox(InboxRequest(inbox)) => {
                 self.ctx.set_inbox(inbox.clone().map(PathBuf::from));
                 return Some(FromPeerSys::Inbox(inbox));
@@ -418,18 +419,37 @@ impl PeerSystem {
         &mut self,
         req: RemoteSendRequest,
     ) -> Result<String, String> {
+        if let Some(prefix) = reserved_prefix(&req.model) {
+            return Err(format!(
+                "`{prefix}` is reserved for host-originated models; \
+                 choose a model path outside it",
+            ));
+        }
+        self.queue_send(req)
+    }
+
+    /// The host's own send, a chat's, its model under `channel/` and nowhere else.
+    fn host_send(
+        &mut self,
+        req: RemoteSendRequest,
+    ) -> Result<String, String> {
+        if !req.model.starts_with(CHANNEL_RESERVED_PREFIX) {
+            return Err(format!("the host's own sends take `{CHANNEL_RESERVED_PREFIX}` models alone"));
+        }
+        self.queue_send(req)
+    }
+
+    /// A send's checks past its reservation, its id minted, and its frames queued.
+    fn queue_send(
+        &mut self,
+        req: RemoteSendRequest,
+    ) -> Result<String, String> {
         let RemoteSendRequest {
             mcp_nom,
             model,
             event_nuon,
             payloads,
         } = req;
-        if let Some(prefix) = reserved_prefix(&model) {
-            return Err(format!(
-                "`{prefix}` is reserved for host-originated models; \
-                 choose a model path outside it",
-            ));
-        }
         if model_too_long(&model) {
             return Err(model_too_long_reason());
         }

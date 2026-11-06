@@ -184,7 +184,8 @@ directory the close removed.
 relay_to_channel refuses a model under `mcp/` or `remote/` first,
 `reserved_model`, as the sending grmr commands do: the reservation is what
 lets an agent take a model's path as proof of the host's origin, and a peer is
-not the local host. A model past `MODEL_MAX_CHARS` is refused after it,
+not the local host. A `channel/` model passes, a chat its peer's host stamped
+(`relay_reserved_prefix`). A model past `MODEL_MAX_CHARS` is refused after it,
 `model_too_long`. Its files have landed by then and stay, as for any refused
 relay.
 

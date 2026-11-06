@@ -62,6 +62,8 @@ pub enum CommandKind {
     EngineConnect,
     EngineClose,
     EngineImport,
+    ChatSend,
+    ChatRead,
     EquipNew,
     EquipInstall,
     EquipCheck,
@@ -229,6 +231,42 @@ const CONNECT_FLAGS: &[ArgSpec] = &[ArgSpec {
     optional: true,
     summary: "The `ip:port` to dial, in place of the entry's.",
 }];
+
+const CHAT_SEND_ARGS: &[ArgSpec] = &[
+    ArgSpec {
+        name: "nom",
+        shape: ArgShape::String,
+        optional: false,
+        summary: "The linked host's nom, from `interface remote channel list`.",
+    },
+    ArgSpec {
+        name: "summary",
+        shape: ArgShape::String,
+        optional: false,
+        summary: "One line of 80 characters at most, which the packet always carries.",
+    },
+    ArgSpec {
+        name: "message",
+        shape: ArgShape::String,
+        optional: false,
+        summary: "The message's text, attached as `message.md`.",
+    },
+];
+
+const CHAT_READ_ARGS: &[ArgSpec] = &[
+    ArgSpec {
+        name: "id",
+        shape: ArgShape::String,
+        optional: false,
+        summary: "The chat packet's id.",
+    },
+    ArgSpec {
+        name: "page",
+        shape: ArgShape::Int,
+        optional: true,
+        summary: "The page to read, 0 first; 0 when absent.",
+    },
+];
 
 const CLOSE_ARGS: &[ArgSpec] = &[ArgSpec {
     name: "alias",
@@ -593,6 +631,24 @@ pub const COMMANDS: &[CommandSpec] = &[
         flags: ENGINE_IMPORT_FLAGS,
         result: "nothing",
         summary: "Make or change a remote engine's entry from an ssh configuration's host.",
+    },
+    CommandSpec {
+        kind: CommandKind::ChatSend,
+        name: "interface chat send",
+        topic: "Chat",
+        positionals: CHAT_SEND_ARGS,
+        flags: NO_ARGS,
+        result: "record",
+        summary: "Send a chat, a summary and a message, to a linked host's agent.",
+    },
+    CommandSpec {
+        kind: CommandKind::ChatRead,
+        name: "interface chat read",
+        topic: "Chat",
+        positionals: CHAT_READ_ARGS,
+        flags: NO_ARGS,
+        result: "record",
+        summary: "Read a chat's message.md by its packet's id, a page at a time.",
     },
     CommandSpec {
         kind: CommandKind::EquipNew,

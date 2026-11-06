@@ -59,6 +59,8 @@ fn kind_name(kind: CommandKind) -> &'static str {
         K::EngineConnect => "remote engine connect",
         K::EngineClose => "remote engine close",
         K::EngineImport => "remote engine import",
+        K::ChatSend => "chat send",
+        K::ChatRead => "chat read",
         K::EquipNew => "equip new",
         K::EquipInstall => "equip install",
         K::EquipCheck => "equip check",
@@ -70,9 +72,9 @@ fn kind_name(kind: CommandKind) -> &'static str {
 
 #[test]
 fn the_catalog_holds_the_baseline_commands() {
-    assert_eq!(COMMANDS.len(), 33);
+    assert_eq!(COMMANDS.len(), 35);
     let words: BTreeSet<&str> = COMMANDS.iter().map(|spec| spec.words()).collect();
-    assert_eq!(words.len(), 33, "a command's words repeat");
+    assert_eq!(words.len(), 35, "a command's words repeat");
     for spec in COMMANDS {
         assert_eq!(spec.words(), kind_name(spec.kind), "{}", spec.name);
         assert_eq!(spec.name, format!("{INTERFACE} {}", spec.words()));
@@ -90,7 +92,7 @@ fn the_catalog_holds_the_baseline_commands() {
         }
         seen
     });
-    assert_eq!(topics, ["General", "Process", "Purview", "Channel", "Remote", "Equip"]);
+    assert_eq!(topics, ["General", "Process", "Purview", "Channel", "Remote", "Chat", "Equip"]);
     assert_eq!(HELP_WORDS, ["interface", "grmr"]);
 }
 

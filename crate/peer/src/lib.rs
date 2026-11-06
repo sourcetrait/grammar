@@ -41,10 +41,10 @@ pub(crate) use std::{
 pub(crate) use sourcetrait_common::{agnostic, cereal, datum, subsys};
 
 pub(crate) use sourcetrait_grammar_protocol::{
-    DECODE_BUDGET_DEFAULT, EVENT_SPILL_DEST, NuVal, RemoteChannelEvent,
+    CHANNEL_RESERVED_PREFIX, DECODE_BUDGET_DEFAULT, EVENT_SPILL_DEST, NuVal, RemoteChannelEvent,
     RemoteChannelRow, RemoteFailure, RemoteLinkState, RemoteListenResult, RemotePacket,
     RemoteResult, RuntimeError, decode_payload, model_too_long, model_too_long_reason,
-    reserved_prefix, safe_dest, valid_peer_id,
+    relay_reserved_prefix, reserved_prefix, safe_dest, valid_peer_id,
 };
 
 pub(crate) use sourcetrait_grammar_channel::{
@@ -108,7 +108,7 @@ pub(crate) mod rv {
 
 pub use crate::{
     msg::{
-        ExpandDefault, FromPeerSys, INCOMING_DIR, IdentityKeys, InboxRequest, Payload, Relay,
+        ExpandDefault, FromPeerSys, HostSendRequest, INCOMING_DIR, IdentityKeys, InboxRequest, Payload, Relay,
         RelayFile, RemoteCloseRequest, RemoteConnectRequest, RemoteGetRequest, RemoteListRequest,
         RemoteListenRequest, RemoteSendRequest, RemoteSetRequest, RemoteUnsetRequest, ToPeerSys,
         staged_dir,

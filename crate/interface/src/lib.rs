@@ -31,12 +31,13 @@ pub(crate) mod ser {
 
 pub use crate::{
     contract::{
-        ChannelCommand, EngineInterfaceCommand, InterfaceCommand, KIND_INTERFACE, PeerCommand,
-        RemoteEngineCommand, parse_command,
+        ChannelCommand, ChatCommand, EngineInterfaceCommand, InterfaceCommand, KIND_INTERFACE,
+        PeerCommand, RemoteEngineCommand, parse_command,
     },
     grammar::interface_engine,
     params::{
-        ChannelOpenParams, CommitParams, ConfigChannelParams, EquipParams, InspectParams,
+        ChannelOpenParams, ChatReadParams, ChatSendParams, CommitParams, ConfigChannelParams,
+        EquipParams, InspectParams,
         KillParams, NewParams, PurviewConfigureParams, PurviewExtendParams, PurviewParams,
         RemoteAliasParams, RemoteChannelCloseParams, RemoteConnectParams, RemoteEngineImportParams,
         RemoteEngineSetParams, RemoteListenParams, RemoteSetParams,

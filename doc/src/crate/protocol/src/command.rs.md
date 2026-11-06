@@ -49,7 +49,9 @@ together because `render_signatures` opens a heading when the topic changes.
 `channel sync`, and `channel open`'s `mode`, are User's additions beyond the
 tools converted; `sync` sits after `open`, in the order of the handshake it
 serves. The remote engine commands, User's, sit under the Remote topic after
-the remote channels', the same six verbs and `import`.
+the remote channels', the same six verbs and `import`. The chat's two, User's,
+take a topic of their own after Remote; `chat read`'s `page` is the catalog's
+one optional positional, 0 when absent.
 
 ## fn with_head
 A subcommand sent without its head, `info` for `interface info` or `dbg {a: 1}`

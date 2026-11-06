@@ -36,7 +36,14 @@ where a sender or a relay takes it.
 ## fn packet_value
 `attached` is a table of each file's path in `<id>/` and its size, never a
 directory: the agent has the Channel's directory from its open and the id from
-the packet. It is left out where there are no files, as `<id>/` is.
+the packet. It is left out where there are no files, as `<id>/` is. The id comes
+as its text, so `line_fits` renders a packet whose id isn't minted yet.
+
+## fn line_fits / const ID_LINE_MAX
+A sender that must keep a field on the line, a chat its summary, renders the
+packet its receiver will before the receiver mints the id: the id renders empty
+and is counted at its longest, eleven base62 digits quoted, so a line this
+passes fits whatever id the receiver's Channel mints.
 
 ## fn escape_line
 `to nuon` renders compactly but does not escape a newline inside a string

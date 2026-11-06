@@ -20,6 +20,8 @@ pub(crate) mod server {
         pub(crate) mod bed;
         pub(crate) mod call;
         pub(crate) mod channel_close;
+        pub(crate) mod chat_read;
+        pub(crate) mod chat_send;
         pub(crate) mod channel_open;
         pub(crate) mod channel_sync;
         pub(crate) mod channel_verified;
@@ -58,6 +60,7 @@ pub(crate) mod server {
 }
 #[cfg(test)]
 mod tests {
+    mod chat;
     mod config;
     mod deny;
     mod engines;
@@ -159,11 +162,13 @@ pub(crate) use sourcetrait_grammar_channel::{
     ChannelSysPaths, ChannelSystem, ChannelVerifyError, CloseHub, CloseRequest, EmitError,
     EmitRequest, ExpireRequest, FromChannelSys, HostRequest, HubNotice, Line, OpenRequest,
     ReadyRequest, SendRequest, SendVerdict, SpamThresholds, Staged, StatusRequest, StoppedNotice,
-    SyncRequest, ThresholdsRequest, mint_msg_id, render_nuon, render_packet,
+    SyncRequest, ThresholdsRequest, event_spill_pointer, line_fits, mint_msg_id, render_nuon,
+    render_packet,
 };
 
 pub(crate) use sourcetrait_grammar_interface::{
-    ChannelCommand, ChannelOpenParams, CommitParams, ConfigChannelParams, EngineInterfaceCommand,
+    ChannelCommand, ChannelOpenParams, ChatCommand, ChatReadParams, ChatSendParams, CommitParams,
+    ConfigChannelParams, EngineInterfaceCommand,
     EquipParams, InspectParams, InterfaceCommand, KillParams, NewParams, PeerCommand,
     PurviewConfigureParams, PurviewExtendParams, PurviewParams, RemoteAliasParams,
     RemoteChannelCloseParams, RemoteConnectParams, RemoteEngineCommand, RemoteEngineImportParams,
@@ -171,7 +176,8 @@ pub(crate) use sourcetrait_grammar_interface::{
 };
 
 pub(crate) use sourcetrait_grammar_peer::{
-    ExpandDefault, FromPeerSys, IdentityKeys, InboxRequest, Payload, PeerHandle, PeerSysParams,
+    ExpandDefault, FromPeerSys, HostSendRequest, IdentityKeys, InboxRequest, Payload, PeerHandle,
+    PeerSysParams,
     PeerSysPaths, PeerSystem, REMOTES_FILE, Relay, RemoteCloseRequest, RemoteConnectRequest,
     RemoteGetRequest, RemoteListRequest, RemoteListenRequest, RemoteSendRequest,
     RemoteSetRequest, RemoteUnsetRequest, edit_remotes,
@@ -183,7 +189,8 @@ pub(crate) use sourcetrait_grammar_protocol::{
     PurviewAnswer,
     PurviewRequest, PurviewRow, PurviewView, RemoteResult, RemoteSendData, RuntimeError,
     SessionAsk, SpamThresholdsData, ToEngineSys, TransientPaths, TransportError, SshInfo,
-    AI_TRANSIENT_DIR,
+    AI_TRANSIENT_DIR, CHAT_MESSAGE_FILE, CHAT_MODEL, CHAT_SUMMARY_MAX_CHARS,
+    REMOTE_RESERVED_PREFIX, valid_peer_id,
 };
 
 pub(crate) use sourcetrait_grammar_protocol::{

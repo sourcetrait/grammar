@@ -126,6 +126,19 @@ fn every_command_answers_through_the_interface() {
     let shut = s.interface("interface remote channel close 'nopeer'");
     assert_eq!(error_kind(&shut), Some("remote::channel::not_open"), "got {shut}");
 
+    let unlinked = s.interface("interface chat send 'nopeer' 'a summary' 'a message'");
+    assert_eq!(error_kind(&unlinked), Some("remote::channel::invalid_params"), "got {unlinked}");
+    let long_summary = quoted(&"s".repeat(81));
+    for summary in ["''", "' '", long_summary.as_str()] {
+        let refused = s.interface(&format!("interface chat send 'nopeer' {summary} 'a message'"));
+        let messages = error_messages(&refused).join(" ");
+        assert!(messages.contains("a chat's summary"), "{summary} is refused for itself; got {refused}");
+    }
+    let unread = s.interface("interface chat read 'abc'");
+    assert_eq!(error_kind(&unread), Some("channel::not_open"), "a read wants the open's inbox; got {unread}");
+    let unsafe_id = s.interface("interface chat read '../abc'");
+    assert_eq!(error_kind(&unsafe_id), Some("remote::channel::invalid_params"), "got {unsafe_id}");
+
     let engines = s.interface("interface remote engine list");
     assert_eq!(result_of(&engines), &nuon("[]"), "got {engines}");
     let made = s.interface("interface remote engine set 'lab' --address 'lab.example:2222'");

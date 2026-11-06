@@ -55,6 +55,7 @@ A peer's message as a link relays it: the delivery id, the sending peer's nom,
 the model, and the payload, data alone. The MCP names the packet
 `remote/channel/<nom>`.
 ### fn check
-A relay keeps base62 ids and a model outside both reservations, so a peer can
-pose neither as this host's nor as a remote link's report, and a model within
+A relay keeps base62 ids and a model outside the host's two reservations,
+`relay_reserved_prefix`'s, so a peer can pose neither as this host's nor as a
+remote link's report while its host's chats pass, and a model within
 `MODEL_MAX_CHARS`, so the relayed line fits the cap once spilled.

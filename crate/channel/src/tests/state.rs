@@ -371,7 +371,7 @@ fn small_event() -> NuVal {
 #[test]
 fn a_send_refuses_a_reserved_model_before_reading_the_channel() {
     let mut channel = Channel::new(test_policy());
-    for model in ["mcp/channel/Open", "remote/channel/x"] {
+    for model in ["mcp/channel/Open", "remote/channel/x", "channel/Chat"] {
         match channel.plan_send(send_data("thread/a", model, small_event()), Instant::now()) {
             Err(SendVerdict::Refused(reason)) => assert!(reason.contains("reserved"), "{reason}"),
             _ => panic!("`{model}` lies under a reservation"),

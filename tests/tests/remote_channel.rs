@@ -535,6 +535,50 @@ fn remote_send_with_returns_its_event_id() {
     );
 }
 
+/// A chat between two linked hosts: a short one carries its message inline, with
+/// `message.md` in the receiver's `<id>/` and read back; a long one carries its
+/// message as its size, its summary on the line, and is read by its pages.
+#[tested]
+fn a_chat_carries_its_summary_inline_and_a_long_message_by_its_size() {
+    let t = testing::test!({ .using_temp_dir() });
+    let root = t.temp_dir();
+    let (mut a, mut b, nom_a, nom_b) = spawn_two_hosts(root, Host::spawn_in);
+    pair(&mut a, &mut b, &nom_a);
+    let from_a = format!("remote/channel/{nom_a}");
+
+    let sent = a.host.interface(&format!("interface chat send '{nom_b}' 'a short chat' 'hello there'"));
+    assert!(!has_error_path(&sent), "the chat sends; got {sent}");
+    let send_id = envelope(&sent)["result"]["event_id"].as_str().expect("its event_id").to_string();
+    a.await_packet(|p| p.model == "remote/channel/Sent" && p.event.contains(&send_id), Duration::from_secs(15))
+        .expect("A's own Sent carries the chat's id");
+    let short = b
+        .await_packet(|p| p.model == "channel/Chat" && p.from == from_a, Duration::from_secs(15))
+        .expect("B receives the chat from A");
+    assert!(short.event.contains("a short chat") && short.event.contains("hello there"), "both inline; got {short:?}");
+    assert_eq!(short.attached, Some(vec![("message.md".to_string(), 11)]), "message.md always rides; got {short:?}");
+    assert_eq!(b.read_inbox(&format!("{}/message.md", short.id)), "hello there");
+    let read = b.host.interface(&format!("interface chat read '{}'", short.id));
+    assert_eq!(envelope(&read)["result"]["text"].as_str(), Some("hello there"), "got {read}");
+    assert_eq!(envelope(&read)["result"]["pages"], NuVal::Int(1), "got {read}");
+
+    let long = format!("{}\n", "y".repeat(99)).repeat(60);
+    let sent = a.host.interface(&format!("interface chat send '{nom_b}' 'a long chat' '{long}'"));
+    assert!(!has_error_path(&sent), "the long chat sends; got {sent}");
+    let spilled = b
+        .await_packet(|p| p.model == "channel/Chat" && p.event.contains("a long chat"), Duration::from_secs(15))
+        .expect("B receives the long chat with its summary");
+    assert!(spilled.event.contains("size") && !spilled.event.contains("yyyy"), "its message as its size; got {spilled:?}");
+    assert!(spilled.raw.chars().count() <= 500, "the line fits the cap; got {}", spilled.raw);
+    let mut page = |n: u64| b.host.interface(&format!("interface chat read '{}' {n}", spilled.id));
+    let first = page(0);
+    assert_eq!(envelope(&first)["result"]["pages"], NuVal::Int(2), "got {first}");
+    assert_eq!(envelope(&first)["result"]["text"].as_str().map(str::len), Some(4000), "forty whole lines; got {first}");
+    let second = page(1);
+    assert_eq!(envelope(&second)["result"]["text"].as_str().map(str::len), Some(2000), "the rest; got {second}");
+    let past = page(2);
+    assert!(has_error_path(&past), "no third page; got {past}");
+}
+
 /// A host linked to two peers at once, an alias each: a send to each by its nom
 /// is delivered, a send from each is received, and closing one link leaves the
 /// other live.

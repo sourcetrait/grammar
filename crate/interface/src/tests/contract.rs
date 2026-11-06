@@ -80,6 +80,10 @@ fn kind_of(command: &InterfaceCommand) -> CommandKind {
             PeerCommand::Connect(_) => CommandKind::RemoteConnect,
             PeerCommand::Close(_) => CommandKind::RemoteClose,
         },
+        InterfaceCommand::Chat(command) => match command {
+            ChatCommand::Send(_) => CommandKind::ChatSend,
+            ChatCommand::Read(_) => CommandKind::ChatRead,
+        },
         InterfaceCommand::RemoteEngine(command) => match command {
             RemoteEngineCommand::List => CommandKind::EngineList,
             RemoteEngineCommand::Get(_) => CommandKind::EngineGet,
@@ -90,6 +94,28 @@ fn kind_of(command: &InterfaceCommand) -> CommandKind {
             RemoteEngineCommand::Import(_) => CommandKind::EngineImport,
         },
     }
+}
+
+/// A chat send takes its three texts, a read its id and page, 0 when absent.
+#[test]
+fn a_chat_parses_its_texts_and_a_read_its_page() {
+    match parse("interface chat send 'abc' 'a summary' 'the message'") {
+        Ok(InterfaceCommand::Chat(ChatCommand::Send(p))) => assert_eq!(
+            (p.mcp_nom.as_str(), p.summary.as_str(), p.message.as_str()),
+            ("abc", "a summary", "the message"),
+        ),
+        other => panic!("a chat send, not {other:?}"),
+    }
+    match parse("chat read 'xyz'") {
+        Ok(InterfaceCommand::Chat(ChatCommand::Read(p))) => assert_eq!((p.id.as_str(), p.page), ("xyz", 0)),
+        other => panic!("a chat read, not {other:?}"),
+    }
+    match parse("chat read 'xyz' 2") {
+        Ok(InterfaceCommand::Chat(ChatCommand::Read(p))) => assert_eq!(p.page, 2),
+        other => panic!("a read of page 2, not {other:?}"),
+    }
+    assert!(!refusal("chat read 'xyz' 'two'").is_empty(), "a page is an int");
+    assert!(!refusal("chat send 'abc' 'a summary'").is_empty(), "a chat needs its message");
 }
 
 /// Each command's smallest form parses to its own kind.
@@ -188,7 +214,7 @@ fn a_remote_takes_its_flags() {
     );
 }
 
-/// A remote engine command takes its flags: a platform, an address, known hosts as a list.
+/// A remote engine command takes its flags, known hosts as a list among them.
 #[test]
 fn a_remote_engine_takes_its_flags() {
     let set = "interface remote engine set 'lab' --platform 'linux' --address 'lab.example:2222' --jump 'gate' \

@@ -70,6 +70,18 @@ impl ChannelFace {
             PeerCommand::Close(p) => self.remote_close(nonce, p).await,
         }
     }
+
+    /// A chat command, sent over the peer links or read from the Channel's inbox.
+    pub(crate) async fn run_chat(
+        &self,
+        nonce: datum::Nonce,
+        command: ChatCommand,
+    ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
+        match command {
+            ChatCommand::Send(p) => self.chat_send(nonce, p).await,
+            ChatCommand::Read(p) => self.chat_read(nonce, p).await,
+        }
+    }
 }
 
 #[mcp::tool_router(router = interface_router, vis = "pub(crate)")]
@@ -105,6 +117,7 @@ impl NuSh {
         match command {
             InterfaceCommand::Channel(command) => face.run_channel(nonce, command).await,
             InterfaceCommand::Peer(command) => face.run_peer(nonce, command).await,
+            InterfaceCommand::Chat(command) => face.run_chat(nonce, command).await,
             InterfaceCommand::RemoteEngine(command) => self.run_remote_engine(nonce, command).await,
             InterfaceCommand::Engine(command) => self.run_engine(nonce, &route, command).await,
         }
