@@ -34,9 +34,10 @@ flagging it would be a false positive by construction.
 A module's `export use` and `export module` are decls of their own: nu 0.116.1
 parses each as its plain keyword, then points the call at the export decl, so
 each is listed beside `use` and `module`. `module` with no block loads its path
-as a module file, and `plugin use` evaluates its plugin's name or filename as a
-constant. `plugin use --plugin-config` takes a parse-time path as a named
-argument, which the walker still checks, so a hard-coded registry path trips.
+as a module file. `plugin use` takes a parse-time path too, but it is the
+stateful lane's alone, and the lint engine is the stateless lane's
+(`parse_engine.rs`), so there it parses as an external, its arguments linted as
+any external's.
 
 `use` and `overlay use` parse to a Call whether their module resolves or not:
 nu 0.116.1 parses the arguments by the decl's signature and keeps the import

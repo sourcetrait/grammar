@@ -33,7 +33,6 @@ const PARSE_PATH_RECEIVERS: &[&str] = &[
     "export module",
     "source",
     "source-env",
-    "plugin use",
 ];
 
 

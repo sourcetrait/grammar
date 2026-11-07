@@ -128,7 +128,7 @@ pub struct ControlRequest {
     pub command: EngineCommand,
 }
 
-/// What the engine is asked of its await jobs, its health, its equips, its signatures.
+/// What the engine is asked of its await jobs, health, equips, and signatures.
 #[cereal::derived(Data)]
 pub enum EngineCommand {
     /// Every await job running: its await, its job's id, and its start.

@@ -861,3 +861,90 @@ fn a_suites_import_resolves_where_its_analysis_resolved_it() {
     let doubled = field(field(&result.data, "result").expect("execute's value"), "doubled");
     assert_eq!(doubled, Some(&NuVal::Int(42)), "execute resolves it too");
 }
+
+#[test]
+fn an_import_resolving_beside_the_cache_alone_is_refused_at_the_analysis() {
+    let e = TESTING.harness();
+    let nonce = e.nonces.generate();
+    let cached = e.root.join("cache").join("await").join(nonce.to_string());
+    std::fs::create_dir_all(&cached).expect("the job's cache directory");
+    std::fs::write(cached.join("beside.nu"), "export def main []: nothing -> int { 20 }\n").expect("a module beside it");
+    let req = AwaitRequest {
+        host: Host::Local,
+        nonce,
+        module: format!("use beside.nu\n{}", suite()),
+        data: data_value("{x: 1, nap: 10ms}"),
+        timeouts: None,
+        heartbeats: None,
+    };
+    let answer = e.rt.block_on(e.engine.request(req)).expect("the engine answers");
+    match &answer.result {
+        Err(EngineError::SuiteViolations { diagnostics }) => {
+            assert!(diagnostics.iter().any(|row| row.message.contains("beside.nu")), "{diagnostics:?}");
+        }
+        other => panic!("refused at the analysis, not {other:?}"),
+    }
+    assert!(!cached.join(TRACE_FILE).exists(), "the refused await never became a job");
+}
+
+#[test]
+fn a_send_to_a_finished_jobs_id_is_refused() {
+    let e = TESTING.harness();
+    let answer = e.await_suite(&suite(), "{x: 1, nap: 10ms}", None, None);
+    let prepared = answer.result.expect("the job starts");
+    let id = match field(field(&prepared, "job").expect("its job"), "id") {
+        Some(NuVal::Int(id)) => *id,
+        other => panic!("a job id, not {other:?}"),
+    };
+    let nonce = answer.nonce.to_string();
+    event_of(&nonce, "mcp/await/Result");
+    assert!(e.wait_for(|rows| !lists(rows, &nonce)), "the finished job leaves the list");
+    let sender = format!("def execute [data: nothing]: nothing -> nothing {{ {{x: 7}} | job send {id} }}");
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let refusal = loop {
+        let sent = e.execute(&sender, "null");
+        match sent.result {
+            Err(error) => break format!("{error:?}"),
+            Ok(_) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(50)),
+            Ok(value) => panic!("a send to a finished job's id is refused, not answered {value:?}"),
+        }
+    };
+    assert!(refusal.contains("not found"), "nushell's own refusal of a job it doesn't hold: {refusal}");
+}
+
+#[test]
+fn beats_after_a_slow_status_come_at_once_then_on_their_times() {
+    let e = TESTING.harness();
+    let dir = e.root.join("work").join("first-beat");
+    std::fs::create_dir_all(&dir).expect("the status's marker directory");
+    let prepared_type = "record<job: record<id: int, started: datetime>, prepared: record<dir: string, nap: duration>>";
+    let module = format!(
+        "export def prepare [data: record<dir: string, nap: duration>]: nothing -> record<dir: string, nap: duration> {{ $data }}
+export def execute [data: {prepared_type}]: nothing -> nothing {{ sleep $data.prepared.nap }}
+export def status [data: {prepared_type}]: nothing -> record<beating: bool> {{
+    let first = ($data.prepared.dir | path join first)
+    if not ($first | path exists) {{ touch $first; sleep 1500ms }}
+    {{beating: true}}
+}}
+export def stop [data: {prepared_type}]: nothing -> nothing {{ }}
+"
+    );
+    let second = NuVal::Duration(1_000_000_000);
+    let beats = NuVal::List(vec![second.clone(), second]);
+    let data = format!("{{dir: {:?}, nap: 4600ms}}", dir.display().to_string());
+    let answer = e.await_suite(&module, &data, None, Some(beats));
+    let prepared = answer.result.expect("the job starts");
+    let started = nanos(field(field(&prepared, "job").expect("its job"), "started"));
+    let nonce = answer.nonce.to_string();
+    event_of(&nonce, "mcp/await/Result");
+    let beats = traced_since(e, &nonce, "mcp/await/Status", started);
+    assert_eq!(beats.len(), 4, "beats due at 1, 2, 3, and 4 seconds: {beats:?}");
+    let within = |at: i128, from_ms: i128, to_ms: i128| (from_ms * 1_000_000..=to_ms * 1_000_000).contains(&at);
+    assert!(within(beats[0], 2500, 3000), "the first beat's 1.5 s status ends past 2.5 s: {beats:?}");
+    assert!(
+        beats[1] >= beats[0] && beats[1] - beats[0] <= 500_000_000,
+        "the beat due at 2 s, passed while the first ran, follows it at once: {beats:?}",
+    );
+    assert!(within(beats[2], 3000, 3500), "the beat due at 3 s keeps its time: {beats:?}");
+    assert!(within(beats[3], 4000, 4500), "the beat due at 4 s keeps its time: {beats:?}");
+}

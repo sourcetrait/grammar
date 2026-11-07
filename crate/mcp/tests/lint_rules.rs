@@ -185,12 +185,6 @@ fn passes_module_path() {
 }
 
 #[test]
-fn passes_plugin_use_path() {
-    let v = lint("plugin use /srv/plugins/nu_plugin_util; { out: 0 }");
-    assert!(v.is_empty(), "got {v:?}");
-}
-
-#[test]
 fn passes_bare_glob() {
     let v = lint("ls *.md; { out: 0 }");
     assert!(v.is_empty(), "got {v:?}");
