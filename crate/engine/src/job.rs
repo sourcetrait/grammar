@@ -8,7 +8,9 @@ pub(crate) const AWAIT_TOOL: &str = "await";
 const DEFAULT_PHASE_TIMEOUT_NS: i64 = DEFAULT_TIMEOUT_MS as i64 * 1_000_000;
 
 /// The gaps between beats where the call names none, in seconds.
-const DEFAULT_HEARTBEATS_SECS: [u64; 7] = [30, 60, 300, 900, 1800, 2700, 3600];
+const DEFAULT_HEARTBEATS_SECS: [u64; 18] = [
+    30, 90, 300, 900, 900, 900, 900, 1200, 1200, 1200, 1200, 1200, 1200, 1800, 1800, 1800, 1800, 3600,
+];
 
 /// The fewest gaps a call's heartbeats name.
 const MIN_HEARTBEATS: usize = 2;

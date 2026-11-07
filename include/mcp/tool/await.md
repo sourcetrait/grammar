@@ -48,7 +48,7 @@ This contract is aggressively enforced and will error if broken.
   - Runs the contractual `status` and relays it to the engine Channel
 - Last interval in list is repeated until the job ends
 - Minimum of two intervals if specified
-- Engine default: `[ 30sec, 60sec, 5min, 15min, 30min, 45min, 60min ]`
+- Engine default: 30sec, 90sec, 5min, 15min x4, 20min x6, 30min x4, 60min
 
 ## Operation
 - The result is the `PREPARED` record, once the job starts.
