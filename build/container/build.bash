@@ -11,6 +11,9 @@ repo=/src/grammar
 export CARGO_HOME=/work/cargo
 export CARGO_TARGET_DIR=/work/target
 export CARGO_BUILD_JOBS="${JOBS:-4}"
+# A release binary carries no symbols, nushell's installs too, whose own
+# manifests keep them.
+export CARGO_PROFILE_RELEASE_STRIP=symbols
 
 nu_version="$(awk '$0 == "name = \"nu-protocol\"" { getline; gsub(/version = |"/, ""); print; exit }' "$repo/Cargo.lock")"
 if [[ -z "$nu_version" ]]; then

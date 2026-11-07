@@ -60,24 +60,28 @@ export def compile [root: path, profile: string]: nothing -> nothing {
 # `<crate>-<version>/` there.
 #
 # Returns the install's root, `nu/<profile>` in cargo's target directory, its
-# binaries in `bin/`. Cargo skips a crate already installed there at that
+# binaries in `bin/`. A release install is stripped of symbols and replaces any
+# earlier one; a debug install skips a crate already installed there at that
 # version.
 export def nushell [root: path, profile: string, sources?: path]: nothing -> path {
     let version: string = (engine_version $root)
     let target: path = (target_dir $root)
     let nu_root: path = ($target | path join 'nu' $profile)
-    let flags: list<string> = (if $profile == 'debug' { ['--debug'] } else { [] })
+    let flags: list<string> = (if $profile == 'debug' { ['--debug'] } else { ['--force'] })
+    let strip: record = (if $profile == 'debug' { {} } else { {CARGO_PROFILE_RELEASE_STRIP: 'symbols'} })
     let crates: list<string> = (['nu'] | append $CORE_PLUGINS)
     let common: list<string> = ['--locked' '--root' $nu_root '--target-dir' ($target | path join 'nu' 'build') ...$flags]
-    if $sources == null {
-        ^cargo install ...$common ...($crates | each {|crate| $"($crate)@($version)" })
-    } else {
-        for crate in $crates {
-            let dir: path = ($sources | path expand | path join $"($crate)-($version)")
-            if not ($dir | path join 'Cargo.toml' | path exists) {
-                error make {msg: $"no ($crate) ($version) source at ($dir)"}
+    with-env $strip {
+        if $sources == null {
+            ^cargo install ...$common ...($crates | each {|crate| $"($crate)@($version)" })
+        } else {
+            for crate in $crates {
+                let dir: path = ($sources | path expand | path join $"($crate)-($version)")
+                if not ($dir | path join 'Cargo.toml' | path exists) {
+                    error make {msg: $"no ($crate) ($version) source at ($dir)"}
+                }
+                ^cargo install --offline ...$common --path $dir
             }
-            ^cargo install --offline ...$common --path $dir
         }
     }
     $nu_root

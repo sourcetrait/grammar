@@ -116,3 +116,5 @@ srcert_lib = { path = "../srcert/crates/srcert_lib" }
 # body would take the whole MCP down. Pinned explicit as an invariant (it is also
 # the default; the lock is to make any future change to abort a deliberate edit).
 panic = "unwind"
+# A release binary carries no symbols; a crash is debugged on a debug build.
+strip = "symbols"

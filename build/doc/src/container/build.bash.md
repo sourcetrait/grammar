@@ -14,8 +14,15 @@ directory when the run ends.
 first step builds one, at the version of `nu-protocol` in the workspace's
 lock, the engine the MCP embeds. The lock is read with awk, no nushell existing
 yet to read it. The install lands where `bundle nushell` installs, root and
-target directory alike, so the bundle finds nushell installed at that version
-and skips it, and the core plugins' builds reuse what nushell's compiled.
+target directory alike, so the bundle's forced install finds nushell's build
+fresh and copies it, and the core plugins' builds reuse what nushell's
+compiled.
+
+## CARGO_PROFILE_RELEASE_STRIP
+A release binary carries no symbols. The variable overrides every manifest's
+release profile, so it reaches nushell's install here, whose published
+manifest keeps its symbols, and holds this install to the flags the bundle's
+installs use, so the bundle reuses its build.
 
 ## build.nu --tree
 The tree alone: no license tally, which needs cargo-license, and no signature,

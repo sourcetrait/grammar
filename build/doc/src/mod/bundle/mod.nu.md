@@ -49,8 +49,16 @@ from crates.io, each against its published lockfile. Their version is the
 workspace's `nu-protocol`, read from our lock, so the shell the package
 carries is the engine the MCP embeds and every core plugin speaks its
 protocol. A target directory of their own, `nu/build` in cargo's, keeps their
-builds incremental and apart from the workspace's, and cargo skips a crate
-outright when that version is already installed at the root.
+builds incremental and apart from the workspace's.
+
+A release's binaries carry no symbols, a crash being debugged on a debug build,
+and the workspace's release profile strips its own. Each published crate's
+manifest keeps its symbols, so a release install sets
+`CARGO_PROFILE_RELEASE_STRIP`, which overrides a manifest's profile, and forces
+the install: cargo's install record holds no strip setting, so an earlier
+install at the root would otherwise stand. A forced install whose build is
+fresh only copies it. A debug install keeps cargo's skip of a crate already
+installed at that version.
 
 A build with no network, a source package's on a distribution's builder,
 names `sources`, a directory holding each crate's published source as
