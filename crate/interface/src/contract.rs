@@ -309,7 +309,11 @@ fn is_literal(expr: &nu::Expression) -> bool {
         | nu::Expr::Nothing
         | nu::Expr::String(_)
         | nu::Expr::RawString(_)
-        | nu::Expr::DateTime(_) => true,
+        | nu::Expr::DateTime(_)
+        | nu::Expr::CellPath(_) => true,
+        nu::Expr::Range(range) => [&range.from, &range.next, &range.to]
+            .into_iter()
+            .all(|bound| bound.as_ref().is_none_or(is_literal)),
         nu::Expr::ValueWithUnit(value) => is_literal(&value.expr),
         nu::Expr::FullCellPath(path) => path.tail.is_empty() && is_literal(&path.head),
         nu::Expr::List(items) => items

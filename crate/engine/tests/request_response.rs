@@ -36,7 +36,17 @@ static SENT: Mutex<Vec<String>> = Mutex::new(Vec::new());
 /// Each await job's event the host was handed.
 static EVENTS: Mutex<Vec<AwaitEvent>> = Mutex::new(Vec::new());
 
-/// The engine's controller: each Channel send's model kept and answered an id.
+/// How long the test host holds the answer to a Status whose value asks it to.
+const HELD_SEND: Duration = Duration::from_millis(2500);
+
+/// Whether an await event asks its send held: a Status whose value is `hold: true`.
+fn holds(event: &AwaitEvent) -> bool {
+    event.model == "mcp/await/Status"
+        && field(&event.data, "status").and_then(|status| field(status, "hold")) == Some(&NuVal::Bool(true))
+}
+
+/// The engine's controller: each Channel send's model kept and answered an id,
+/// a held Status's answer given once `HELD_SEND` has passed.
 struct TestHost;
 
 impl subsys::Handler<EngineSystem> for TestHost {
@@ -45,6 +55,7 @@ impl subsys::Handler<EngineSystem> for TestHost {
     }
 
     fn on_request(&mut self, pkt: subsys::Packet<FromEngine>) -> impl Future<Output = Option<ToEngine>> + 'static + Send {
+        let mut held = false;
         let answer = match pkt.take_msg() {
             FromEngine::Host(HostAsk::ChannelSend(send)) => {
                 let id = format!("sent-{}", send.model.replace('/', "-"));
@@ -61,12 +72,18 @@ impl subsys::Handler<EngineSystem> for TestHost {
             }
             FromEngine::Host(HostAsk::Await(event)) => {
                 let id = format!("sent-{}", event.model.replace('/', "-"));
+                held = holds(&event);
                 EVENTS.lock().unwrap_or_else(|e| e.into_inner()).push(event);
                 Some(HostAnswer::Sent(id))
             }
             FromEngine::Wire(_) | FromEngine::Purview(_) | FromEngine::Defined(_) => None,
         };
-        std::future::ready(answer.map(ToEngine::Host))
+        async move {
+            if held {
+                tokio::time::sleep(HELD_SEND).await;
+            }
+            answer.map(ToEngine::Host)
+        }
     }
 }
 
@@ -244,7 +261,12 @@ fn nanos(value: Option<&NuVal>) -> i128 {
 
 /// A call's await events, polled until `done` holds of them or ten seconds pass.
 fn events_for(nonce: &str, done: impl Fn(&[AwaitEvent]) -> bool) -> Vec<AwaitEvent> {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    events_within(nonce, Duration::from_secs(10), done)
+}
+
+/// A call's await events, polled until `done` holds of them or `limit` passes.
+fn events_within(nonce: &str, limit: Duration, done: impl Fn(&[AwaitEvent]) -> bool) -> Vec<AwaitEvent> {
+    let deadline = Instant::now() + limit;
     let wanted = NuVal::String(nonce.to_string());
     loop {
         let events: Vec<AwaitEvent> = EVENTS
@@ -947,4 +969,66 @@ export def stop [data: {prepared_type}]: nothing -> nothing {{ }}
     );
     assert!(within(beats[2], 3000, 3500), "the beat due at 3 s keeps its time: {beats:?}");
     assert!(within(beats[3], 4000, 4500), "the beat due at 4 s keeps its time: {beats:?}");
+}
+
+/// A job's traced events, each its model and its data, in the order they were queued.
+fn traced_events(e: &TestEngine, nonce: &str) -> Vec<(String, NuVal)> {
+    let trace_file = e.root.join("cache").join("await").join(nonce).join(TRACE_FILE);
+    let trace = std::fs::read_to_string(&trace_file).unwrap_or_else(|err| panic!("the trace: {err}"));
+    trace
+        .lines()
+        .map(|line| {
+            let event = NuVal::from_nuon(line).unwrap_or_else(|err| panic!("a trace line is NUON: {err}"));
+            match (field(&event, "model"), field(&event, "data")) {
+                (Some(NuVal::String(model)), Some(data)) => (model.clone(), data.clone()),
+                other => panic!("a trace line's model and data, not {other:?}"),
+            }
+        })
+        .collect()
+}
+
+#[test]
+fn held_status_sends_keep_the_beats_on_their_times_and_arrive_in_order() {
+    let e = TESTING.harness();
+    let prepared_type = "record<job: record<id: int, started: datetime>, prepared: record<nap: duration>>";
+    let module = format!(
+        "export def prepare [data: record<nap: duration>]: nothing -> record<nap: duration> {{ $data }}
+export def execute [data: {prepared_type}]: nothing -> nothing {{ sleep $data.prepared.nap }}
+export def status [data: {prepared_type}]: nothing -> record<hold: bool, at: int> {{
+    {{hold: true, at: (date now | into int)}}
+}}
+export def stop [data: {prepared_type}]: nothing -> nothing {{ }}
+"
+    );
+    let second = NuVal::Duration(1_000_000_000);
+    let beats = NuVal::List(vec![second.clone(), second]);
+    let answer = e.await_suite(&module, "{nap: 3600ms}", None, Some(beats));
+    let prepared = answer.result.expect("the job starts");
+    let started = nanos(field(field(&prepared, "job").expect("its job"), "started"));
+    let nonce = answer.nonce.to_string();
+    assert!(e.wait_for(|rows| !lists(rows, &nonce)), "the job ends while its sends are held");
+    let so_far = events_for(&nonce, |_| true);
+    assert!(
+        !so_far.iter().any(|event| event.model == "mcp/await/Result"),
+        "the job over, its Result still waits behind the held Statuses: {so_far:?}",
+    );
+    let has_result = |events: &[AwaitEvent]| events.iter().any(|event| event.model == "mcp/await/Result");
+    let delivered = events_within(&nonce, Duration::from_secs(20), has_result);
+    let beats = traced_since(e, &nonce, "mcp/await/Status", started);
+    assert_eq!(beats.len(), 3, "statuses at 1, 2, and 3 seconds, each send held 2.5 s: {beats:?}");
+    for (index, at) in beats.iter().enumerate() {
+        let due = (index as i128 + 1) * 1_000_000_000;
+        assert!(
+            (due..=due + 500_000_000).contains(at),
+            "the status due at {due} ns runs on its time, its send held: {beats:?}",
+        );
+    }
+    let delivered: Vec<(String, NuVal)> = delivered.into_iter().map(|event| (event.model, event.data)).collect();
+    assert_eq!(delivered, traced_events(e, &nonce), "every event delivered in the order it was queued");
+    let models: Vec<&str> = delivered.iter().map(|(model, _)| model.as_str()).collect();
+    assert_eq!(
+        models,
+        vec!["mcp/await/Status", "mcp/await/Status", "mcp/await/Status", "mcp/await/Result"],
+        "the Result last",
+    );
 }

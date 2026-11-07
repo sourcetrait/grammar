@@ -135,11 +135,47 @@ fn an_await_rig_parses_its_module_and_its_values() {
     }
 }
 
+/// An await rig takes a literal range and a cell path as their values, as the await tool reads them.
+#[test]
+fn an_await_rig_takes_ranges_and_cell_paths_as_values() {
+    match parse("await rig equip/a/b/rig/x {slice: 1..3, step: 0..2..10, field: $.name.0}") {
+        Ok(InterfaceCommand::Engine(EngineInterfaceCommand::AwaitRig(p))) => {
+            let range = |start, step, end| {
+                NuVal::Range(nuval::RangeData::Int(nuval::TypedRangeData {
+                    start,
+                    step,
+                    end: nuval::Bounded::Included(end),
+                }))
+            };
+            let field = NuVal::CellPath(vec![
+                nuval::CellPathMemberData::String {
+                    value: "name".to_string(),
+                    optional: false,
+                    case_sensitive: true,
+                },
+                nuval::CellPathMemberData::Int {
+                    value: 0,
+                    optional: false,
+                },
+            ]);
+            let expected = NuVal::Record(vec![
+                ("slice".to_string(), range(1, 1, 3)),
+                ("step".to_string(), range(0, 2, 10)),
+                ("field".to_string(), field),
+            ]);
+            assert_eq!(p.data, expected);
+        }
+        other => panic!("an await rig of a range and a cell path, not {other:?}"),
+    }
+}
+
 /// An await rig refuses what isn't a literal and timeouts off their typedef.
 #[test]
 fn an_await_rig_refuses_a_non_literal_and_timeouts_off_their_typedef() {
     let module = "equip/a/b/rig/x";
     assert!(!refusal(&format!("await rig {module} (1 + 1)")).is_empty(), "an expression is no literal");
+    let bounded = refusal(&format!("await rig {module} {{slice: 1..$nu.pid}}"));
+    assert!(bounded.contains("never a variable"), "a variable bounds no literal range: {bounded}");
     assert!(!refusal(&format!("await rig {module} [1 ...[2]]")).is_empty(), "a spread is no literal");
     assert!(!refusal(&format!("await rig {module} {{n: (2)}}")).is_empty(), "a nested expression is none");
     assert!(!refused(&format!("await rig {module} null {{execute: 0ns}}")).is_empty(), "timeouts are given whole");

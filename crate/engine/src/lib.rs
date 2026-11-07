@@ -57,6 +57,7 @@ pub(crate) mod test_hooks;
 mod tests {
     mod equip;
     mod health;
+    mod job;
     mod namepath;
     mod purview;
     mod schema;
@@ -201,7 +202,7 @@ pub(crate) mod tk {
         sync::{
             Mutex as AsyncMutex, Notify, OwnedSemaphorePermit, RwLock as AsyncRwLock, Semaphore,
             oneshot,
-            mpsc::{UnboundedSender, unbounded_channel},
+            mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
         },
         time::{Duration as TkDuration, Instant as TkInstant, sleep, sleep_until, timeout},
     };

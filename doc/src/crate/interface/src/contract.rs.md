@@ -53,8 +53,8 @@ ever reaching a process.
 
 ## fn literal
 The arguments are read off the AST: a string, a raw string, an int, a list of
-strings, or a directory. A variable, `$nu` and `$env` among them, a cell path, a
-subexpression, an interpolation, or a spread is refused, even where the
+strings, or a directory. A variable, `$nu` and `$env` among them, a path into
+one, a subexpression, an interpolation, or a spread is refused, even where the
 signature's type check would have let it through, because evaluating it is
 access the contract withholds. A value of `any`'s, the timeouts' record's, or
 the durations' shape is held a literal node by node by `is_literal` before
@@ -62,10 +62,14 @@ the durations' shape is held a literal node by node by `is_literal` before
 alone can read `$nu`, and none survives the check.
 
 ## fn is_literal
-A literal throughout: a scalar, a duration or a filesize by its unit, or a list,
-a record, or a table of literals, a value the parse wraps as a cell path with no
-tail taken as its head. A path-shaped node is left out, its evaluation able to
-expand `~`, which a string in its place never does.
+A literal throughout: a scalar, a duration or a filesize by its unit, a range
+whose bounds are each absent or literal, a cell path written whole, or a list, a
+record, or a table of literals, a value the parse wraps as a cell path with no
+tail taken as its head. A written cell path holds members alone, never an
+expression, so it reads nothing; a range's bounds are expressions, each held in
+its turn. Ranges and cell paths are the `await` tool's data as NUON gives them,
+so a rig's suite takes what the tool's takes. A path-shaped node is left out,
+its evaluation able to expand `~`, which a string in its place never does.
 
 ## fn carried / fn value / fn optional_value
 A value's literal as nuval carries it, refused at its span where nuval carries

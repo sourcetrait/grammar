@@ -104,6 +104,8 @@ pub(crate) struct AwaitJob {
     stopped: tk::Notify,
     /// Holds the trace's writes one at a time.
     trace_lock: std::sync::Mutex<()>,
+    /// The queue the job's sender delivers its events from, in order.
+    events: tk::UnboundedSender<AwaitEvent>,
 }
 
 impl AwaitJob {
@@ -261,6 +263,8 @@ async fn start(
     };
     let finished = Arc::new(AtomicBool::new(false));
     let started_at = now_millis();
+    let (events, queue) = tk::unbounded_channel();
+    tk::spawn(send_events(core.host.clone(), queue));
     let state = Arc::new(AwaitJob {
         nonce: nonce.clone(),
         dir,
@@ -279,6 +283,7 @@ async fn start(
         over: tk::Notify::new(),
         stopped: tk::Notify::new(),
         trace_lock: std::sync::Mutex::new(()),
+        events,
     });
     {
         let mut jobs = core.jobs.lock().unwrap_or_else(|e| e.into_inner());
@@ -349,7 +354,7 @@ async fn run_execute(
                     })
                 });
                 let data = event_data(&job, Vec::new(), RESULT_FIELD, value);
-                emit(&core, &job, AWAIT_RESULT_MODEL, data).await;
+                emit(&job, AWAIT_RESULT_MODEL, data);
             }
         }
         () = timed_out => stop_job(&core, &job, StopReason::Timeout).await,
@@ -381,15 +386,33 @@ async fn run_beats(
         }
         let value = run_phase(&core, &job, STATUS, &job.def.status, job.timeouts.status).await;
         let data = event_data(&job, Vec::new(), STATUS_FIELD, value);
-        emit(&core, &job, AWAIT_STATUS_MODEL, data).await;
+        emit(&job, AWAIT_STATUS_MODEL, data);
         beat += 1;
         at += gap(beat);
-        let now = tk::TkInstant::now();
-        while at <= now && at + gap(beat + 1) <= now {
-            beat += 1;
-            at += gap(beat);
-        }
+        (beat, at) = catch_up(&gaps, beat, at, tk::TkInstant::now());
     }
+}
+
+/// The next beat once one has run: every time passed skipped but the latest.
+pub(crate) fn catch_up(
+    gaps: &[tk::TkDuration],
+    mut beat: usize,
+    mut at: tk::TkInstant,
+    now: tk::TkInstant,
+) -> (usize, tk::TkInstant) {
+    let last = gaps.len().saturating_sub(1);
+    let gap = |beat: usize| gaps[beat.min(last)];
+    while beat < last && at <= now && at + gap(beat + 1) <= now {
+        beat += 1;
+        at += gap(beat);
+    }
+    if beat >= last && at <= now {
+        let elapsed = (now - at).as_nanos();
+        let step = gap(last).as_nanos().max(1);
+        beat = beat.saturating_add(usize::try_from(elapsed / step).unwrap_or(usize::MAX));
+        at = now -tk::TkDuration::from_nanos(u64::try_from(elapsed % step).unwrap_or(0));
+    }
+    (beat, at)
 }
 
 /// A job's stop, run once: stop's eval, the job killed, then its Stop event.
@@ -421,7 +444,7 @@ async fn stop_job(
     if reason == StopReason::Teardown {
         job.trace(AWAIT_STOP_MODEL, &data);
     } else {
-        emit(core, job, AWAIT_STOP_MODEL, data).await;
+        emit(job, AWAIT_STOP_MODEL, data);
     }
     job.stopped.notify_one();
 }
@@ -613,26 +636,38 @@ fn rows_value(rows: Vec<Diagnostic>) -> NuVal {
     })
 }
 
-/// An event traced, then sent to the host's Channel; a refusal is logged.
-async fn emit(
-    core: &EngineCore,
+/// An event traced, then queued for the job's sender; its caller goes on.
+fn emit(
     job: &AwaitJob,
     model: &'static str,
     data: NuVal,
 ) {
     job.trace(model, &data);
-    let host = core.host.clone();
     let event = AwaitEvent {
         model: model.to_string(),
         data,
     };
-    match tk::spawn_blocking(move || host.ask(HostAsk::Await(event))).await {
-        Ok(Ok(HostAnswer::Sent(_))) => {}
-        Ok(Ok(HostAnswer::Refused(reason)) | Err(reason)) => {
-            eprintln!("grammar: an await job's {model} not sent: {reason}");
+    if job.events.send(event).is_err() {
+        eprintln!("grammar: an await job's {model} not queued: its sender has ended");
+    }
+}
+
+/// A job's events sent to its host one at a time, in the order they were queued.
+async fn send_events(
+    host: HostLink,
+    mut queue: tk::UnboundedReceiver<AwaitEvent>,
+) {
+    while let Some(event) = queue.recv().await {
+        let model = event.model.clone();
+        let host = host.clone();
+        match tk::spawn_blocking(move || host.ask(HostAsk::Await(event))).await {
+            Ok(Ok(HostAnswer::Sent(_))) => {}
+            Ok(Ok(HostAnswer::Refused(reason)) | Err(reason)) => {
+                eprintln!("grammar: an await job's {model} not sent: {reason}");
+            }
+            Ok(Ok(_)) => eprintln!("grammar: an await job's {model} met an answer that is not a send's"),
+            Err(e) => eprintln!("grammar: an await job's {model} not sent: {e}"),
         }
-        Ok(Ok(_)) => eprintln!("grammar: an await job's {model} met an answer that is not a send's"),
-        Err(e) => eprintln!("grammar: an await job's {model} not sent: {e}"),
     }
 }
 
