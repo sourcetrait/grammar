@@ -46,18 +46,35 @@ pub fn build_call_source(
 /// The alias a suite's module is overlaid under in each of its evals.
 const SUITE_ALIAS: &str = "__suite";
 
+/// The variable an absent argument rides as, null typed `any`.
+const ABSENT: &str = "__absent";
+
 /// A suite definition's eval source: its module overlaid, then the export called.
+///
+/// Each argument is a literal, or `None` where the call gave none.
 pub fn build_suite_source(
     suite: &Path,
     export: &str,
-    args: &[String],
+    args: &[Option<String>],
 ) -> Result<String, String> {
     let target = render_nuon(&nu::Value::string(
         suite.to_string_lossy().into_owned(),
         nu::Span::unknown(),
     ))?;
+    let absent = if args.iter().any(Option::is_none) {
+        format!("let {ABSENT}: any = null\n")
+    } else {
+        String::new()
+    };
+    let args: Vec<String> = args
+        .iter()
+        .map(|arg| match arg {
+            Some(literal) => literal.clone(),
+            None => format!("${ABSENT}"),
+        })
+        .collect();
     Ok(format!(
-        "overlay use --prefix {target} as {SUITE_ALIAS}\n{SUITE_ALIAS} {export} {}\n",
+        "overlay use --prefix {target} as {SUITE_ALIAS}\n{absent}{SUITE_ALIAS} {export} {}\n",
         args.join(" "),
     ))
 }

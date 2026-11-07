@@ -494,6 +494,56 @@ fn await_refuses_timeouts_and_heartbeats_off_their_shapes() {
     );
 }
 
+/// A suite whose prepare takes `timeouts?` and `heartbeats?`, answering which were given.
+fn suite_taking_both() -> String {
+    let prepared = "record<job: record<id: int, started: datetime>, prepared: record<timeouts: bool, heartbeats: bool>>";
+    format!(
+        "export def prepare [data: record<x: int>, timeouts?: record<prepare: oneof<nothing, duration>, execute: oneof<nothing, duration>, status: oneof<nothing, duration>, stop: oneof<nothing, duration>>, heartbeats?: list<duration>]: nothing -> record<timeouts: bool, heartbeats: bool> {{
+    {{timeouts: ($timeouts != null), heartbeats: ($heartbeats != null)}}
+}}
+
+export def execute [data: {prepared}]: nothing -> record<x: int> {{
+    {{x: 1}}
+}}
+
+export def status [data: {prepared}]: nothing -> record<beating: bool> {{
+    {{beating: true}}
+}}
+
+export def stop [data: {prepared}]: nothing -> record<stopped: bool> {{
+    {{stopped: true}}
+}}
+"
+    )
+}
+
+#[test]
+fn prepare_takes_each_optional_parameter_as_given_or_null() {
+    let e = TESTING.harness();
+    let timeouts = record(&[
+        ("prepare", NuVal::Nothing),
+        ("execute", NuVal::Nothing),
+        ("status", NuVal::Nothing),
+        ("stop", NuVal::Nothing),
+    ]);
+    let beats = NuVal::List(vec![NuVal::Duration(200_000_000), NuVal::Duration(200_000_000)]);
+    let cases = [
+        (None, None),
+        (Some(timeouts.clone()), None),
+        (None, Some(beats.clone())),
+        (Some(timeouts), Some(beats)),
+    ];
+    for (timeouts, heartbeats) in cases {
+        let expected = record(&[
+            ("timeouts", NuVal::Bool(timeouts.is_some())),
+            ("heartbeats", NuVal::Bool(heartbeats.is_some())),
+        ]);
+        let answer = e.await_suite(&suite_taking_both(), "{x: 1}", timeouts, heartbeats);
+        let prepared = answer.result.unwrap_or_else(|error| panic!("the job starts: {error:?}"));
+        assert_eq!(field(&prepared, "prepared"), Some(&expected), "each as the call gave it, null where absent");
+    }
+}
+
 /// A record's value from its fields.
 fn record(fields: &[(&str, NuVal)]) -> NuVal {
     NuVal::Record(fields.iter().map(|(k, v)| (k.to_string(), v.clone())).collect())

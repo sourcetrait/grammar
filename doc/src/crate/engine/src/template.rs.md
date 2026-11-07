@@ -1,9 +1,9 @@
 # template.rs
 
-The two source builders, `execute`'s and `call`'s. Each embeds a NUON literal the host
-rendered rather than leaving the eval to re-parse JSON, so the parser downstream only
-ever sees well-formed nu. Neither sets `$env.NONCE`: `eval_in_process` puts it on the
-eval's stack, where every command the source reaches finds it.
+The source builders, `execute`'s, `call`'s, and a suite's. Each embeds a NUON literal
+the host rendered rather than leaving the eval to re-parse JSON, so the parser
+downstream only ever sees well-formed nu. None sets `$env.NONCE`: `eval_in_process`
+puts it on the eval's stack, where every command the source reaches finds it.
 
 ## const CALL_ALIAS
 A constant we own, and that ownership is the whole point. A call target's name is the
@@ -60,7 +60,15 @@ The data's literal binds the `data` positional, so nushell's own check of it run
 parse too, beneath the host's strict one; the timeout's literal follows only when the
 signature takes `timeout?`.
 
+## const ABSENT
+The variable an absent argument is passed by. The parser holds an argument to its
+parameter's shape at parse, and a bare `null` is refused for a positional typed
+`record<...>` or `list<...>` (nushell 0.116.1), so a prepare declaring `timeouts?` and
+`heartbeats?` could take neither unless the call gave both. A variable typed `any`
+passes the parse, and its null reaches the optional parameter at run time.
+
 ## fn build_suite_source
 A suite's definition runs on its cached module overlaid with a prefix, as a call runs a
 rig's `main`, so the module's helpers and imports resolve as the module declares them and
-the export is called by its name under the alias.
+the export is called by its name under the alias. An absent argument rides `ABSENT`,
+bound before the call only where one is absent.

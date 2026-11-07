@@ -155,7 +155,7 @@ pub(crate) async fn serve_await(
         .map_err(|diagnostics| EngineError::SuiteViolations { diagnostics })?;
     let timeouts = suite_timeouts(req.timeouts.as_ref())?;
     let gaps = heartbeat_gaps(req.heartbeats.as_ref())?;
-    let mut args = vec![hold_data(&req.data, &def.data_type)?];
+    let mut args = vec![Some(hold_data(&req.data, &def.data_type)?)];
     if def.takes_timeouts {
         args.push(given_literal(req.timeouts.as_ref(), "timeouts")?);
     }
@@ -537,21 +537,21 @@ fn phase_args(
     literal: &str,
     takes_timeout: bool,
     timeout: PhaseTimeout,
-) -> EngineResult<Vec<String>> {
-    let mut args = vec![literal.to_string()];
+) -> EngineResult<Vec<Option<String>>> {
+    let mut args = vec![Some(literal.to_string())];
     if takes_timeout {
-        args.push(timeout.literal()?);
+        args.push(Some(timeout.literal()?));
     }
     Ok(args)
 }
 
-/// A parameter prepare takes as the call gave it, `null` where it is absent.
+/// A parameter prepare takes as the call gave it, `None` where it is absent.
 fn given_literal(
     given: Option<&NuVal>,
     holder: &str,
-) -> EngineResult<String> {
+) -> EngineResult<Option<String>> {
     let Some(value) = given else {
-        return Ok("null".to_string());
+        return Ok(None);
     };
     let internal = |reason: String| EngineError::Internal {
         phase: format!("await::{holder}"),
@@ -561,7 +561,7 @@ fn given_literal(
         .clone()
         .try_into_nu(nu::Span::unknown())
         .map_err(|e| internal(e.to_string()))?;
-    render_nuon(&value).map_err(internal)
+    render_nuon(&value).map(Some).map_err(internal)
 }
 
 /// An event's data: `await`, its fields, then a value or its error's rows.

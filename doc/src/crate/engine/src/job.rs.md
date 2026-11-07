@@ -30,8 +30,8 @@ packet. The trace keeps an event the Channel couldn't take.
 ## fn serve_await
 Every refusal comes before anything runs: the contract, the timeouts, the heartbeats, and
 the data. prepare takes the call's `timeouts` and `heartbeats` as the tool got them,
-`null` where absent, and runs on the pool in flight under the call's nonce, so the
-teardown cancels it as any call's.
+null where absent, passed as the template passes an absent argument, and runs on the
+pool in flight under the call's nonce, so the teardown cancels it as any call's.
 
 ## fn start
 The job's id comes from the jobs table, and the PREPARED record carries it, so the record
