@@ -6593,7 +6593,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_channel"
-version = "0.0.0-10"
+version = "0.0.0-11"
 dependencies = [
  "nu-engine",
  "nu-protocol",
@@ -6609,7 +6609,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_client"
-version = "0.0.0-10"
+version = "0.0.0-11"
 dependencies = [
  "futures-util",
  "ring",
@@ -6625,7 +6625,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_engine"
-version = "0.0.0-10"
+version = "0.0.0-11"
 dependencies = [
  "dunce",
  "indoc",
@@ -6657,7 +6657,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_eye"
-version = "0.0.0-10"
+version = "0.0.0-11"
 dependencies = [
  "dunce",
  "ignore",
@@ -6672,7 +6672,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_interface"
-version = "0.0.0-10"
+version = "0.0.0-11"
 dependencies = [
  "nu-engine",
  "nu-parser",
@@ -6684,7 +6684,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_mcp"
-version = "0.0.0-10"
+version = "0.0.0-11"
 dependencies = [
  "clap",
  "directories",
@@ -6722,7 +6722,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_operator"
-version = "0.0.0-10"
+version = "0.0.0-11"
 dependencies = [
  "nix",
  "nuval",
@@ -6737,7 +6737,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_peer"
-version = "0.0.0-10"
+version = "0.0.0-11"
 dependencies = [
  "futures-util",
  "nu-engine",
@@ -6763,7 +6763,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_protocol"
-version = "0.0.0-10"
+version = "0.0.0-11"
 dependencies = [
  "futures-util",
  "nuval",
@@ -6779,7 +6779,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_scratch"
-version = "0.0.0-10"
+version = "0.0.0-11"
 dependencies = [
  "getrandom 0.4.3",
  "nix",
@@ -6791,7 +6791,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_soak"
-version = "0.0.0-10"
+version = "0.0.0-11"
 dependencies = [
  "dunce",
  "humantime",
@@ -6808,7 +6808,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_ssh"
-version = "0.0.0-10"
+version = "0.0.0-11"
 dependencies = [
  "clap",
  "directories",
@@ -6830,7 +6830,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_tests"
-version = "0.0.0-10"
+version = "0.0.0-11"
 dependencies = [
  "dunce",
  "futures-util",
@@ -6854,7 +6854,7 @@ dependencies = [
 
 [[package]]
 name = "sourcetrait_grammar_vendor"
-version = "0.0.0-10"
+version = "0.0.0-11"
 dependencies = [
  "serde",
  "serde_json",
