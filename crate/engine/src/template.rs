@@ -46,8 +46,7 @@ pub fn build_call_source(
 /// The alias a suite's module is overlaid under in each of its evals.
 const SUITE_ALIAS: &str = "__suite";
 
-/// The source of one suite definition's eval: its cached module overlaid, then the
-/// export on its arguments' literals.
+/// A suite definition's eval source: its module overlaid, then the export called.
 pub fn build_suite_source(
     suite: &Path,
     export: &str,

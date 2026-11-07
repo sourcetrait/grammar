@@ -57,7 +57,7 @@ pub(crate) fn interface_engine_for(deny: &DenySet) -> nu::EngineState {
     sourcetrait_grammar_interface::interface_engine(|words| deny.denies_command(words))
 }
 
-/// Whether `command` asks for one of the MCP's own blocks, the interface's or grmr's.
+/// Whether `command` asks for the MCP's own block, the interface's or grmr's.
 fn mcp_block(command: &EngineInterfaceCommand) -> bool {
     matches!(command, EngineInterfaceCommand::Help(p) if p.namepath == INTERFACE || p.namepath == GRMR)
 }

@@ -4,7 +4,7 @@ use crate::*;
 /// The name `interface info` reports for every host.
 const NAME: &str = "grammar";
 
-/// What a host lends an interface call's engine command: its engine, identity, view.
+/// What a host lends an interface engine command: its engine, identity, and view.
 pub trait Desk: Sync {
     /// The host's engine, or why it has none.
     fn engine(&self) -> EngineResult<Arc<EngineHandle>>;
@@ -459,7 +459,7 @@ async fn purview_extend(
     value(&PurviewDeltaResult { revealed, current: ids })
 }
 
-/// `interface purview configure`: a purview's patterns set, an empty list deleting it.
+/// `interface purview configure`: a purview's patterns, an empty list deleting it.
 async fn purview_configure(
     desk: &impl Desk,
     engine: &EngineHandle,

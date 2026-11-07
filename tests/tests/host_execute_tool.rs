@@ -5,7 +5,7 @@ use sourcetrait_common::testing::prelude::*;
 
 static TESTING: testing::Module = testing::module!(Integration, { .using_temp_dir() });
 
-/// initialize -> tools/list (exactly 5) -> an execute() round-trip. The rmcp stdio
+/// initialize -> tools/list (exactly 6) -> an execute() round-trip. The rmcp stdio
 /// transport + handshake are the system surface here.
 #[tested]
 fn tools_list_and_execute_round_trip() {
@@ -13,8 +13,8 @@ fn tools_list_and_execute_round_trip() {
     let mut host = Host::spawn(t.temp_dir());
 
     let names = host.tool_names();
-    assert_eq!(names.len(), 5, "expected 5 tools; got {names:?}");
-    for expected in ["execute", "rerun", "call", "interface", "bed"] {
+    assert_eq!(names.len(), 6, "expected 6 tools; got {names:?}");
+    for expected in ["execute", "rerun", "call", "interface", "bed", "await"] {
         assert!(
             names.contains(&expected.to_string()),
             "missing `{expected}` in {names:?}",

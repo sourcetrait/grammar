@@ -497,7 +497,7 @@ impl TestServer {
         cache.join("await").join(nonce)
     }
 
-    /// `await` on a suite and its data's NUON text, its timeouts' and heartbeats' where given.
+    /// `await` on a suite and its data's NUON, its timeouts and heartbeats if given.
     pub fn await_suite(
         &self,
         module: &str,

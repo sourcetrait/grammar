@@ -43,7 +43,7 @@ pub fn define(
     analyze_definition(parse_engine, definition, true).map(definition_model)
 }
 
-/// The model of a definition held to the contract: its signature's shapes, its body.
+/// A definition's model, held to the contract: its signature's shapes, its body.
 pub fn definition_model(def: ExecuteDef) -> ExecuteDefinition {
     ExecuteDefinition {
         is_env: def.lane == Lane::Stateful,

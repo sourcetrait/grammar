@@ -65,7 +65,7 @@ pub fn nuon_timeout(text: Option<&str>) -> EngineResult<Option<NuVal>> {
     })
 }
 
-/// An await call's timeouts, their NUON text taken as the value it names, where given.
+/// An await call's timeouts, its NUON text taken as the value it names, if given.
 pub fn nuon_timeouts(text: Option<&str>) -> EngineResult<Option<NuVal>> {
     let Some(text) = text else {
         return Ok(None);
@@ -75,7 +75,7 @@ pub fn nuon_timeouts(text: Option<&str>) -> EngineResult<Option<NuVal>> {
     })
 }
 
-/// An await call's heartbeats, their NUON text taken as the value it names, where given.
+/// An await call's heartbeats, its NUON text taken as the value it names, if given.
 pub fn nuon_heartbeats(text: Option<&str>) -> EngineResult<Option<NuVal>> {
     let Some(text) = text else {
         return Ok(None);
@@ -421,8 +421,7 @@ async fn processes(core: &EngineCore) -> Vec<ProcessRow> {
         .collect()
 }
 
-/// Cancel an in-flight call by its nonce and reap its process tree; a running await
-/// job's stop runs first, the job killed once it has.
+/// Cancel a call in flight by its nonce and reap its tree, a job's stop run first.
 async fn kill(
     core: &EngineCore,
     nonce: &str,

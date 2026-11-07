@@ -47,7 +47,7 @@ pub struct ExecuteRequest {
     pub timeout: Option<NuVal>,
 }
 
-/// An `execute` definition as its contract and its body, the signature's model beside it.
+/// An `execute` definition as its signature's model beside its body.
 #[cereal::derived(Data)]
 pub struct ExecuteDefinition {
     /// `def --env`: the call runs on the stateful lane.
@@ -107,9 +107,9 @@ pub struct AwaitRequest {
     pub module: String,
     /// prepare's data, the tool's NUON taken as its value.
     pub data: NuVal,
-    /// Each definition's timeout, the tool's NUON taken as its value; the defaults when absent.
+    /// Each definition's timeout, the tool's NUON as its value; defaults if absent.
     pub timeouts: Option<NuVal>,
-    /// The gaps between status beats, the tool's NUON taken as its value; the default when absent.
+    /// The gaps between beats, the tool's NUON as its value; the default if absent.
     pub heartbeats: Option<NuVal>,
 }
 

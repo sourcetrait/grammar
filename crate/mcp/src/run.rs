@@ -164,8 +164,8 @@ pub(crate) fn parse_deniable(s: &str) -> Result<DeniableTool, String> {
     DeniableTool::from_name(s).ok_or_else(|| {
         let commands: Vec<&str> = COMMANDS.iter().map(|spec| spec.words()).collect();
         format!(
-            "unknown tool `{s}`; deniable: execute, rerun, call, interface, and the interface \
-             commands by their words: {}",
+            "unknown tool `{s}`; deniable: execute, rerun, call, interface, bed, await, each \
+             grmr command by its name, and the interface commands by their words: {}",
             commands.join(", "),
         )
     })

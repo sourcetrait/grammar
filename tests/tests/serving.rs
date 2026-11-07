@@ -1,4 +1,4 @@
-//! The bare entry serves MCP on its own engine: it lists the five tools, holds
+//! The bare entry serves MCP on its own engine: it lists the six tools, holds
 //! the deny set and the contract, survives a nested command, and serves the
 //! Channel's commands itself; the remote channels' own cases are
 //! `remote_channel`'s.
@@ -15,12 +15,12 @@ const DEFINITION: &str =
     "def execute [data: record<x: int>]: nothing -> record<out: int> { { out: ($data.x + 1) } }";
 
 #[tested]
-fn serving_lists_the_five_tools() {
+fn serving_lists_the_six_tools() {
     let t = testing::test!({ .using_temp_dir() });
     let mut host = Host::spawn(t.temp_dir());
     let mut names = host.tool_names();
     names.sort();
-    assert_eq!(names, ["bed", "call", "execute", "interface", "rerun"]);
+    assert_eq!(names, ["await", "bed", "call", "execute", "interface", "rerun"]);
 }
 
 #[tested]
@@ -29,7 +29,7 @@ fn a_denied_tool_is_withheld() {
     let mut host = Host::spawn_args(t.temp_dir(), &["--deny", "execute"]);
     let mut names = host.tool_names();
     names.sort();
-    assert_eq!(names, ["bed", "call", "interface", "rerun"]);
+    assert_eq!(names, ["await", "bed", "call", "interface", "rerun"]);
 }
 
 #[tested]
@@ -76,7 +76,7 @@ fn a_nested_command_leaves_the_host_alive() {
         Some("interface::invalid"),
         "got {answer}",
     );
-    assert_eq!(host.tool_names().len(), 5, "the host still serves");
+    assert_eq!(host.tool_names().len(), 6, "the host still serves");
 }
 
 /// The Channel is the host's: it opens, a WSS consumer sees its Open packet,

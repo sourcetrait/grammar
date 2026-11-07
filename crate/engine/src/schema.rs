@@ -76,8 +76,7 @@ pub(crate) fn result_typedef(ty: &nu::Type) -> Result<NuType, String> {
 const OPEN_SUITE_DATA: &str =
     "an open `record<>` or `table<>` is refused in a suite's data; declare the fields";
 
-/// A suite definition's `data` type under the return contract: nothing, or a typed
-/// record or table, no record or table open at any depth.
+/// A suite definition's `data` type, under the return contract at every depth.
 pub(crate) fn suite_data_typedef(shape: &nu::SyntaxShape) -> Result<NuType, String> {
     match shape {
         nu::SyntaxShape::Nothing => Ok(NuType::Nothing),
@@ -92,8 +91,7 @@ pub(crate) fn suite_data_typedef(shape: &nu::SyntaxShape) -> Result<NuType, Stri
     }
 }
 
-/// Whether two types are one shape: `path` and `directory` taken as `string`, a
-/// record's or a table's fields and a oneof's members in any order.
+/// Whether two types are one shape, string variants alike, members in any order.
 pub(crate) fn same_shape(a: &NuType, b: &NuType) -> bool {
     canonical(a) == canonical(b)
 }

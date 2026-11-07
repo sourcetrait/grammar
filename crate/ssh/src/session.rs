@@ -471,7 +471,7 @@ fn value(
     CallAnswer { nonce, result }
 }
 
-/// What a session lends an interface call: grammar-ssh's engine, identity, and view.
+/// What a session lends an interface call: grammar-ssh's engine, identity, view.
 struct SessionDesk {
     engine: Arc<EngineHandle>,
     info: Arc<HostInfo>,

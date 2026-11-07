@@ -122,8 +122,7 @@ fn heal_jobs(jobs: &std::sync::Mutex<nu::Jobs>) {
 /// Generous per-eval stack; the parser is what needs it.
 pub const EVAL_STACK_SIZE: usize = 64 * 1024 * 1024;
 
-/// Run one stateless eval on a dedicated, generously-stacked thread, holding its
-/// pool permit, where it takes one, until the thread ends.
+/// Run one stateless eval on a dedicated, generously-stacked thread.
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn eval_stateless(
     mut engine: nu::EngineState,

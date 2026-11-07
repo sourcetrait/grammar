@@ -17,7 +17,7 @@ fn deny_removes_tools_from_list() {
     let mut host = Host::spawn_args(t.temp_dir(), &["--deny", "execute,rerun"]);
     assert_eq!(
         sorted_names(&mut host),
-        vec!["bed", "call", "interface"],
+        vec!["await", "bed", "call", "interface"],
         "the two denied are absent and the rest remain",
     );
 }
@@ -40,7 +40,7 @@ fn denied_tool_call_fails_at_protocol_layer() {
 fn deny_interface_removes_the_tool_whole() {
     let t = testing::test!({ .using_temp_dir() });
     let mut host = Host::spawn_args(t.temp_dir(), &["--deny", "interface"]);
-    assert_eq!(sorted_names(&mut host), vec!["bed", "call", "execute", "rerun"]);
+    assert_eq!(sorted_names(&mut host), vec!["await", "bed", "call", "execute", "rerun"]);
     let resp = host.info();
     assert!(
         envelope(&resp).is_nothing(),
@@ -51,7 +51,7 @@ fn deny_interface_removes_the_tool_whole() {
 #[tested]
 fn deny_every_other_tool_leaves_the_interface() {
     let t = testing::test!({ .using_temp_dir() });
-    let mut host = Host::spawn_args(t.temp_dir(), &["--deny", "execute,rerun,call,bed"]);
+    let mut host = Host::spawn_args(t.temp_dir(), &["--deny", "execute,rerun,call,bed,await"]);
     assert_eq!(sorted_names(&mut host), vec!["interface"]);
     let info = host.info();
     assert!(!has_error_path(&info), "the interface still answers; got {info}");
@@ -105,7 +105,7 @@ fn a_denied_command_leaves_the_parse_and_the_description() {
 fn deny_bed_removes_the_tool_whole() {
     let t = testing::test!({ .using_temp_dir() });
     let mut host = Host::spawn_args(t.temp_dir(), &["--deny", "bed"]);
-    assert_eq!(sorted_names(&mut host), vec!["call", "execute", "interface", "rerun"]);
+    assert_eq!(sorted_names(&mut host), vec!["await", "call", "execute", "interface", "rerun"]);
     let resp = host.bed("grmr", "config list");
     assert!(envelope(&resp).is_nothing(), "a denied bed answers no envelope at all; got {resp}");
 }

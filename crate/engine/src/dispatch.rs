@@ -126,8 +126,7 @@ pub(crate) async fn dispatch_pooled(
     eval_pooled(core, log_dir, source, nonce.as_str(), tool, timeout_ms, Some((args, kind))).await
 }
 
-/// One eval on the stateless pool under its permit and its timeout, registered in
-/// flight where `flight` gives its row's arguments and kind.
+/// One eval on the pool under its permit and timeout, in flight given `flight`.
 pub(crate) async fn eval_pooled(
     core: &EngineCore,
     log_dir: PathBuf,
@@ -323,7 +322,7 @@ pub(crate) async fn register_in_flight(
     map.insert(nonce.to_string(), entry);
 }
 
-/// A call's row taken out, only while it is still the row its eval's `finished` names.
+/// A call's row taken out while it is still the row its eval's `finished` names.
 pub(crate) async fn remove_in_flight(
     in_flight: &InFlight,
     nonce: &str,
@@ -360,8 +359,7 @@ pub(crate) fn now_millis() -> u64 {
         .unwrap_or(0)
 }
 
-/// Clean-shutdown teardown: every await job's stop run, then every in-flight eval
-/// cancelled and its tree reaped.
+/// Clean-shutdown teardown: every job's stop, then every eval cancelled and reaped.
 pub(crate) async fn teardown_all_in_flight(core: &Arc<EngineCore>) {
     stop_jobs(core, StopReason::Teardown).await;
     let pids: Vec<u32> = {

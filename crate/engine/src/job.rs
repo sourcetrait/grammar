@@ -1,5 +1,4 @@
-//! An await job: prepare within the call, execute on a thread of its own, status at
-//! each beat, and stop at an interruption.
+//! An await job: prepare in the call, execute as the job, status, and stop.
 use crate::*;
 
 /// The tool a job runs under, as the process list shows it.
@@ -136,8 +135,7 @@ impl AwaitJob {
     }
 }
 
-/// An `await` call's answer: its suite held to the contract, prepare run within the
-/// call, the job started, and the PREPARED record answered.
+/// An await call: its suite held to the contract, prepare run, the job started.
 pub(crate) async fn serve_await(
     core: Arc<EngineCore>,
     req: AwaitRequest,
@@ -384,8 +382,7 @@ async fn run_beats(
     }
 }
 
-/// A job's stop, run once: stop's eval, then the job's thread and its externals
-/// killed, then the Stopped event.
+/// A job's stop, run once: stop's eval, the job killed, then its Stopped event.
 pub(crate) async fn stop_job(
     core: &EngineCore,
     job: &AwaitJob,
@@ -411,7 +408,11 @@ pub(crate) async fn stop_job(
     );
     let reason_field = ("reason".to_string(), NuVal::String(reason.as_str().to_string()));
     let data = event_data(job, vec![reason_field], value);
-    emit(core, job, AWAIT_STOPPED_MODEL, data).await;
+    if reason == StopReason::Teardown {
+        job.trace(AWAIT_STOPPED_MODEL, &data);
+    } else {
+        emit(core, job, AWAIT_STOPPED_MODEL, data).await;
+    }
     job.stopped.notify_one();
 }
 
@@ -485,7 +486,7 @@ async fn run_phase(
     })
 }
 
-/// A definition's arguments: the PREPARED literal, then its timeout if it takes one.
+/// A definition's arguments: the PREPARED literal, then its timeout if taken.
 fn phase_args(
     literal: &str,
     takes_timeout: bool,
@@ -517,8 +518,7 @@ fn given_literal(
     render_nuon(&value).map_err(internal)
 }
 
-/// An event's data: the call's nonce and the job, its own fields, then the value
-/// or its error's rows.
+/// An event's data: the nonce, the job, its fields, then a value or error rows.
 fn event_data(
     job: &AwaitJob,
     fields: Vec<(String, NuVal)>,
@@ -571,8 +571,7 @@ async fn emit(
     }
 }
 
-/// The call's timeouts resolved: each field null or a positive duration, execute's
-/// also `0ns`, 120sec where null or absent.
+/// The call's timeouts resolved: null or a positive duration each, 120sec if null.
 fn suite_timeouts(given: Option<&NuVal>) -> EngineResult<SuiteTimeouts> {
     let invalid = |reason: String| EngineError::TimeoutInvalid { reason };
     let mut nanos = [DEFAULT_PHASE_TIMEOUT_NS; 4];
@@ -612,8 +611,7 @@ fn suite_timeouts(given: Option<&NuVal>) -> EngineResult<SuiteTimeouts> {
     })
 }
 
-/// The call's heartbeats as the gaps between beats: two or more positive durations,
-/// the default schedule where absent.
+/// The call's heartbeats as gaps: two or more positive durations, else the default.
 fn heartbeat_gaps(given: Option<&NuVal>) -> EngineResult<Vec<tk::TkDuration>> {
     let invalid = |reason: String| EngineError::HeartbeatsInvalid { reason };
     let Some(given) = given else {

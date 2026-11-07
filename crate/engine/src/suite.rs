@@ -71,7 +71,7 @@ pub fn job_type() -> NuType {
     ])
 }
 
-/// The PREPARED record execute, status, and stop take: the job beside prepare's value.
+/// The PREPARED record the other three take: the job beside prepare's value.
 pub fn prepared_record_type(prepared: &NuType) -> NuType {
     NuType::Record(vec![
         NuField::new("job", job_type()),
@@ -271,7 +271,7 @@ pub fn analyze_suite(
     })
 }
 
-/// Hold prepare's signature to its contract: `data`, then `timeouts?` and `heartbeats?`.
+/// Hold prepare's signature to its contract: `data`, `timeouts?`, `heartbeats?`.
 fn prepare_contract(signature: &nu::Signature) -> Result<PrepareContract, Vec<String>> {
     let mut violations: Vec<String> = Vec::new();
     let data_type = match signature.required_positional.as_slice() {

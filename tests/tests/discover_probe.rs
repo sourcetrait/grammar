@@ -75,7 +75,7 @@ fn the_discover_probe_finds_the_modern_era() {
 
     host.send(&modern_request(2, "tools/list", json!({})));
     let tools = reply(&mut host, &json!(2), &log);
-    assert_eq!(tools["result"]["tools"].as_array().map(Vec::len), Some(5), "got {tools}");
+    assert_eq!(tools["result"]["tools"].as_array().map(Vec::len), Some(6), "got {tools}");
 
     host.send(&modern_request(
         3,
@@ -112,7 +112,7 @@ fn a_bare_probe_is_refused_then_initialize_serves() {
     assert!(answer["error"]["code"].is_i64(), "a JSON-RPC error; got {answer}");
 
     host.initialize();
-    assert_eq!(host.tool_names().len(), 5, "the tools after the handshake");
+    assert_eq!(host.tool_names().len(), 6, "the tools after the handshake");
     let stderr = host_stderr(&log);
     assert!(!stderr.contains("panicked"), "no panic; the host's stderr: {stderr}");
 }

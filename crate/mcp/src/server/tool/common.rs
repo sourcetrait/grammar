@@ -141,7 +141,7 @@ fn nu_value(value: NuVal) -> GrammarMcpResult<nu::Value> {
         })
 }
 
-/// A call's answer as its envelope: `{nonce, result}`, or `{nonce, error}` of its rows.
+/// A call's answer as its envelope, `{nonce, result}` or `{nonce, error}` of rows.
 pub(crate) fn answer_result(
     nonce: datum::Nonce,
     result: Result<NuVal, Vec<Diagnostic>>,
