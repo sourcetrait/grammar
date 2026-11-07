@@ -139,6 +139,8 @@ MCP details, Equipment signatures within current purview
 Displays equipment documentation
 `help [namepath: string]: nothing -> record`
 ### Await
+Start an await job from a rig's module; answer its PREPARED record.
+`await rig [module: directory, data: any, timeouts?: record<prepare: oneof<nothing, duration>, execute: oneof<nothing, duration>, status: oneof<nothing, duration>, stop: oneof<nothing, duration>>, heartbeats?: list<duration>]: nothing -> record`
 List the await jobs running: each one's await, job, and start.
 `await list []: nothing -> table`
 Run an await job's status now and answer its value.
