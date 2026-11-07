@@ -50,8 +50,9 @@ fn kind_of(command: &InterfaceCommand) -> CommandKind {
         InterfaceCommand::Engine(command) => match command {
             E::Info => CommandKind::Info,
             E::Help(_) => CommandKind::Help,
-            E::ProcessList => CommandKind::ProcessList,
-            E::ProcessKill(_) => CommandKind::ProcessKill,
+            E::AwaitList => CommandKind::AwaitList,
+            E::AwaitStatus(_) => CommandKind::AwaitStatus,
+            E::AwaitStop(_) => CommandKind::AwaitStop,
             E::PurviewList => CommandKind::PurviewList,
             E::PurviewSet(_) => CommandKind::PurviewSet,
             E::PurviewExtend(_) => CommandKind::PurviewExtend,
@@ -322,11 +323,30 @@ fn a_missing_or_mistyped_argument_is_refused_at_its_position() {
     assert!(position[1] > 1, "{rows:?}");
     let rows = parse("interface channel config --spam-warn-rate abc").expect_err("a rate is an int");
     assert_eq!(rows[0].kind, KIND_INTERFACE);
-    match parse("interface process kill ['a']") {
-        Ok(InterfaceCommand::Engine(EngineInterfaceCommand::ProcessKill(p))) => {
+    match parse("interface await stop ['a']") {
+        Ok(InterfaceCommand::Engine(EngineInterfaceCommand::AwaitStop(p))) => {
             assert_eq!(p.nonce, "['a']", "a string takes the token");
         }
         other => panic!("got {other:?}"),
+    }
+}
+
+/// The await commands take a job by its await, and the process commands are gone.
+#[test]
+fn the_await_commands_take_a_job_by_its_await() {
+    match parse("interface await status 'aOiwlfCpNKg'") {
+        Ok(InterfaceCommand::Engine(EngineInterfaceCommand::AwaitStatus(p))) => {
+            assert_eq!(p.nonce, "aOiwlfCpNKg");
+        }
+        other => panic!("got {other:?}"),
+    }
+    assert!(
+        matches!(parse("interface await list"), Ok(InterfaceCommand::Engine(EngineInterfaceCommand::AwaitList))),
+        "await list parses",
+    );
+    for retired in ["interface process list", "interface process kill 'aOiwlfCpNKg'"] {
+        let rows = parse(retired).expect_err("the process commands are retired");
+        assert_eq!(rows[0].kind, KIND_INTERFACE, "{retired}: {rows:?}");
     }
 }
 

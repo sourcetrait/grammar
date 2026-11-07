@@ -7,10 +7,10 @@ pub struct InspectParams {
     pub namepath: String,
 }
 
-/// Parameters for `interface process kill`.
+/// Parameters for `interface await status` and `interface await stop`.
 #[derive(Debug, ser::Deserialize, ser::Serialize)]
-pub struct KillParams {
-    /// The nonce of the in-flight call to cancel.
+pub struct AwaitJobParams {
+    /// The await call's nonce, the `await` its job's packets carry.
     pub nonce: String,
 }
 

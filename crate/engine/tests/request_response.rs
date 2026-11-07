@@ -16,7 +16,7 @@ use sourcetrait_grammar_engine::{
     EngineError, ExecuteDefinition,
     EngineHandle, EngineIdentity, EngineParams, EngineSystem, ExecuteRequest, FromEngine, Host,
     HostAnswer,
-    HostAsk, ProcessRow, RerunRequest, TRACE_FILE, ToEngine, ValueAnswer, ensure_equip_store, init,
+    HostAsk, RerunRequest, TRACE_FILE, ToEngine, ValueAnswer, ensure_equip_store, init,
     nuon_data,
 };
 
@@ -173,18 +173,19 @@ impl TestEngine {
             .unwrap_or_else(|e| panic!("{command:?} refused: {e:?}"))
     }
 
-    fn processes(&self) -> Vec<ProcessRow> {
-        match self.control(EngineCommand::Processes) {
-            ControlAnswer::Processes(rows) => rows,
-            other => panic!("processes answered {other:?}"),
+    /// The await jobs running, as `interface await list` answers them.
+    fn awaits(&self) -> Vec<NuVal> {
+        match self.control(EngineCommand::AwaitList) {
+            ControlAnswer::Value(NuVal::List(rows)) => rows,
+            other => panic!("await list answered {other:?}"),
         }
     }
 
-    /// Polls the process list until `done` holds of it, or five seconds pass.
-    fn wait_for(&self, done: impl Fn(&[ProcessRow]) -> bool) -> bool {
+    /// Polls the await list until `done` holds of it, or five seconds pass.
+    fn wait_for(&self, done: impl Fn(&[NuVal]) -> bool) -> bool {
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {
-            if done(&self.processes()) {
+            if done(&self.awaits()) {
                 return true;
             }
             if Instant::now() >= deadline {
@@ -227,6 +228,20 @@ fn field<'a>(value: &'a NuVal, name: &str) -> Option<&'a NuVal> {
     }
 }
 
+/// Whether an await list's rows hold the job under `nonce`.
+fn lists(rows: &[NuVal], nonce: &str) -> bool {
+    let wanted = NuVal::String(nonce.to_string());
+    rows.iter().any(|row| field(row, "await") == Some(&wanted))
+}
+
+/// A date's moment in nanoseconds since the epoch.
+fn nanos(value: Option<&NuVal>) -> i128 {
+    match value {
+        Some(NuVal::Date(date)) => i128::from(date.seconds) * 1_000_000_000 + i128::from(date.seconds_fraction),
+        other => panic!("a date, not {other:?}"),
+    }
+}
+
 /// A call's await events, polled until `done` holds of them or ten seconds pass.
 fn events_for(nonce: &str, done: impl Fn(&[AwaitEvent]) -> bool) -> Vec<AwaitEvent> {
     let deadline = Instant::now() + Duration::from_secs(10);
@@ -236,7 +251,7 @@ fn events_for(nonce: &str, done: impl Fn(&[AwaitEvent]) -> bool) -> Vec<AwaitEve
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .iter()
-            .filter(|event| field(&event.data, "nonce") == Some(&wanted))
+            .filter(|event| field(&event.data, "await") == Some(&wanted))
             .cloned()
             .collect();
         if done(&events) || Instant::now() >= deadline {
@@ -302,14 +317,15 @@ fn await_answers_its_prepared_record_then_its_result() {
     assert!(matches!(field(job, "id"), Some(NuVal::Int(_))), "got {job:?}");
     assert!(matches!(field(job, "started"), Some(NuVal::Date(_))), "got {job:?}");
     let nonce = answer.nonce.to_string();
-    let (start, _) = event_of(&nonce, "mcp/await/Start");
-    let started = record(&[("nonce", NuVal::String(nonce.clone())), ("job", job.clone())]);
-    assert_eq!(start.data, started, "the Start carries the nonce and the job's record");
     let (result, events) = event_of(&nonce, "mcp/await/Result");
-    assert_eq!(events.first().map(|event| event.model.as_str()), Some("mcp/await/Start"), "got {events:?}");
-    assert_eq!(field(&result.data, "result"), Some(&record(&[("doubled", NuVal::Int(42))])));
-    assert_eq!(field(&result.data, "job"), None, "the job's record rides the Start alone");
-    assert!(e.wait_for(|rows| rows.iter().all(|r| r.nonce != nonce)), "the job leaves the list");
+    let models: Vec<&str> = events.iter().map(|event| event.model.as_str()).collect();
+    assert_eq!(models, vec!["mcp/await/Result"], "the Result alone, no Start");
+    let expected = record(&[
+        ("await", NuVal::String(nonce.clone())),
+        ("result", record(&[("doubled", NuVal::Int(42))])),
+    ]);
+    assert_eq!(result.data, expected, "the call's nonce as `await`, then execute's value");
+    assert!(e.wait_for(|rows| !lists(rows, &nonce)), "the job leaves the list");
     let trace_file = e.root.join("cache").join("await").join(&nonce).join(TRACE_FILE);
     let trace = std::fs::read_to_string(&trace_file).expect("the job's trace");
     assert!(trace.lines().any(|line| line.contains("mcp/await/Result")), "the trace:\n{trace}");
@@ -320,35 +336,32 @@ fn a_beat_runs_status_while_the_job_runs() {
     let e = TESTING.harness();
     let beats = NuVal::List(vec![NuVal::Duration(200_000_000), NuVal::Duration(200_000_000)]);
     let answer = e.await_suite(&suite(), "{x: 1, nap: 2sec}", None, Some(beats));
-    assert!(answer.result.is_ok(), "got {:?}", answer.result);
+    let prepared = answer.result.clone().unwrap_or_else(|error| panic!("the job starts: {error:?}"));
+    let started = nanos(field(&prepared, "job").and_then(|job| field(job, "started")));
     let nonce = answer.nonce.to_string();
     let (_, events) = event_of(&nonce, "mcp/await/Result");
     let status = events
         .iter()
         .find(|event| event.model == "mcp/await/Status")
         .unwrap_or_else(|| panic!("a beat while the job ran; got {events:?}"));
-    assert_eq!(field(&status.data, "beat"), Some(&NuVal::Int(1)));
-    assert_eq!(field(&status.data, "result"), Some(&record(&[("beating", NuVal::Bool(true))])));
-    assert_eq!(field(&status.data, "job"), None, "the job's record rides the Start alone");
+    let expected = record(&[
+        ("await", NuVal::String(nonce.clone())),
+        ("status", record(&[("beating", NuVal::Bool(true))])),
+    ]);
+    assert_eq!(status.data, expected, "the call's nonce as `await`, then status's value");
     let trace_file = e.root.join("cache").join("await").join(&nonce).join(TRACE_FILE);
     let trace = std::fs::read_to_string(&trace_file).expect("the job's trace");
-    let at = |model: &str| -> i128 {
-        let line = trace
-            .lines()
-            .find(|line| line.contains(model))
-            .unwrap_or_else(|| panic!("no {model} in the trace:\n{trace}"));
-        let value = NuVal::from_nuon(line).unwrap_or_else(|e| panic!("a trace line is NUON: {e}\n{line}"));
-        match field(&value, "at") {
-            Some(NuVal::Date(date)) => i128::from(date.seconds) * 1_000_000_000 + i128::from(date.seconds_fraction),
-            other => panic!("a trace line's time, not {other:?}"),
-        }
-    };
-    let gap = at("mcp/await/Status") - at("mcp/await/Start");
-    assert!(gap >= 190_000_000, "the first Status comes a heartbeat after the Start, not {gap} ns later");
+    let line = trace
+        .lines()
+        .find(|line| line.contains("mcp/await/Status"))
+        .unwrap_or_else(|| panic!("no Status in the trace:\n{trace}"));
+    let traced = NuVal::from_nuon(line).unwrap_or_else(|e| panic!("a trace line is NUON: {e}\n{line}"));
+    let gap = nanos(field(&traced, "at")) - started;
+    assert!(gap >= 190_000_000, "the first Status comes a heartbeat after the job's start, not {gap} ns after");
 }
 
 #[test]
-fn a_kill_runs_stop_then_sends_stopped() {
+fn a_stop_by_hand_runs_stop_then_sends_its_stop() {
     let e = TESTING.harness();
     let answer = e.await_suite(&suite(), "{x: 1, nap: 30sec}", None, None);
     let nonce = answer.nonce.to_string();
@@ -360,16 +373,16 @@ fn a_kill_runs_stop_then_sends_stopped() {
         .and_then(|job| field(job, "id"))
         .cloned()
         .unwrap_or_else(|| panic!("the job's id; got {:?}", answer.result));
-    assert!(
-        e.wait_for(|rows| rows.iter().any(|r| r.nonce == nonce && r.tool == "await")),
-        "the job lists in flight",
-    );
-    assert_eq!(e.control(EngineCommand::Kill { nonce: nonce.clone() }), ControlAnswer::Done);
-    let (stopped, events) = event_of(&nonce, "mcp/await/Stopped");
-    assert_eq!(field(&stopped.data, "reason"), Some(&NuVal::String("kill".to_string())));
-    assert_eq!(field(&stopped.data, "result"), Some(&record(&[("stopped", job_id)])));
-    assert_eq!(field(&stopped.data, "job"), None, "the job's record rides the Start alone");
-    assert!(e.wait_for(|rows| rows.iter().all(|r| r.nonce != nonce)), "the stopped job leaves the list");
+    assert!(e.wait_for(|rows| lists(rows, &nonce)), "the job lists as running");
+    assert_eq!(e.control(EngineCommand::AwaitStop { nonce: nonce.clone() }), ControlAnswer::Done);
+    let (stopped, events) = event_of(&nonce, "mcp/await/Stop");
+    let expected = record(&[
+        ("await", NuVal::String(nonce.clone())),
+        ("reason", NuVal::String("stop".to_string())),
+        ("result", record(&[("stopped", job_id)])),
+    ]);
+    assert_eq!(stopped.data, expected, "the call's nonce as `await`, the reason, then stop's value");
+    assert!(e.wait_for(|rows| !lists(rows, &nonce)), "the stopped job leaves the list");
     let events = events_for(&nonce, |_| false).into_iter().chain(events).collect::<Vec<_>>();
     assert!(
         events.iter().all(|event| event.model != "mcp/await/Result"),
@@ -388,8 +401,48 @@ fn execute_past_its_timeout_runs_stop() {
     ]);
     let answer = e.await_suite(&suite(), "{x: 1, nap: 30sec}", Some(timeouts), None);
     assert!(answer.result.is_ok(), "got {:?}", answer.result);
-    let (stopped, _) = event_of(&answer.nonce.to_string(), "mcp/await/Stopped");
+    let (stopped, _) = event_of(&answer.nonce.to_string(), "mcp/await/Stop");
     assert_eq!(field(&stopped.data, "reason"), Some(&NuVal::String("timeout".to_string())));
+}
+
+#[test]
+fn the_await_commands_list_a_job_run_its_status_and_refuse_a_stranger() {
+    let e = TESTING.harness();
+    let answer = e.await_suite(&suite(), "{x: 1, nap: 30sec}", None, None);
+    let prepared = answer.result.clone().unwrap_or_else(|error| panic!("the job starts: {error:?}"));
+    let job = field(&prepared, "job").expect("the job's record");
+    let nonce = answer.nonce.to_string();
+    let rows = e.awaits();
+    let row = rows
+        .iter()
+        .find(|row| field(row, "await") == Some(&NuVal::String(nonce.clone())))
+        .unwrap_or_else(|| panic!("the job lists; got {rows:?}"));
+    let expected = record(&[
+        ("await", NuVal::String(nonce.clone())),
+        ("job", field(job, "id").cloned().expect("the job's id")),
+        ("started", field(job, "started").cloned().expect("the job's start")),
+    ]);
+    assert_eq!(row, &expected, "a row is the job's await, its id, and its start");
+    let ControlAnswer::Value(status) = e.control(EngineCommand::AwaitStatus { nonce: nonce.clone() }) else {
+        panic!("await status answered otherwise");
+    };
+    let beating = record(&[
+        ("await", NuVal::String(nonce.clone())),
+        ("status", record(&[("beating", NuVal::Bool(true))])),
+    ]);
+    assert_eq!(status, beating, "status run now, answered as a Status packet's data");
+    let events = events_for(&nonce, |_| false);
+    assert!(events.is_empty(), "a status asked for sends no packet; got {events:?}");
+    let stranger = EngineCommand::AwaitStop {
+        nonce: "noSuchAwait".to_string(),
+    };
+    let refused = e.rt.block_on(e.engine.control(stranger));
+    assert!(matches!(refused, Err(EngineError::AwaitUnknown { .. })), "got {refused:?}");
+    assert_eq!(e.control(EngineCommand::AwaitStop { nonce: nonce.clone() }), ControlAnswer::Done);
+    let status = EngineCommand::AwaitStatus { nonce: nonce.clone() };
+    assert!(e.wait_for(|rows| !lists(rows, &nonce)), "the stopped job leaves the list");
+    let refused = e.rt.block_on(e.engine.control(status));
+    assert!(matches!(refused, Err(EngineError::AwaitUnknown { .. })), "a stopped job is gone; got {refused:?}");
 }
 
 #[test]
@@ -503,7 +556,7 @@ fn a_remote_host_is_refused() {
     );
     let control = e.rt.block_on(e.engine.request(ControlRequest {
         host: peer,
-        command: EngineCommand::Processes,
+        command: EngineCommand::AwaitList,
     }));
     assert!(
         matches!(control, Ok(Err(EngineError::HostUnserved { .. }))),
@@ -575,43 +628,6 @@ fn a_call_to_an_unregistered_rig_is_refused() {
 }
 
 #[test]
-fn kill_ends_a_call_in_flight() {
-    let e = TESTING.harness();
-    let nonce = e.nonces.generate();
-    let key = nonce.to_string();
-    let engine = e.engine.clone();
-    let definition = e
-        .define("def execute [data: nothing]: nothing -> record<out: int> {\n    sleep 30sec\n    { out: 0 }\n}")
-        .expect("the contract holds");
-    let pending = e.rt.spawn(async move {
-        engine
-            .request(ExecuteRequest {
-                host: Host::Local,
-                nonce,
-                definition,
-                data: NuVal::Nothing,
-                timeout: None,
-            })
-            .await
-    });
-    assert!(
-        e.wait_for(|rows| rows.iter().any(|r| r.nonce == key && r.tool == "execute")),
-        "the call lists in flight",
-    );
-    assert_eq!(e.control(EngineCommand::Kill { nonce: key.clone() }), ControlAnswer::Done);
-    let answer = e
-        .rt
-        .block_on(pending)
-        .expect("the request's task")
-        .expect("the engine answers");
-    assert!(answer.result.is_err(), "a killed call answers an error; got {:?}", answer.result);
-    assert!(
-        e.wait_for(|rows| rows.iter().all(|r| r.nonce != key)),
-        "the killed call leaves the list",
-    );
-}
-
-#[test]
 fn health_reports_the_eval_permits() {
     let e = TESTING.harness();
     let ControlAnswer::Health(health) = e.control(EngineCommand::Health) else {
@@ -625,7 +641,7 @@ fn health_reports_the_eval_permits() {
 fn a_second_system_starts_and_stops() {
     let e = TESTING.harness();
     let second = e.rt.block_on(EngineHandle::start(TestHost)).expect("a second system");
-    let answer = e.rt.block_on(second.control(EngineCommand::Processes));
-    assert!(matches!(answer, Ok(ControlAnswer::Processes(_))), "got {answer:?}");
+    let answer = e.rt.block_on(second.control(EngineCommand::AwaitList));
+    assert!(matches!(answer, Ok(ControlAnswer::Value(_))), "got {answer:?}");
     e.rt.block_on(second.stop()).expect("the system stops");
 }

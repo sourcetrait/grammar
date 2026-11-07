@@ -128,11 +128,15 @@ pub struct ControlRequest {
     pub command: EngineCommand,
 }
 
-/// What the engine is asked of its calls, its health, its equips, its signatures.
+/// What the engine is asked of its await jobs, its health, its equips, its signatures.
 #[cereal::derived(Data)]
 pub enum EngineCommand {
-    Processes,
-    Kill { nonce: String },
+    /// Every await job running: its await, its job's id, and its start.
+    AwaitList,
+    /// An await job's status, run now.
+    AwaitStatus { nonce: String },
+    /// An await job stopped by hand.
+    AwaitStop { nonce: String },
     Health,
     Teardown,
     EquipNew { source: String },
@@ -156,7 +160,8 @@ pub struct ValueAnswer {
 #[cereal::derived(Data)]
 pub enum ControlAnswer {
     Done,
-    Processes(Vec<ProcessRow>),
+    /// A command's value: an await list's table or an await status's record.
+    Value(NuVal),
     Health(EngineHealth),
     Created(Vec<String>),
     Installed { equip: String, result: CommitResult },
@@ -166,17 +171,6 @@ pub enum ControlAnswer {
     Committed(CommitResult),
     Signatures(String),
     Help(InspectDoc),
-}
-
-/// One call in flight.
-#[cereal::derived(Data)]
-pub struct ProcessRow {
-    pub nonce: String,
-    pub tool: String,
-    pub started_at: u64,
-    pub args: NuVal,
-    pub source_nonce: Option<String>,
-    pub path: Option<String>,
 }
 
 /// The lane an eval runs on: the stateless pool, or the stateful engine.
@@ -497,6 +491,10 @@ pub enum EngineError {
     HeartbeatsInvalid {
         reason: String,
     },
+    /// An await command's nonce, which no running job answers to.
+    AwaitUnknown {
+        nonce: String,
+    },
 }
 
 /// The engine's result.
@@ -526,6 +524,7 @@ impl EngineError {
             Self::ResultInvalid { .. } => "result::invalid",
             Self::TimeoutInvalid { .. } => "timeout::invalid",
             Self::HeartbeatsInvalid { .. } => "heartbeats::invalid",
+            Self::AwaitUnknown { .. } => "await::unknown",
             Self::RerunInvalidNonce { .. } => "rerun::invalid_nonce",
             Self::RerunBodyMissing { .. } => "rerun::body_missing",
             Self::Dispatch { .. } => "thread::dispatch",
@@ -607,6 +606,9 @@ impl EngineError {
             Self::Dispatch { reason } => format!("eval dispatch failed: {reason}"),
             Self::Timeout { timeout_ms } => format!("eval timed out after {timeout_ms} ms"),
             Self::HostUnserved { host } => format!("no engine is served on the host `{host}`"),
+            Self::AwaitUnknown { nonce } => {
+                format!("no await job runs under `{nonce}`; `interface await list` lists those that do")
+            }
             Self::EquipViolations { .. }
             | Self::DefinitionViolations { .. }
             | Self::BedViolations { .. }

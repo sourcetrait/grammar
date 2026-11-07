@@ -12,18 +12,12 @@ Non-fatal by design: a write failure logs and the call proceeds, so the call sti
 its result and nonce and only a later rerun would miss the definition.
 
 ## struct InFlightEntry
-The `Processes` command snapshots this and `Kill` reads it. The visibility caveat is
-deliberate: the list shows ALL in-flight work on the engine, so subagents see each other's
-calls and the primary's.
-
-## enum InFlightKind
-Every kind but `call`, `bed`, and `await` carries its LANE, the one thing `Kill` and the
-hang watch need to tell a stuck stateful lane from a held stateless permit; the three
-always run stateless. `Await` names an await call's row in both of its lives: its prepare
+What the shutdown sweep reads of an eval: its cancel flag, its tracker, and its end.
+Nothing lists the table; an await call's row lives through both of its lives, its prepare
 within the call, then its job under the same nonce.
 
 ## struct HungWatch
-Registered on the TIMEOUT branch of either dispatch path, and on a `Kill` of a live entry.
+Registered on the TIMEOUT branch of either dispatch path, and on an await job's stop.
 The timeout path has already triggered cancel and tree-killed the external tree by then, so
 this registration is the additional "watch this for a hang" step rather than the response
 itself.
@@ -33,7 +27,7 @@ flips it on DROP, so a normal return OR a caught panic both flip it, and only a 
 leaves it false.
 
 ## fn register_hung
-Idempotent per nonce, because a kill and the later timeout both fire for one eval and the
+Idempotent per nonce, because a stop and a later timeout can both fire for one job and the
 FIRST stamp is the honest one. Poison-tolerant, like every long-lived lock here.
 
 ## fn hung_snapshot
@@ -44,8 +38,8 @@ running, with its cancel time.
 
 ## struct Dispatch
 One call as both lanes take it, so `execute`, `rerun`, and `call` reach a lane through the
-same description: its nonce and source, what the process list shows of it, its kind, the
-definition to cache, and its timeout.
+same description: its nonce and source, its tool, the definition to cache, and its
+timeout.
 
 ## fn dispatch_pooled
 A call's own: its log directory made and its definition cached, then `eval_pooled` with its
@@ -64,7 +58,7 @@ plugin decls rather than whatever the base held when it was built.
 ONE DEADLINE covers the permit's wait and the eval: the call's timeout is what the agent
 is willing to wait for the call, so the eval gets what the wait left. Without the bound,
 a call arriving while every permit is held - hung threads holding them among the
-causes - waited without end, outside the process list and past its own timeout.
+causes - waited without end, past its own timeout.
 A lapsed wait is `thread::dispatch` naming the permits held against the cap, with the
 nonce, since the call's log directory already exists.
 
@@ -87,7 +81,8 @@ duration. Its timeout covers the wait for the lane as well as the eval.
 ## struct InFlightCleanup
 Drop SPAWNS an async removal task because `Drop` cannot await, and the map is behind an
 async mutex. The consequence worth knowing: removal is not synchronous with the dispatch
-returning, so a `Processes` racing a completion can still see the finished entry briefly.
+returning, so a sweep racing a completion can still meet the finished entry, whose tracker
+holds no live pid.
 
 ## fn remove_in_flight
 The removal is by identity, the row's `finished` flag the eval's own: an await call's

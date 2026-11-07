@@ -1,12 +1,10 @@
 //! The stateless executor's concurrency bound. Fire N concurrent execute()s (N above
 //! the semaphore cap) over the stdio transport: every one completes (the buffered
-//! multi-read on `Host` collects them all back by id), and `interface process list`
-//! never shows more than the cap (= available_parallelism / 2) in flight - the pool
+//! multi-read on `Host` collects them all back by id), and the calls' own start and
+//! end times never overlap past the cap (= available_parallelism / 2) - the pool
 //! saturates to exactly the cap and never past it. A SYSTEM test: it needs real
 //! pipelined concurrency against the spawned binary plus the process-global
 //! concurrency cap.
-
-use std::time::{Duration, Instant};
 
 use sourcetrait_grammar_tests::*;
 use sourcetrait_common::testing::prelude::*;
@@ -29,15 +27,15 @@ fn concurrent_calls_complete_and_hold_the_semaphore_bound() {
     let cap = expected_cap();
     let n = cap + 3;
 
-    // Fire N concurrent calls, each sleeping ~1s so they overlap; do NOT read the
-    // responses yet. They come back near-simultaneously ~1s later and must be
-    // collected by id, not discarded.
+    // Fire N concurrent calls, each stamping its start, sleeping ~1s so they overlap,
+    // and stamping its end; do NOT read the responses yet. They come back
+    // near-simultaneously ~1s later and must be collected by id, not discarded.
     let ids: Vec<(usize, u64)> = (0..n)
         .map(|i| {
             let id = host.request(
                 "execute",
                 execute_args(
-                    "def execute [data: record<i: int>]: nothing -> record<out: int> {\n    sleep 1sec\n    { out: $data.i }\n}",
+                    "def execute [data: record<i: int>]: nothing -> record<out: int, start: int, end: int> {\n    let start = (date now | into int)\n    sleep 1sec\n    { out: $data.i, start: $start, end: (date now | into int) }\n}",
                     &format!("{{i: {i}}}"),
                 ),
             );
@@ -45,37 +43,28 @@ fn concurrent_calls_complete_and_hold_the_semaphore_bound() {
         })
         .collect();
 
-    // While the first wave runs, poll the process list and record the max concurrent
-    // `execute` count. 1s definitions + a sub-1s window means the whole first wave is in
-    // flight throughout, so the pool sits saturated at the cap (the extra
-    // n - cap calls wait on the semaphore and only start as permits free).
-    let mut max_in_flight = 0usize;
-    let deadline = Instant::now() + Duration::from_millis(900);
-    while Instant::now() < deadline {
-        let resp = host.interface("interface process list");
-        let in_flight = envelope(&resp)["result"]["processes"]
-            .as_list()
-            .map(|a| {
-                a.iter()
-                    .filter(|e| e.get("tool").and_then(|t| t.as_str()) == Some("execute"))
-                    .count()
-            })
-            .unwrap_or(0);
-        max_in_flight = max_in_flight.max(in_flight);
-        std::thread::sleep(Duration::from_millis(25));
-    }
-
     // Every call completes with its own result - the buffered multi-read collects
-    // all N by id, none lost to the interleaved arrival.
+    // all N by id, none lost to the interleaved arrival - and its span on the pool.
+    let mut spans: Vec<(i64, i64)> = Vec::new();
     for (i, id) in ids {
         let resp = host.read_id(id);
         assert!(!has_error_path(&resp), "call {i} should complete; got {resp}");
-        assert_eq!(
-            envelope(&resp)["result"]["out"].as_i64(),
-            Some(i as i64),
-            "call {i} should return its own data; got {resp}",
-        );
+        let env = envelope(&resp);
+        let result = &env["result"];
+        assert_eq!(result["out"].as_i64(), Some(i as i64), "call {i} should return its own data; got {resp}");
+        let start = result["start"].as_i64().unwrap_or_else(|| panic!("call {i}'s start; got {resp}"));
+        let end = result["end"].as_i64().unwrap_or_else(|| panic!("call {i}'s end; got {resp}"));
+        spans.push((start, end));
     }
+
+    // The most calls on the pool at once: at each call's start, the spans holding it.
+    // Each span is stamped inside its eval, under its permit, so the stamps can't show
+    // more evals at once than the semaphore let run.
+    let max_in_flight = spans
+        .iter()
+        .map(|(at, _)| spans.iter().filter(|(start, end)| start <= at && at < end).count())
+        .max()
+        .unwrap_or(0);
 
     // The bound held: never more than the cap ran at once...
     assert!(

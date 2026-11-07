@@ -17,36 +17,14 @@ fn write_definition(
     }
 }
 
+/// An eval in flight, as the teardown cancels and reaps it.
 pub(crate) struct InFlightEntry {
-    pub tool: &'static str,
-    pub started_at: u64,
-    pub args: NuVal,
-    pub kind: InFlightKind,
     /// This eval's interrupt flag - the `Signals` handle its thread polls.
     pub cancel: Arc<AtomicBool>,
     /// This eval's external-child tracker, holding Arc-shared pids.
     pub tracker: nu::ThreadJob,
     /// Liveness: the eval thread flips this on exit via a Drop guard.
     pub finished: Arc<AtomicBool>,
-}
-
-pub(crate) enum InFlightKind {
-    Execute { lane: Lane },
-    Rerun { source_nonce: String, lane: Lane },
-    Call { path: String },
-    Bed,
-    /// An await call: its prepare within the call, then its job.
-    Await,
-}
-
-impl InFlightKind {
-    /// The lane the call's eval runs on.
-    pub(crate) fn lane(&self) -> Lane {
-        match self {
-            Self::Execute { lane } | Self::Rerun { lane, .. } => *lane,
-            Self::Call { .. } | Self::Bed | Self::Await => Lane::Stateless,
-        }
-    }
 }
 
 /// The calls in flight, keyed by nonce.
@@ -95,8 +73,6 @@ pub(crate) struct Dispatch<'a> {
     pub nonce: &'a datum::NoncePair,
     pub source: String,
     pub tool: &'static str,
-    pub args: NuVal,
-    pub kind: InFlightKind,
     pub definition: Option<&'a str>,
     pub timeout_ms: Option<u64>,
 }
@@ -111,8 +87,6 @@ pub(crate) async fn dispatch_pooled(
         nonce,
         source,
         tool,
-        args,
-        kind,
         definition,
         timeout_ms,
     } = call;
@@ -123,10 +97,10 @@ pub(crate) async fn dispatch_pooled(
     if let Some(definition) = definition {
         write_definition(&log_dir, definition);
     }
-    eval_pooled(core, log_dir, source, nonce.as_str(), tool, timeout_ms, Some((args, kind))).await
+    eval_pooled(core, log_dir, source, nonce.as_str(), tool, timeout_ms, true).await
 }
 
-/// One eval on the pool under its permit and timeout, in flight given `flight`.
+/// One eval on the pool under its permit and timeout, in flight where `in_flight`.
 pub(crate) async fn eval_pooled(
     core: &EngineCore,
     log_dir: PathBuf,
@@ -134,7 +108,7 @@ pub(crate) async fn eval_pooled(
     nonce: &str,
     tool: &'static str,
     timeout_ms: Option<u64>,
-    flight: Option<(NuVal, InFlightKind)>,
+    in_flight: bool,
 ) -> EngineResult<nu::Value> {
     fs::create_dir_all(&log_dir).map_err(|e| EngineError::Internal {
         phase: "eval_pooled::create_log_dir".to_string(),
@@ -168,29 +142,24 @@ pub(crate) async fn eval_pooled(
     let finished = Arc::new(AtomicBool::new(false));
     let tracker = make_tracker(cancel.clone());
     engine.current_job.background_thread_job = Some(tracker.clone());
-    let _flight_cleanup = match flight {
-        Some((args, kind)) => {
-            register_in_flight(
-                &core.in_flight,
-                nonce,
-                InFlightEntry {
-                    tool,
-                    started_at,
-                    args,
-                    kind,
-                    cancel: cancel.clone(),
-                    tracker: tracker.clone(),
-                    finished: finished.clone(),
-                },
-            )
-            .await;
-            Some(InFlightCleanup {
-                map: core.in_flight.clone(),
-                key: nonce.to_string(),
+    let _flight_cleanup = if in_flight {
+        register_in_flight(
+            &core.in_flight,
+            nonce,
+            InFlightEntry {
+                cancel: cancel.clone(),
+                tracker: tracker.clone(),
                 finished: finished.clone(),
-            })
-        }
-        None => None,
+            },
+        )
+        .await;
+        Some(InFlightCleanup {
+            map: core.in_flight.clone(),
+            key: nonce.to_string(),
+            finished: finished.clone(),
+        })
+    } else {
+        None
     };
     let eval_fut = eval_stateless(
         engine,
@@ -234,8 +203,6 @@ pub(crate) async fn dispatch_stateful(
         nonce,
         source,
         tool,
-        args,
-        kind,
         definition,
         timeout_ms,
     } = call;
@@ -265,10 +232,6 @@ pub(crate) async fn dispatch_stateful(
         &core.in_flight,
         nonce.as_str(),
         InFlightEntry {
-            tool,
-            started_at,
-            args,
-            kind,
             cancel: cancel.clone(),
             tracker: tracker.clone(),
             finished: finished.clone(),

@@ -126,14 +126,28 @@ fn a_remote_hosts_refusals_answer_by_kind() {
     assert_eq!(envelope_error_kind(&unknown).as_deref(), Some("host::unknown"), "{unknown}");
     let unknown = host.call("interface", json!({"host": "elsewhere", "subcommand": "interface info"}));
     assert_eq!(envelope_error_kind(&unknown).as_deref(), Some("host::unknown"), "{unknown}");
-    let refused = host.call("interface", json!({"host": "stranger", "subcommand": "interface process list"}));
+    let refused = host.call("interface", json!({"host": "stranger", "subcommand": "interface await list"}));
     assert_eq!(envelope_error_kind(&refused).as_deref(), Some("remote::engine::host_key_rejected"), "{refused}");
     let channel = host.call("interface", json!({"host": "stranger", "subcommand": "interface channel config"}));
     assert!(!has_error_path(&channel), "the Channel's commands answer on the MCP for any host: {channel}");
 }
 
-/// A definition that sleeps past any test's wait, until it is killed.
-const SLEEP: &str = "def execute [data: nothing]: nothing -> nothing { sleep 30sec }";
+/// A suite whose job naps past any test's wait, until it is stopped.
+const SLOW_SUITE: &str = "export def prepare [data: nothing]: nothing -> nothing { }
+export def execute [data: record<job: record<id: int, started: datetime>, prepared: nothing>]: nothing -> nothing { sleep 30sec }
+export def status [data: record<job: record<id: int, started: datetime>, prepared: nothing>]: nothing -> nothing { }
+export def stop [data: record<job: record<id: int, started: datetime>, prepared: nothing>]: nothing -> nothing { }
+";
+
+/// The awaits an `interface await list` envelope's table names.
+fn awaits(list: &NuVal) -> Vec<String> {
+    list["result"]
+        .as_list()
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|row| row.get("await").and_then(NuVal::as_str).map(str::to_string))
+        .collect()
+}
 
 /// The ids of a `purview list`'s purviews, each an `[id, patterns]` pair.
 fn purview_ids(list: &NuVal) -> Vec<String> {
@@ -188,21 +202,15 @@ fn the_interface_commands_run_on_the_engine_their_host_names() {
     assert!(purview_ids(&remote_list).contains(&"probe".to_string()), "{remote_list}");
     assert!(!purview_ids(&local_list).contains(&"probe".to_string()), "a host's purviews are its own: {local_list}");
 
-    let call = host.request("execute", json!({"host": "lab", "definition": SLEEP, "data": "null"}));
-    let mut listed = None;
-    for _ in 0..100 {
-        let rows = envelope(&host.call("interface", json!({"host": "lab", "subcommand": "interface process list"})));
-        if let Some(row) = rows["result"]["processes"].as_list().unwrap_or_default().first() {
-            listed = row["nonce"].as_str().map(str::to_string);
-            break;
-        }
-        std::thread::sleep(Duration::from_millis(100));
-    }
-    let listed = listed.expect("the call in flight on grammar-ssh");
-    let local_rows = envelope(&host.interface("interface process list"));
-    assert!(local_rows["result"]["processes"].as_list().unwrap_or_default().is_empty(), "nothing in flight on the MCP");
-    let killed = host.call("interface", json!({"host": "lab", "subcommand": format!("interface process kill '{listed}'")}));
-    assert!(!has_error_path(&killed), "{killed}");
-    let ended = host.read_id_within(call, END_WAIT);
-    assert!(has_error_path(&ended), "the killed call answers its failure: {ended}");
+    let started = host.call("await", json!({"host": "lab", "module": SLOW_SUITE, "data": "null"}));
+    assert!(!has_error_path(&started), "the job starts on grammar-ssh: {started}");
+    let nonce = envelope(&started)["nonce"].as_str().expect("the call's nonce").to_string();
+    let lab = envelope(&host.call("interface", json!({"host": "lab", "subcommand": "interface await list"})));
+    assert!(awaits(&lab).contains(&nonce), "the job runs on grammar-ssh: {lab}");
+    let local = envelope(&host.interface("interface await list"));
+    assert!(awaits(&local).is_empty(), "no job runs on the MCP: {local}");
+    let stopped = host.call("interface", json!({"host": "lab", "subcommand": format!("interface await stop '{nonce}'")}));
+    assert!(!has_error_path(&stopped), "{stopped}");
+    let lab = envelope(&host.call("interface", json!({"host": "lab", "subcommand": "interface await list"})));
+    assert!(!awaits(&lab).contains(&nonce), "the stopped job is gone: {lab}");
 }

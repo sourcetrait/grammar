@@ -37,8 +37,9 @@ pub struct ArgSpec {
 pub enum CommandKind {
     Info,
     Help,
-    ProcessList,
-    ProcessKill,
+    AwaitList,
+    AwaitStatus,
+    AwaitStop,
     PurviewList,
     PurviewSet,
     PurviewExtend,
@@ -120,11 +121,11 @@ const HELP_ARGS: &[ArgSpec] = &[ArgSpec {
     summary: "A namepath, a pattern ending in `/` or `:`, `*`, `.`, `interface`, or `grmr`.",
 }];
 
-const KILL_ARGS: &[ArgSpec] = &[ArgSpec {
-    name: "nonce",
+const AWAIT_ARGS: &[ArgSpec] = &[ArgSpec {
+    name: "await",
     shape: ArgShape::String,
     optional: false,
-    summary: "The nonce of the in-flight call to cancel.",
+    summary: "The await call's nonce, the `await` its job's packets carry.",
 }];
 
 const SET_ARGS: &[ArgSpec] = &[ArgSpec {
@@ -401,22 +402,31 @@ pub const COMMANDS: &[CommandSpec] = &[
         summary: "Displays equipment documentation",
     },
     CommandSpec {
-        kind: CommandKind::ProcessList,
-        name: "interface process list",
-        topic: "Process",
+        kind: CommandKind::AwaitList,
+        name: "interface await list",
+        topic: "Await",
         positionals: NO_ARGS,
         flags: NO_ARGS,
-        result: "record",
-        summary: "List in-flight MCP tool usage.",
+        result: "table",
+        summary: "List the await jobs running: each one's await, job, and start.",
     },
     CommandSpec {
-        kind: CommandKind::ProcessKill,
-        name: "interface process kill",
-        topic: "Process",
-        positionals: KILL_ARGS,
+        kind: CommandKind::AwaitStatus,
+        name: "interface await status",
+        topic: "Await",
+        positionals: AWAIT_ARGS,
+        flags: NO_ARGS,
+        result: "record",
+        summary: "Run an await job's status now and answer its value.",
+    },
+    CommandSpec {
+        kind: CommandKind::AwaitStop,
+        name: "interface await stop",
+        topic: "Await",
+        positionals: AWAIT_ARGS,
         flags: NO_ARGS,
         result: "nothing",
-        summary: "Cancel an in-flight usage by its nonce.",
+        summary: "Stop an await job by hand; its Stop packet carries stop's value.",
     },
     CommandSpec {
         kind: CommandKind::PurviewList,

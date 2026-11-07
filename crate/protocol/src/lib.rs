@@ -29,8 +29,7 @@ pub(crate) mod tku {
 
 pub use crate::{
     channel::{
-        AWAIT_MODEL_PREFIX, AWAIT_RESULT_MODEL, AWAIT_START_MODEL, AWAIT_STATUS_MODEL,
-        AWAIT_STOPPED_MODEL, AwaitEvent,
+        AWAIT_MODEL_PREFIX, AWAIT_RESULT_MODEL, AWAIT_STATUS_MODEL, AWAIT_STOP_MODEL, AwaitEvent,
         CHANNEL_RESERVED_PREFIX, CHAT_MESSAGE_FILE, CHAT_MODEL, CHAT_SUMMARY_MAX_CHARS,
         ChannelEpoch, ChannelMode, ChannelPhase, ChannelSendData, ChannelState, MAX_FRAME_BYTES,
         MCP_RESERVED_PREFIX, MODEL_MAX_CHARS, NOTIFICATION_CAP, REMOTE_RESERVED_PREFIX,
@@ -50,7 +49,7 @@ pub use crate::{
         ControlRequest, Diagnostic, EngineCommand, EngineError, EngineHealth, EngineResult, ExecuteDefinition,
         ExecuteRequest,
         FromEngineSys, Host, HungEval, InspectDoc, InterfaceRequest, LINT_VIOLATION_CAP, Lane, ModuleDoc,
-        ProcessRow, RerunRequest, RigDoc, Severity, SignaturesDoc, Source, ToEngineSys,
+        RerunRequest, RigDoc, Severity, SignaturesDoc, Source, ToEngineSys,
         ValueAnswer, builtin_equip, builtin_name, display_equip, restart_rows, span_to_line_col,
     },
     error::{LOCAL_HOST, RuntimeError, TransportError},

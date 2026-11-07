@@ -1,17 +1,18 @@
 //! The client's SSH sessions against OpenSSH's sshd on loopback: trust, calls, kills, and ends.
 #![cfg(unix)]
 
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
 use sourcetrait_common::{datum, subsys};
 use sourcetrait_grammar_client::{
     Endpoint, FromRemote, RemoteHandle, RemoteSession, RemoteSysParams, RemoteSysPaths, RemoteSystem,
-    SessionPhase, open,
+    SessionEvent, SessionPhase, open,
 };
 use sourcetrait_grammar_protocol::{
-    CallAnswer, EngineRequest, EngineResponse, ExecuteDefinition, ExecuteRequest, Host, InterfaceRequest,
-    LIMITS_DEFAULT, NuType, NuVal, TransportError,
+    AwaitRequest, CallAnswer, EngineRequest, EngineResponse, ExecuteDefinition, ExecuteRequest, Host,
+    HostAnswer, InterfaceRequest, LIMITS_DEFAULT, NuType, NuVal, TransportError,
 };
 use sourcetrait_grammar_tests::{Cuttable, LOGIN_MARK, Sshd, TestAccount, TestKey, alive, holds_within};
 
@@ -24,11 +25,6 @@ fn definition(result: &str, body: &str) -> ExecuteDefinition {
         timeout: false,
         body: body.to_string(),
     }
-}
-
-/// A definition that sleeps past any test's wait, until it is cancelled.
-fn sleep() -> ExecuteDefinition {
-    definition("nothing", " sleep 30sec ")
 }
 
 /// How long grammar-ssh may take to end once its session does.
@@ -74,12 +70,47 @@ fn text<'a>(value: &'a NuVal, name: &str) -> &'a str {
     }
 }
 
-/// The nonces of the calls a process list's value shows in flight.
-fn listed(processes: &NuVal) -> Vec<String> {
-    match processes.get("processes") {
-        Some(NuVal::List(rows)) => rows.iter().map(|row| text(row, "nonce").to_string()).collect(),
-        other => panic!("a process list, not {other:?}"),
+/// The awaits an `await list`'s table names.
+fn awaits(list: &NuVal) -> Vec<String> {
+    match list {
+        NuVal::List(rows) => rows.iter().map(|row| text(row, "await").to_string()).collect(),
+        other => panic!("an await table, not {other:?}"),
     }
+}
+
+/// A suite whose job naps past any test's wait, until it is stopped.
+const SLOW_SUITE: &str = "export def prepare [data: nothing]: nothing -> nothing { }
+export def execute [data: record<job: record<id: int, started: datetime>, prepared: nothing>]: nothing -> nothing { sleep 30sec }
+export def status [data: record<job: record<id: int, started: datetime>, prepared: nothing>]: nothing -> nothing { }
+export def stop [data: record<job: record<id: int, started: datetime>, prepared: nothing>]: nothing -> nothing { }
+";
+
+/// A call that writes its marker, then sleeps past any test's wait, until it is cancelled.
+fn marked_sleep(nonce: datum::Nonce, marker: &Path) -> EngineRequest {
+    EngineRequest::Execute(ExecuteRequest {
+        host: Host::Local,
+        nonce,
+        definition: ExecuteDefinition {
+            is_env: false,
+            data: NuType::from_text("record<marker: string>").expect("a type"),
+            result: NuType::Nothing,
+            timeout: false,
+            body: " 'on' | save $data.marker; sleep 30sec ".to_string(),
+        },
+        data: NuVal::Record(vec![("marker".to_string(), NuVal::String(marker.display().to_string()))]),
+        timeout: None,
+    })
+}
+
+/// Whether `marker` appears within 10 s, the call that writes it running.
+async fn marked(marker: &Path) -> bool {
+    for _ in 0..100 {
+        if marker.exists() {
+            return true;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    false
 }
 
 /// The session's refusal, its success a panic.
@@ -88,17 +119,6 @@ fn refusal(opened: Result<(RemoteSession, impl Sized), TransportError>) -> Trans
         Ok(_) => panic!("the session opened"),
         Err(refusal) => refusal,
     }
-}
-
-/// The first call grammar-ssh lists in flight, waited for.
-async fn first_in_flight(session: &RemoteSession) -> String {
-    for _ in 0..100 {
-        if let Some(nonce) = listed(&value(session.request(interface("process list")).await)).first() {
-            return nonce.clone();
-        }
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
-    panic!("no call in flight in 10 s");
 }
 
 #[test]
@@ -125,12 +145,19 @@ fn a_key_the_host_does_not_authorize_is_refused() {
 }
 
 #[test]
-fn a_session_serves_grammar_ssh_s_info_a_call_and_a_kill() {
+fn a_session_serves_grammar_ssh_s_info_a_call_and_an_await_stop() {
     let sshd = Sshd::start();
     let account = TestAccount::new();
     let endpoint = sshd.endpoint("lab", &account);
     runtime().block_on(async {
-        let (session, _events) = open(&endpoint, LIMITS_DEFAULT).await.expect("a session");
+        let (session, mut events) = open(&endpoint, LIMITS_DEFAULT).await.expect("a session");
+        tokio::spawn(async move {
+            while let Some(event) = events.recv().await {
+                if let SessionEvent::Ask { responder, .. } = event {
+                    responder.answer(HostAnswer::Sent("event1".to_string()));
+                }
+            }
+        });
         let session = Arc::new(session);
         let info = value(session.request(interface("interface info")).await);
         assert_eq!((text(&info, "id"), text(&info, "namespace")), ("fixture", "default"));
@@ -140,18 +167,22 @@ fn a_session_serves_grammar_ssh_s_info_a_call_and_a_kill() {
         let answer = value(session.request(execute(nonces.generate(), definition("record<n: int>", " {n: 42} "))).await);
         assert_eq!(answer, NuVal::Record(vec![("n".to_string(), NuVal::Int(42))]));
         let nonce = nonces.generate();
-        let call = tokio::spawn({
-            let session = session.clone();
-            async move { session.request(execute(nonce, sleep())).await }
+        let job = EngineRequest::Await(AwaitRequest {
+            host: Host::Local,
+            nonce,
+            module: SLOW_SUITE.to_string(),
+            data: NuVal::Nothing,
+            timeouts: None,
+            heartbeats: None,
         });
-        let listed = first_in_flight(&session).await;
-        assert_eq!(listed, nonce.to_string(), "grammar-ssh lists the call by its nonce");
-        value(session.request(interface(&format!("process kill '{listed}'"))).await);
-        let answer = tokio::time::timeout(Duration::from_secs(10), call).await.expect("the call ends").unwrap();
-        assert!(
-            matches!(answer, Ok(EngineResponse::Answer(CallAnswer { result: Err(_), .. }))),
-            "the killed call answers its failure: {answer:?}",
-        );
+        let prepared = value(session.request(job).await);
+        assert!(prepared.get("job").is_some(), "the job's record: {prepared:?}");
+        let listed = awaits(&value(session.request(interface("await list")).await));
+        assert_eq!(listed, vec![nonce.to_string()], "grammar-ssh lists the job by its await");
+        let stopped = value(session.request(interface(&format!("await stop '{nonce}'"))).await);
+        assert_eq!(stopped, NuVal::Nothing);
+        let listed = awaits(&value(session.request(interface("await list")).await));
+        assert!(listed.is_empty(), "the stopped job is gone: {listed:?}");
         let pid = session.ssh().pid;
         session.close().await;
         assert!(holds_within(END_WAIT, || !alive(pid)).await, "grammar-ssh ends with its session");
@@ -234,17 +265,6 @@ impl subsys::Handler<RemoteSystem> for Bare {
     }
 }
 
-/// Whether grammar-ssh lists a call in flight within 10 s, through the system.
-async fn in_flight(remote: &RemoteHandle, endpoint: &Endpoint) -> bool {
-    for _ in 0..100 {
-        if !listed(&value(remote.request(endpoint.clone(), interface("process list")).await)).is_empty() {
-            return true;
-        }
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
-    false
-}
-
 /// grammar-ssh's pid as an eval on it reads it, through the system.
 async fn ssh_pid(remote: &RemoteHandle, endpoint: &Endpoint) -> u32 {
     let request = execute(datum::NonceGenerator::new().generate(), definition("record<pid: int>", " {pid: $nu.pid} "));
@@ -265,12 +285,14 @@ fn a_lost_grammar_ssh_answers_its_calls_lost_and_the_next_request_its_restart() 
         let remote = Arc::new(RemoteHandle::start(paths, params, Bare).await.expect("the system"));
         let pid = ssh_pid(&remote, &endpoint).await;
         assert_eq!(ssh_pid(&remote, &endpoint).await, pid, "one session serves both");
+        let marker = account.workdir().join("on.marker");
         let call = tokio::spawn({
             let remote = remote.clone();
             let endpoint = endpoint.clone();
-            async move { remote.request(endpoint, execute(datum::NonceGenerator::new().generate(), sleep())).await }
+            let request = marked_sleep(datum::NonceGenerator::new().generate(), &marker);
+            async move { remote.request(endpoint, request).await }
         });
-        assert!(in_flight(&remote, &endpoint).await, "the call runs on grammar-ssh");
+        assert!(marked(&marker).await, "the call runs on grammar-ssh");
         nix::sys::signal::kill(nix::unistd::Pid::from_raw(pid as i32), nix::sys::signal::Signal::SIGKILL)
             .expect("grammar-ssh killed");
         let answer = tokio::time::timeout(END_WAIT, call).await.expect("the call ends").unwrap();

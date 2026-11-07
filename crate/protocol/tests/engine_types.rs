@@ -57,8 +57,9 @@ fn commands() -> Vec<(&'static str, EngineCommand)> {
     use EngineCommand as C;
     let source = || "equip/acme/geo".to_string();
     vec![
-        ("processes", C::Processes),
-        ("kill", C::Kill { nonce: "aOiwlfCpNKg".into() }),
+        ("await_list", C::AwaitList),
+        ("await_status", C::AwaitStatus { nonce: "aOiwlfCpNKg".into() }),
+        ("await_stop", C::AwaitStop { nonce: "aOiwlfCpNKg".into() }),
         ("health", C::Health),
         ("teardown", C::Teardown),
         ("equip_new", C::EquipNew { source: source() }),
@@ -174,6 +175,7 @@ fn engine_errors() -> Vec<(&'static str, EngineError)> {
         ("bed_violations", E::BedViolations { diagnostics: vec![bed_refusal(), warning()] }),
         ("suite_violations", E::SuiteViolations { diagnostics: vec![suite_refusal(), warning()] }),
         ("heartbeats_invalid", E::HeartbeatsInvalid { reason: "one interval".into() }),
+        ("await_unknown", E::AwaitUnknown { nonce: "aOiwlfCpNKg".into() }),
     ]
 }
 
@@ -186,24 +188,23 @@ fn control_answers() -> Vec<(&'static str, ControlAnswer)> {
         removed: vec!["rig/old/mod.nu".into()],
         warnings: vec![warning()],
     };
-    let rows = vec![
-        ProcessRow {
-            nonce: "aOiwlfCpNKg".into(),
-            tool: "execute".into(),
-            started_at: u64::MAX,
-            args: NuVal::Record(vec![("data".into(), NuVal::Nothing)]),
-            source_nonce: None,
-            path: None,
-        },
-        ProcessRow {
-            nonce: "nonceRerun1".into(),
-            tool: "rerun".into(),
-            started_at: 0,
-            args: NuVal::List(vec![NuVal::Int(i64::MIN)]),
-            source_nonce: Some("nonceSource".into()),
-            path: Some("acme/geo:shape:area".into()),
-        },
-    ];
+    let started = nuval::DateData {
+        seconds: 1_794_018_539,
+        seconds_fraction: 659_788_334,
+        utc_offset_minus: 0,
+    };
+    let listed = NuVal::List(vec![
+        NuVal::Record(vec![
+            ("await".into(), NuVal::String("aOiwlfCpNKg".into())),
+            ("job".into(), NuVal::Int(3)),
+            ("started".into(), NuVal::Date(started.clone())),
+        ]),
+        NuVal::Record(vec![
+            ("await".into(), NuVal::String("nonceAwait1".into())),
+            ("job".into(), NuVal::Int(i64::MAX)),
+            ("started".into(), NuVal::Date(started)),
+        ]),
+    ]);
     let health = EngineHealth {
         hung: vec![
             HungEval { nonce: "a".into(), tool: "call".into(), lane: Lane::Stateless, started_at: 1, cancelled_at: 2 },
@@ -215,7 +216,7 @@ fn control_answers() -> Vec<(&'static str, ControlAnswer)> {
     };
     vec![
         ("done", A::Done),
-        ("processes", A::Processes(rows)),
+        ("value", A::Value(listed)),
         ("health", A::Health(health)),
         ("created", A::Created(vec!["rig/shape/area/mod.nu".into()])),
         ("installed", A::Installed { equip: "acme/geo".into(), result: commit.clone() }),
@@ -321,8 +322,9 @@ fn truncated_or_trailing_bytes_are_refused() {
 fn command_variant(c: &EngineCommand) -> &'static str {
     use EngineCommand as C;
     match c {
-        C::Processes => "processes",
-        C::Kill { .. } => "kill",
+        C::AwaitList => "await_list",
+        C::AwaitStatus { .. } => "await_status",
+        C::AwaitStop { .. } => "await_stop",
         C::Health => "health",
         C::Teardown => "teardown",
         C::EquipNew { .. } => "equip_new",
@@ -370,6 +372,7 @@ fn error_variant(e: &EngineError) -> &'static str {
         E::BedViolations { .. } => "bed_violations",
         E::SuiteViolations { .. } => "suite_violations",
         E::HeartbeatsInvalid { .. } => "heartbeats_invalid",
+        E::AwaitUnknown { .. } => "await_unknown",
     }
 }
 
@@ -378,7 +381,7 @@ fn answer_variant(a: &ControlAnswer) -> &'static str {
     use ControlAnswer as A;
     match a {
         A::Done => "done",
-        A::Processes(_) => "processes",
+        A::Value(_) => "value",
         A::Health(_) => "health",
         A::Created(_) => "created",
         A::Installed { .. } => "installed",
@@ -396,9 +399,9 @@ fn answer_variant(a: &ControlAnswer) -> &'static str {
 #[test]
 fn every_variant_has_its_vector() {
     let commands: BTreeSet<_> = commands().iter().map(|(_, c)| command_variant(c)).collect();
-    assert_eq!(commands.len(), 12);
+    assert_eq!(commands.len(), 13);
     let errors: BTreeSet<_> = engine_errors().iter().map(|(_, e)| error_variant(e)).collect();
-    assert_eq!(errors.len(), 30);
+    assert_eq!(errors.len(), 31);
     let answers: BTreeSet<_> = control_answers().iter().map(|(_, a)| answer_variant(a)).collect();
     assert_eq!(answers.len(), 13);
     let messages: BTreeSet<_> = requests()
@@ -464,6 +467,7 @@ fn each_single_condition_error_keeps_its_kind() {
         ("result_invalid", "result::invalid"),
         ("timeout_invalid", "timeout::invalid"),
         ("heartbeats_invalid", "heartbeats::invalid"),
+        ("await_unknown", "await::unknown"),
         ("rerun_invalid_nonce", "rerun::invalid_nonce"),
         ("rerun_body_missing", "rerun::body_missing"),
         ("dispatch", "thread::dispatch"),

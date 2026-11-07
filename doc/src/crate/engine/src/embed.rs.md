@@ -99,7 +99,7 @@ The permit rides in the thread. A hung, uncancellable eval therefore keeps its b
 slot occupied - visible and counted - rather than leaking a thread while freeing the
 slot for another hang.
 
-Cancellation rides `cancel`, which becomes this eval's `Signals`, so a kill or a timeout
+Cancellation rides `cancel`, which becomes this eval's `Signals`, so a stop or a timeout
 triggers it and the eval bails at nushell's next check point, dropping its clone and
 releasing the permit. A hung thread - a pure-Rust hot loop that never polls Signals -
 cannot be reached at all, because you cannot SIGKILL a thread; it runs to its natural

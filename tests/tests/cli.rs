@@ -161,17 +161,14 @@ fn cli_output_is_one_nuon_record() {
 }
 
 #[tested]
-fn cli_process_kill_prints_a_null_result_and_exits_zero() {
+fn cli_await_list_prints_an_empty_table_and_exits_zero() {
     let t = testing::test!({ .using_temp_dir() });
-    let out = run_output(
-        t.temp_dir(),
-        &["--id", "cid", "cli", "interface", "interface process kill 'doesnotexist'"],
-    );
-    assert!(out.status.success(), "cli interface process kill should exit 0; got {out:?}");
+    let out = run_output(t.temp_dir(), &["--id", "cid", "cli", "interface", "interface await list"]);
+    assert!(out.status.success(), "cli interface await list should exit 0; got {out:?}");
     let v = stdout_envelope(&out);
     assert!(
-        v.get("result").is_some_and(|result| result.is_nothing()),
-        "a void command answers a null result; got {v}",
+        v.get("result").and_then(NuVal::as_list).is_some_and(|rows| rows.is_empty()),
+        "a one-shot runs no job, so its list is empty; got {v}",
     );
 }
 

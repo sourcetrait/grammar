@@ -224,9 +224,16 @@ pub async fn run_engine_command(
     match command {
         E::Info => info(desk, engine).await,
         E::Help(p) => help(desk, engine, p).await,
-        E::ProcessList => process_list(engine).await,
-        E::ProcessKill(p) => {
-            control(engine, EngineCommand::Kill { nonce: p.nonce }).await?;
+        E::AwaitList => match control(engine, EngineCommand::AwaitList).await? {
+            ControlAnswer::Value(table) => Ok(table),
+            _ => Err(unexpected("await_list")),
+        },
+        E::AwaitStatus(p) => match control(engine, EngineCommand::AwaitStatus { nonce: p.nonce }).await? {
+            ControlAnswer::Value(status) => Ok(status),
+            _ => Err(unexpected("await_status")),
+        },
+        E::AwaitStop(p) => {
+            control(engine, EngineCommand::AwaitStop { nonce: p.nonce }).await?;
             Ok(NuVal::Nothing)
         }
         E::PurviewList => {
@@ -389,33 +396,6 @@ async fn help(
     value(&InspectResult {
         doc: InspectDoc::Signatures(SignaturesDoc { signatures }),
     })
-}
-
-/// `interface process list`: every call in flight on the engine.
-async fn process_list(engine: &EngineHandle) -> Result<NuVal, Rows> {
-    let rows = match control(engine, EngineCommand::Processes).await? {
-        ControlAnswer::Processes(rows) => rows,
-        _ => return Err(unexpected("processes")),
-    };
-    let processes = rows
-        .into_iter()
-        .map(|row| {
-            let mut fields = vec![
-                ("nonce".to_string(), NuVal::String(row.nonce)),
-                ("tool".to_string(), NuVal::String(row.tool)),
-                ("started_at".to_string(), NuVal::Int(row.started_at as i64)),
-                ("args".to_string(), row.args),
-            ];
-            if let Some(source_nonce) = row.source_nonce {
-                fields.push(("source_nonce".to_string(), NuVal::String(source_nonce)));
-            }
-            if let Some(path) = row.path {
-                fields.push(("path".to_string(), NuVal::String(path)));
-            }
-            NuVal::Record(fields)
-        })
-        .collect();
-    Ok(NuVal::Record(vec![("processes".to_string(), NuVal::List(processes))]))
 }
 
 /// `interface purview set`: the view set to these purviews.

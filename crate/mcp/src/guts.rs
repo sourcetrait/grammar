@@ -408,19 +408,28 @@ impl TestServer {
         crate::purviews_path()
     }
 
-    /// `interface process list`.
-    pub fn processes(&self) -> NuVal {
-        let nonce = self.interface_nonce(&"process list");
-        self.engine_command(nonce, EngineInterfaceCommand::ProcessList)
+    /// `interface await list`.
+    pub fn awaits(&self) -> NuVal {
+        let nonce = self.interface_nonce(&"await list");
+        self.engine_command(nonce, EngineInterfaceCommand::AwaitList)
     }
 
-    /// `interface process kill`; its result is null on success.
-    pub fn kill(&self, nonce: &str) -> NuVal {
-        let p = KillParams {
+    /// `interface await status`.
+    pub fn await_status(&self, nonce: &str) -> NuVal {
+        let p = AwaitJobParams {
             nonce: nonce.to_string(),
         };
         let call_nonce = self.interface_nonce(&p);
-        self.engine_command(call_nonce, EngineInterfaceCommand::ProcessKill(p))
+        self.engine_command(call_nonce, EngineInterfaceCommand::AwaitStatus(p))
+    }
+
+    /// `interface await stop`; its result is null on success.
+    pub fn await_stop(&self, nonce: &str) -> NuVal {
+        let p = AwaitJobParams {
+            nonce: nonce.to_string(),
+        };
+        let call_nonce = self.interface_nonce(&p);
+        self.engine_command(call_nonce, EngineInterfaceCommand::AwaitStop(p))
     }
 
     /// `interface channel ready`; its result is null.
@@ -559,11 +568,11 @@ impl SupervisedSystem {
         Self { rt, controller }
     }
 
-    /// Whether the engine answers a process list through mcp's controller.
+    /// Whether the engine answers an await list through mcp's controller.
     pub fn engine_answers(&self) -> bool {
         matches!(
-            self.rt.block_on(self.controller.control(EngineCommand::Processes)),
-            Ok(ControlAnswer::Processes(_)),
+            self.rt.block_on(self.controller.control(EngineCommand::AwaitList)),
+            Ok(ControlAnswer::Value(_)),
         )
     }
 

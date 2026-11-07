@@ -1,7 +1,7 @@
 //! Domain smoke tests, driven in-process via `guts::TestServer`. The raw-stdio
 //! transport (the JSON-RPC handshake + tools/list framing) is a SYSTEM concern
 //! covered by `sourcetrait_grammar_tests` (host_run_tool); these exercise what
-//! nu / processes / kill actually DO.
+//! nu and the await commands actually DO.
 
 use sourcetrait_grammar_mcp::guts::{
     TestServer, error_kind, error_messages, error_text, has_error, nuon,
@@ -91,28 +91,24 @@ fn timeout_fires_then_recovers() {
 }
 
 #[test]
-fn processes_empty_when_idle() {
-    // A PRIVATE server: on the shared harness a sibling test's in-flight eval
-    // would legitimately show here. Touch the harness first so this private
+fn awaits_empty_when_idle() {
+    // A PRIVATE server: on the shared harness a sibling test's await job would
+    // legitimately show here. Touch the harness first so this private
     // construction never races the module's one-time substrate init.
     let _ = TESTING.harness();
     let s = TestServer::new();
-    let env = s.processes();
+    let env = s.awaits();
     assert!(
-        env["result"]["processes"].as_list().expect("processes array").is_empty(),
-        "expected empty in-flight; got {env}",
+        env["result"].as_list().expect("an await table").is_empty(),
+        "expected no await jobs; got {env}",
     );
 }
 
 #[test]
-fn kill_unknown_nonce_is_silent_ok() {
+fn an_await_stop_naming_no_job_is_refused() {
     let s = TESTING.harness();
-    let env = s.kill("doesnotexist");
-    assert!(!has_error(&env), "got {env}");
-    assert!(
-        env.get("result").is_some_and(|result| result.is_nothing()),
-        "a void kill of an unknown nonce answers a null result; got {env}",
-    );
+    let env = s.await_stop("doesnotexist");
+    assert_eq!(error_kind(&env), Some("await::unknown"), "got {env}");
 }
 
 #[test]

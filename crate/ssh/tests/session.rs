@@ -9,7 +9,7 @@ use std::time::Duration;
 use sourcetrait_common::datum;
 use sourcetrait_grammar_client::{Session, SessionEvent};
 use sourcetrait_grammar_protocol::{
-    AWAIT_RESULT_MODEL, AWAIT_START_MODEL, AwaitRequest, CallAnswer, EngineRequest, EngineResponse,
+    AWAIT_RESULT_MODEL, AWAIT_STOP_MODEL, AwaitRequest, CallAnswer, EngineRequest, EngineResponse,
     ExecuteDefinition,
     ExecuteRequest, HelloReply, Host,
     HostAnswer, Instance, InterfaceRequest, LIMITS_DEFAULT, Limits, McpFrame, NuType, NuVal, SessionAsk,
@@ -89,20 +89,6 @@ fn text(value: &NuVal) -> &str {
     }
 }
 
-/// The first call the engine lists in flight, waited for.
-async fn first_in_flight(session: &Session) -> String {
-    for _ in 0..100 {
-        let listed = value(session, interface("process list")).await;
-        if let NuVal::List(rows) = field(&listed, "processes")
-            && let Some(row) = rows.first()
-        {
-            return text(field(row, "nonce")).to_string();
-        }
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
-    panic!("no call in flight in 10 s");
-}
-
 #[test]
 fn a_session_serves_info_and_a_call() {
     let instance = TestInstance::new("fixture");
@@ -139,25 +125,52 @@ fn a_session_serves_info_and_a_call() {
 }
 
 #[test]
-fn a_kill_cancels_a_call_in_flight() {
+fn an_await_stop_over_the_session_stops_the_job() {
     let instance = TestInstance::new("fixture");
     runtime().block_on(async {
         let (_child, opened) = open(&instance, "default", LIMITS_DEFAULT).await;
-        let session = Arc::new(opened.expect("the session opens").0);
-        let nonce = datum::NonceGenerator::new().generate();
-        let call = tokio::spawn({
-            let session = session.clone();
-            async move { session.request(execute(nonce, sleep())).await }
+        let (session, mut events) = opened.expect("the session opens");
+        let (seen_tx, mut seen_rx) = tokio::sync::mpsc::unbounded_channel();
+        tokio::spawn(async move {
+            while let Some(event) = events.recv().await {
+                if let SessionEvent::Ask { ask, responder } = event {
+                    responder.answer(match ask {
+                        SessionAsk::Await(event) => {
+                            let _ = seen_tx.send(event);
+                            HostAnswer::Sent("event1".to_string())
+                        }
+                        other => HostAnswer::Refused(format!("{other:?}")),
+                    });
+                }
+            }
         });
-        let listed = first_in_flight(&session).await;
-        assert_eq!(listed, nonce.to_string(), "the engine lists the call by its nonce");
-        let killed = value(&session, interface(&format!("process kill '{listed}'"))).await;
-        assert_eq!(killed, NuVal::Nothing);
-        let answer = tokio::time::timeout(Duration::from_secs(10), call).await.expect("the call ends").unwrap();
+        let nonce = datum::NonceGenerator::new().generate();
+        let request = EngineRequest::Await(AwaitRequest {
+            host: Host::Local,
+            nonce,
+            module: slow_suite(),
+            data: NuVal::Nothing,
+            timeouts: None,
+            heartbeats: None,
+        });
+        value(&session, request).await;
+        let listed = value(&session, interface("await list")).await;
+        let NuVal::List(rows) = &listed else {
+            panic!("a table, not {listed:?}");
+        };
         assert!(
-            matches!(answer, Ok(EngineResponse::Answer(CallAnswer { result: Err(_), .. }))),
-            "the cancelled call answers its failure: {answer:?}",
+            rows.iter().any(|row| text(field(row, "await")) == nonce.to_string()),
+            "the job lists by its await: {listed:?}",
         );
+        let stopped = value(&session, interface(&format!("await stop '{nonce}'"))).await;
+        assert_eq!(stopped, NuVal::Nothing);
+        let event = tokio::time::timeout(Duration::from_secs(10), seen_rx.recv())
+            .await
+            .expect("a Stop within 10 s")
+            .expect("the Stop");
+        assert_eq!(event.model, AWAIT_STOP_MODEL);
+        assert_eq!(text(field(&event.data, "await")), nonce.to_string());
+        assert_eq!(text(field(&event.data, "reason")), "stop");
     });
 }
 
@@ -167,18 +180,34 @@ fn calls_past_the_sessions_bound_are_refused_busy() {
     runtime().block_on(async {
         let requested = Limits { calls: 1, ..LIMITS_DEFAULT };
         let (_child, opened) = open(&instance, "default", requested).await;
-        let session = Arc::new(opened.expect("the session opens").0);
+        let (session, mut events) = opened.expect("the session opens");
+        let session = Arc::new(session);
         assert_eq!(session.ssh().effective.calls, 1);
+        let (asked_tx, mut asked_rx) = tokio::sync::mpsc::unbounded_channel();
+        tokio::spawn(async move {
+            while let Some(event) = events.recv().await {
+                if let SessionEvent::Ask { ask, responder } = event {
+                    let _ = asked_tx.send(());
+                    responder.answer(match ask {
+                        SessionAsk::ChannelSend(_) => HostAnswer::Sent("held1".to_string()),
+                        other => HostAnswer::Refused(format!("{other:?}")),
+                    });
+                }
+            }
+        });
         let nonces = datum::NonceGenerator::new();
         let first = nonces.generate();
+        let hold = definition("record<done: bool>", " grmr channel send test/Held {x: 1} | ignore; sleep 2sec; {done: true} ");
         let held = tokio::spawn({
             let session = session.clone();
-            async move { session.request(execute(first, sleep())).await }
+            async move { session.request(execute(first, hold)).await }
         });
-        first_in_flight(&session).await;
+        tokio::time::timeout(Duration::from_secs(10), asked_rx.recv())
+            .await
+            .expect("the first call runs within 10 s")
+            .expect("its ask");
         let refused = session.request(execute(nonces.generate(), sleep())).await.expect("a response");
         assert!(matches!(refused, EngineResponse::Refused(TransportError::Busy)), "{refused:?}");
-        value(&session, interface(&format!("process kill '{first}'"))).await;
         let _ = tokio::time::timeout(Duration::from_secs(10), held).await;
     });
 }
@@ -242,6 +271,17 @@ fn an_evals_asks_reach_the_mcp_and_its_answers_come_back() {
 /// The PREPARED record of a suite whose prepare answers nothing.
 const NOTHING_PREPARED: &str = "record<job: record<id: int, started: datetime>, prepared: nothing>";
 
+/// A suite on `data: nothing` whose job naps past any test's wait unless stopped.
+fn slow_suite() -> String {
+    format!(
+        "export def prepare [data: nothing]: nothing -> nothing {{ }}
+export def execute [data: {NOTHING_PREPARED}]: nothing -> record<done: bool> {{ sleep 30sec; {{done: true}} }}
+export def status [data: {NOTHING_PREPARED}]: nothing -> nothing {{ }}
+export def stop [data: {NOTHING_PREPARED}]: nothing -> nothing {{ }}
+"
+    )
+}
+
 /// A suite on `data: nothing` whose job answers `{done: true}` at once.
 fn quick_suite() -> String {
     format!(
@@ -284,19 +324,16 @@ fn an_await_job_answers_its_record_and_its_events_ride_the_ask() {
         });
         let prepared = value(&session, request).await;
         assert_eq!(field(&prepared, "prepared"), &NuVal::Nothing);
-        let start = tokio::time::timeout(Duration::from_secs(10), seen_rx.recv())
-            .await
-            .expect("a Start within 10 s")
-            .expect("the Start");
-        assert_eq!(start.model, AWAIT_START_MODEL, "the Start comes first");
-        assert_eq!(field(&start.data, "job"), field(&prepared, "job"));
         let event = tokio::time::timeout(Duration::from_secs(10), seen_rx.recv())
             .await
             .expect("an event within 10 s")
             .expect("the event");
-        assert_eq!(event.model, AWAIT_RESULT_MODEL);
-        assert_eq!(field(&event.data, "result"), &record(&[("done", NuVal::Bool(true))]));
-        assert_eq!(text(field(&event.data, "nonce")), nonce.to_string());
+        assert_eq!(event.model, AWAIT_RESULT_MODEL, "the Result first, no Start");
+        let expected = record(&[
+            ("await", NuVal::String(nonce.to_string())),
+            ("result", record(&[("done", NuVal::Bool(true))])),
+        ]);
+        assert_eq!(event.data, expected, "the call's nonce as `await`, then execute's value");
     });
 }
 

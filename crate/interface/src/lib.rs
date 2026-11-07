@@ -36,9 +36,9 @@ pub use crate::{
     },
     grammar::interface_engine,
     params::{
-        ChatReadParams, ChatSendParams, CommitParams, ConfigChannelParams,
+        AwaitJobParams, ChatReadParams, ChatSendParams, CommitParams, ConfigChannelParams,
         EquipParams, InspectParams,
-        KillParams, NewParams, PurviewConfigureParams, PurviewExtendParams, PurviewParams,
+        NewParams, PurviewConfigureParams, PurviewExtendParams, PurviewParams,
         RemoteAliasParams, RemoteChannelCloseParams, RemoteConnectParams, RemoteEngineImportParams,
         RemoteEngineSetParams, RemoteListenParams, RemoteSetParams,
     },

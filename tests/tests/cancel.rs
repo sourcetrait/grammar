@@ -1,82 +1,70 @@
-//! Cooperative cancellation: `interface process kill` actually stops an in-flight
-//! `execute` call. A SYSTEM test - it needs a real client sending the kill WHILE a call
-//! is in flight (pipelined requests over the stdio transport). No test-hooks: nu
-//! `sleep` polls Signals, so it bails on the cancel.
+//! Cooperative cancellation: `interface await stop` stops a running await job, its
+//! execute's `sleep` bailing on the cancel before the job's last line runs. A SYSTEM
+//! test: the stop goes in over the stdio transport while the job runs, and the job
+//! leaves `interface await list`.
 
 use std::time::{Duration, Instant};
 
+use serde_json::json;
 use sourcetrait_grammar_tests::*;
 use sourcetrait_common::testing::prelude::*;
 
 static TESTING: testing::Module = testing::module!(Integration, { .using_temp_dir() });
 
-/// The in-flight entries `interface process list` lists.
-fn in_flight(host: &mut Host) -> Vec<NuVal> {
-    let resp = host.interface("interface process list");
-    envelope(&resp)["result"]["processes"]
+/// The PREPARED record of a suite whose prepare answers its marker's path.
+const PREPARED: &str = "record<job: record<id: int, started: datetime>, prepared: record<marker: string>>";
+
+/// A suite whose job naps 3 seconds, then writes its marker, unless it is stopped.
+fn suite() -> String {
+    format!(
+        "export def prepare [data: record<marker: string>]: nothing -> record<marker: string> {{ $data }}
+export def execute [data: {PREPARED}]: nothing -> nothing {{
+    sleep 3sec
+    'ran' | save $data.prepared.marker
+}}
+export def status [data: {PREPARED}]: nothing -> nothing {{ }}
+export def stop [data: {PREPARED}]: nothing -> nothing {{ }}
+"
+    )
+}
+
+/// Whether `interface await list` holds the job under `nonce`.
+fn listed(host: &mut Host, nonce: &str) -> bool {
+    let resp = host.interface("interface await list");
+    envelope(&resp)["result"]
         .as_list()
-        .map(<[NuVal]>::to_vec)
         .unwrap_or_default()
+        .iter()
+        .any(|row| row.get("await").and_then(NuVal::as_str) == Some(nonce))
 }
 
-/// Poll the process list until an in-flight `execute` call appears; return its nonce.
-fn poll_inflight_execute_nonce(host: &mut Host, secs: u64) -> Option<String> {
+/// Poll the await list until it holds the job, or no longer does, as `held` asks.
+fn poll_listed(host: &mut Host, nonce: &str, held: bool, secs: u64) -> bool {
     let deadline = Instant::now() + Duration::from_secs(secs);
     loop {
-        for e in in_flight(host) {
-            if e.get("tool").and_then(|tl| tl.as_str()) == Some("execute")
-                && let Some(n) = e.get("nonce").and_then(|n| n.as_str())
-            {
-                return Some(n.to_string());
-            }
-        }
-        if Instant::now() >= deadline {
-            return None;
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
-}
-
-/// Poll the process list until the in-flight set drains (or `secs` elapse).
-fn poll_until_drained(host: &mut Host, secs: u64) -> bool {
-    let deadline = Instant::now() + Duration::from_secs(secs);
-    loop {
-        if in_flight(host).is_empty() {
+        if listed(host, nonce) == held {
             return true;
         }
         if Instant::now() >= deadline {
             return false;
         }
-        std::thread::sleep(Duration::from_millis(100));
+        std::thread::sleep(Duration::from_millis(50));
     }
 }
 
 #[tested]
-fn kill_stops_an_in_flight_call() {
+fn an_await_stop_stops_a_running_job() {
     let t = testing::test!({ .using_temp_dir() });
     let mut host = Host::spawn(t.temp_dir());
-    // Launch a long call without blocking on its response.
-    let call_id = host.request(
-        "execute",
-        execute_args(
-            "def execute [data: nothing]: nothing -> record<out: int> {\n    sleep 30sec\n    { out: 0 }\n}",
-            "null",
-        ),
-    );
-    // It should register as in-flight; grab its nonce.
-    let nonce = poll_inflight_execute_nonce(&mut host, 5).expect("the call should register as in-flight");
-    // Kill it; its own void response is ignored.
-    let _ = host.request_interface(&format!("interface process kill {}", nu_literal(&nonce)));
-    // Read the call's own response: a killed call bails on the cancel and returns
-    // an error, not a completed result.
-    let resp = host.read_id(call_id);
-    assert!(
-        has_error_path(&resp),
-        "a killed call should return an error, not complete; got {resp}",
-    );
-    // And the in-flight set drains.
-    assert!(
-        poll_until_drained(&mut host, 5),
-        "the process list should drain after the kill",
-    );
+    let marker = t.temp_dir().join("ran.txt");
+    let data = format!("{{marker: {}}}", nu_literal(&marker.display().to_string()));
+    let started = host.call("await", json!({"host": "local", "module": suite(), "data": data}));
+    assert!(!has_error_path(&started), "the job starts; got {started}");
+    let nonce = envelope(&started)["nonce"].as_str().expect("the call's nonce").to_string();
+    assert!(poll_listed(&mut host, &nonce, true, 5), "the job lists by its await");
+    let stopped = host.interface(&format!("interface await stop {}", nu_literal(&nonce)));
+    assert!(!has_error_path(&stopped), "the stop answers; got {stopped}");
+    assert!(poll_listed(&mut host, &nonce, false, 5), "the stopped job leaves the list");
+    std::thread::sleep(Duration::from_secs(5));
+    assert!(!marker.exists(), "the stopped job never reached its last line");
 }

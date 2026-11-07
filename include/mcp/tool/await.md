@@ -52,11 +52,11 @@ This contract is aggressively enforced and will error if broken.
 
 ## Operation
 - The result is the `PREPARED` record, once the job starts.
-- `mcp/await/Start`'s `data`: `nonce` and `job`; the others', `nonce`, then
-  `result` or `error`. `mcp/await/Status` per heartbeat adds `beat`;
-  `mcp/await/Result` comes at `execute`'s end; `mcp/await/Stopped` adds
-  `reason`, once `stop` has run.
-- `interface process kill <nonce>` stops the job.
+- Packets, `await` the call's nonce: `mcp/await/Status` per heartbeat,
+  `{await, status}`; `mcp/await/Result` at `execute`'s end, `{await,
+  result}`; `mcp/await/Stop` after `stop`, `{await, reason, result}`; `error`
+  replaces a failed value.
+- `interface await stop <await>` stops the job.
 
 ## Example
 Tool parameter `module`:

@@ -60,9 +60,8 @@ Packets from a definition to you: small summaries, never payloads.
   `<inbox>/<id>.attached.nuon`; models under `mcp/`, `remote/`, and `channel/`
   are the host's. A line too long to show carries `attached`, then `data`, as a
   filesize, `data`'s file `<inbox>/<id>.data.nuon`, and the file is read.
-- An `await` job's events are `mcp/await/Start`, `Status`, `Result`, and
-  `Stopped`, each also a line of its trace, `await/<nonce>/trace.nuonl` under
-  the cache.
+- An `await` job's events are `mcp/await/Status`, `Result`, and `Stop`, each
+  also a line of its trace, `await/<nonce>/trace.nuonl` under the cache.
 - Sending too fast warns, then stops the sender.
 
 ## RemoteChannel
@@ -139,11 +138,13 @@ MCP details, Equipment signatures within current purview
 `info []: nothing -> record`
 Displays equipment documentation
 `help [namepath: string]: nothing -> record`
-### Process
-List in-flight MCP tool usage.
-`process list []: nothing -> record`
-Cancel an in-flight usage by its nonce.
-`process kill [nonce: string]: nothing -> nothing`
+### Await
+List the await jobs running: each one's await, job, and start.
+`await list []: nothing -> table`
+Run an await job's status now and answer its value.
+`await status [await: string]: nothing -> record`
+Stop an await job by hand; its Stop packet carries stop's value.
+`await stop [await: string]: nothing -> nothing`
 ### Purview
 List every configured purview, and what is currently in view.
 `purview list []: nothing -> record`

@@ -67,7 +67,7 @@ pub(crate) use crate::{
     cache::call_log_dir,
     config_dirs::{config_dirs, init_config_dirs},
     dispatch::{
-        DEFAULT_TIMEOUT_MS, Dispatch, HungRegistry, HungWatch, InFlight, InFlightEntry, InFlightKind,
+        DEFAULT_TIMEOUT_MS, Dispatch, HungRegistry, HungWatch, InFlight, InFlightEntry,
         READY_POOL_TARGET, dispatch_pooled, dispatch_stateful, eval_pooled, hung_snapshot, now_millis,
         register_hung, register_in_flight, remove_in_flight, teardown_all_in_flight,
     },
@@ -86,7 +86,7 @@ pub(crate) use crate::{
         validate::{HELP_WORDS, NAME_DENYLIST, is_reserved_term, validate_equip_source},
     },
     execute::{EXECUTE, SignatureContract, contract_signature},
-    job::{AwaitJobs, StopReason, running_job, serve_await, stop_job, stop_jobs},
+    job::{AwaitJobs, StopReason, await_list, await_status, await_stop, serve_await, stop_jobs},
     mode::Mode,
     nuapi::{
         grmr::{
@@ -117,7 +117,7 @@ pub(crate) use crate::{
 };
 
 pub(crate) use sourcetrait_grammar_protocol::{
-    AWAIT_RESULT_MODEL, AWAIT_START_MODEL, AWAIT_STATUS_MODEL, AWAIT_STOPPED_MODEL,
+    AWAIT_RESULT_MODEL, AWAIT_STATUS_MODEL, AWAIT_STOP_MODEL,
     ChannelSendData, ChannelSpamErrorEmergency, HostInfo, INTERFACE, PreparedSend, PurviewRow, PurviewView,
     RemoteSendData, RuntimeError, SendFile, TransientPaths, model_too_long, model_too_long_reason,
     reserved_prefix, safe_dest, with_head,
@@ -259,7 +259,7 @@ pub use sourcetrait_grammar_protocol::{
     ControlRequest, Diagnostic, EngineCommand, EngineError, EngineHealth, EngineResult, ExecuteDefinition,
     ExecuteRequest,
     FromEngineSys, Host, HostAnswer, HostStop, HungEval, InspectDoc, LINT_VIOLATION_CAP, Lane,
-    ModuleDoc, PluginInfo, ProcessRow, PurviewAnswer, PurviewConfigureRequest, PurviewListRequest,
+    ModuleDoc, PluginInfo, PurviewAnswer, PurviewConfigureRequest, PurviewListRequest,
     PurviewRequest, PurviewResolution, PurviewResolveRequest, PurviewRigRequest, RerunRequest,
     RigDoc, Severity, SignaturesDoc, Source, ToEngineSys, ValueAnswer, builtin_equip,
     builtin_name, display_equip, span_to_line_col,

@@ -44,7 +44,7 @@ instance names and the MCP's config holding to it alike.
 ## struct Limits
 The bounds a hello negotiates: the frame ceiling, the heap a frame's payload
 decodes within, and the requests in flight at once, the calls apart from the
-rest, so a session full of evals still answers a kill or a process list.
+rest, so a session full of evals still answers an await list or an await stop.
 `least` takes each bound's minimum, `past` names the first bound above
 another's, and `zero` the first at zero.
 

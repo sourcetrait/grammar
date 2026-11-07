@@ -65,8 +65,9 @@ refuses.
 
 ## enum EngineCommand
 Everything a host asks that isn't an eval, so one request type reaches the
-engine's state: its calls in flight, its health, its equips, and its
-documentation.
+engine's state: its await jobs, its health, its equips, and its documentation. An
+await command takes a job by its await, the call's nonce its packets carry; no
+command reaches a call in flight (User).
 
 ## struct ValueAnswer
 The nonce rides back with the value or the refusal: it is the envelope's either
@@ -74,16 +75,13 @@ way.
 
 ## enum ControlAnswer
 `Uninstalled` carries no equip when none was installed, and that is a success:
-absent is the state asked for.
-
-## struct ProcessRow
-`source_nonce` and `path` are per-kind, absent where the kind has none, so the row
-a host renders says by its shape which tool made the call.
+absent is the state asked for. `Value` carries what the await commands answer as
+the values they are, an await list's table and an await status's record.
 
 ## enum Lane
 The two lanes an eval runs on: the stateless pool's clones and the stateful
 engine's one thread. A definition's `def --env` picks the stateful lane; the host
-records the lane with each call in flight and with each hung thread it watches.
+records the lane with each hung thread it watches.
 
 ## struct HungEval
 A watched thread as the supervisor needs it: its lane tells a held stateless

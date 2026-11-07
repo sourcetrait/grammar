@@ -35,7 +35,7 @@ deterministic rather than a race against reparenting.
 ## fn make_tracker
 Setting the returned job as an engine's `current_job.background_thread_job` is what makes
 nushell register the pid of every external that eval spawns into an Arc-shared set, which
-the kill and timeout paths then read.
+an await job's stop, the timeout, and the teardown then read.
 
 The Mail sender is a THROWAWAY on purpose: pid tracking is sender-independent, and a
 foreground eval never emits job Mail.
@@ -50,7 +50,7 @@ plugin IPC pipe and makes the eval's plugin read return an error. Plugins respaw
 on next use.
 
 BROAD BY NATURE - nushell shares plugin subprocesses across evals - so it fires only on
-an explicit `Kill` and on the teardown, NEVER on an automatic timeout, where the
+the teardown, NEVER on an automatic timeout or an await job's stop, where the
 supervisor scopes that escalation instead.
 
 ## fn kill_pid

@@ -31,7 +31,7 @@ like any other refusal. The envelope's `error` field is the only discriminator n
 the first two.
 
 Three caveats are by design rather than gaps: a `def --env` definition's stateful lane is
-single-shot because the session state dies with the process; `interface process list` and
-`interface process kill` reach the invocation's own engine, so its in-flight map is
-empty; and writing into a namespace a live agent host is using is the operator's own risk -
+single-shot because the session state dies with the process; `interface await list`
+reaches the invocation's own engine, so it lists no job; and writing into a namespace a
+live agent host is using is the operator's own risk -
 git's index lock keeps the repo safe, but an in-flight agent call can transiently fail.

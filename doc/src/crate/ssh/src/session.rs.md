@@ -70,7 +70,7 @@ MCP's close, or the idle window.
 ## fn serve_frames
 Requests run each on a task of their own, an eval in one slot of `calls` and
 every other request in one of `control`, so a session full of evals still
-answers a kill or a process list; a request past its slots is refused `Busy`
+answers an await list or an await stop; a request past its slots is refused `Busy`
 at once rather than queued. A request whose id is in flight ends the session,
 since its response could not tell the two apart. An answer to an ask goes to
 the asker; a ping is ponged. The session's view and its interface parser are

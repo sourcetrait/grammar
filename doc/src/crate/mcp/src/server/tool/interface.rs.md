@@ -62,9 +62,9 @@ and sessions are the MCP's, and the engine's to the host's engine: the
 MCP's own through `local_engine`, a remote engine's as the call's subcommand, which
 grammar-ssh parses and runs (`crate/engine`'s `desk.rs`). The deny set applies at the parse, before any routing, so a
 denied command is withheld the same for every host. No command dispatches an
-eval, so none appears in `interface process list`'s table and none takes a
-lane or a permit; a command's own locks are taken inside its method as its
-tool took them.
+eval, so none enters the in-flight table and none takes a lane or a permit,
+`interface await status` aside, whose status eval takes a permit as a beat's
+does; a command's own locks are taken inside its method as its tool took them.
 
 ## fn run_remote_engine
 The remote engines' group, each command its method on the MCP

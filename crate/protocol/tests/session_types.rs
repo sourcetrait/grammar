@@ -34,8 +34,9 @@ fn kind_name(kind: CommandKind) -> &'static str {
     match kind {
         K::Info => "info",
         K::Help => "help",
-        K::ProcessList => "process list",
-        K::ProcessKill => "process kill",
+        K::AwaitList => "await list",
+        K::AwaitStatus => "await status",
+        K::AwaitStop => "await stop",
         K::PurviewList => "purview list",
         K::PurviewSet => "purview set",
         K::PurviewExtend => "purview extend",
@@ -72,9 +73,9 @@ fn kind_name(kind: CommandKind) -> &'static str {
 
 #[test]
 fn the_catalog_holds_the_baseline_commands() {
-    assert_eq!(COMMANDS.len(), 35);
+    assert_eq!(COMMANDS.len(), 36);
     let words: BTreeSet<&str> = COMMANDS.iter().map(|spec| spec.words()).collect();
-    assert_eq!(words.len(), 35, "a command's words repeat");
+    assert_eq!(words.len(), 36, "a command's words repeat");
     for spec in COMMANDS {
         assert_eq!(spec.words(), kind_name(spec.kind), "{}", spec.name);
         assert_eq!(spec.name, format!("{INTERFACE} {}", spec.words()));
@@ -92,7 +93,7 @@ fn the_catalog_holds_the_baseline_commands() {
         }
         seen
     });
-    assert_eq!(topics, ["General", "Process", "Purview", "Channel", "Remote", "Chat", "Equip"]);
+    assert_eq!(topics, ["General", "Await", "Purview", "Channel", "Remote", "Chat", "Equip"]);
     assert_eq!(HELP_WORDS, ["interface", "grmr"]);
 }
 

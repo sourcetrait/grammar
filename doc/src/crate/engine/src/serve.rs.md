@@ -21,8 +21,8 @@ The system's link to its controller, held for every eval the core dispatches, ea
 lane handing it to its eval's decls.
 
 ### field jobs
-The await jobs running, under their calls' nonces: where a kill and the teardown find a
-job's stop.
+The await jobs running, under their calls' nonces: where the await commands and the
+teardown find a job.
 
 ## fn local
 A request names its host, so one request type serves a linked host's engine as well as
@@ -75,10 +75,6 @@ The timeout always bounds the eval; its literal goes into the source only when t
 signature takes `timeout?`, since nushell refuses an argument a signature has no place
 for.
 
-## fn request_args
-What the process list shows of an `execute` call, a rerun, or a call: the data and the
-timeout as the values they took, so an agent matches an entry against what it sent.
-
 ## fn run_prepared
 The lane is the definition's: `def execute` on the stateless pool, `def --env execute` on
 the stateful thread, so the agent picks persistence in the language it writes rather
@@ -114,9 +110,6 @@ The rerun runs under its own nonce, the request's, and caches the definition aga
 it, so every `execute` call's nonce, a rerun's included, is uniformly a handle, and the
 calls' logs stay apart.
 
-`InFlightKind::Rerun` carries the source nonce so the process list can show which
-definition a rerun is re-firing, the one thing a caller cannot infer from the fresh nonce.
-
 ## fn serve_call
 The path the template composes from the namepath is checked twice before it exists: the
 ident rules in `Namepath::validate`, and the index as the authority, callability checked
@@ -149,38 +142,11 @@ default timeout with no definition cached, since nothing of it is a rerun's.
 Its value is the result as the command answers it, held to no declared type,
 the command's own signature having typed its output.
 
-## fn processes
-Engine-scoped. The map is this engine's, so a one-shot CLI's own engine reports nothing in
-flight rather than reaching into another host's.
-
-The rows are cloned out under the map's lock, and the host renders them after it is
-released, so the map is never held across a render.
-
-## fn kill
-Cooperative cancel: flipping the eval's interrupt `Signals` makes it bail at nushell's next
-check point and free its permit. A hung thread - a pure-Rust loop that never polls - cannot
-be reached, which is the accepted residual; its external children are reaped by the
-teardown regardless.
-
-An unknown or already-finished nonce is a race-safe no-op, because the dispatch's cleanup
-guard removes the entry.
-
-The escalation happens outside the map's lock, deliberately: both the process table's
-walk and the SIGKILL are blocking, and holding the async mutex across them would stall
-every other request.
-
-`kill_plugin_subprocesses` fires here but never on an automatic timeout. It is broad -
-nushell shares plugin subprocesses across evals - so it is reserved for a call the agent
-explicitly killed, where unblocking a plugin-hung eval is worth restarting other evals'
-plugins.
-
-The hang watch is registered while the entry is still live, since the kill answers before
-the dispatch future does and the entry would otherwise be gone by the time a hang could be
-confirmed.
-
-An await job's kill runs its stop first and answers once the stop has run and the job is
-killed: the job is found among the running jobs by the call's nonce before the in-flight
-map is read.
+## fn serve_control
+The await commands answer from the jobs the engine holds (`job.rs`): the list and the
+status cross as a `ControlAnswer::Value`, the stop answers `Done` once the stop has run,
+and an await no running job answers to is refused `await::unknown`. No command cancels a
+call in flight; a call ends at its own timeout or at the teardown (User).
 
 ## fn health
 The supervisor's one reading of the engine: the threads watched for a hang, the permits

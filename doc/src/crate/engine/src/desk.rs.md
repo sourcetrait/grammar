@@ -53,6 +53,12 @@ whatever host a call names, so one reaching grammar-ssh is refused.
 Each command on the desk's engine. A refusal is its rows, so a host answers its
 caller without an error type of its own.
 
+The await commands take a job by its await, the call's nonce its packets carry
+(User): the list is the engine's table of the jobs it holds, the status the value
+status answers once, and the stop the engine's stop by hand, answering nothing.
+ENGINE-SCOPED: a job runs on the engine its call reached, so a remote engine's jobs
+list on that host alone, and a one-shot CLI invocation lists none.
+
 ## struct InfoResult
 `interface info` exists because the rmcp init handshake's `serverInfo` is not relayed into
 agent context by Claude Code. The command surfaces the same facts through `tools/call` -
@@ -124,22 +130,6 @@ render the current view rather than an empty block.
 An EXACT namepath is the engine's `Help`, read under its one equip's lock. A PATTERN SPANS
 EQUIPS, so it renders as a signature block through the engine's `Signatures`, whose
 renderer takes each equip's lock itself.
-
-## fn process_list
-The engine's rows as records: `source_nonce` and `path` are per-KIND and omitted when
-absent, so an entry's shape says which tool produced it without a discriminant field.
-
-`args` is what lets an agent match entries against its OWN send-set, which matters because
-this command shows ALL in-flight work on the host - a subagent sees the primary's calls and
-vice versa. Its `data` is the call's data as the value it took.
-
-ENGINE-SCOPED. The rows are the engine's the call reached, so a call in flight on one host
-never shows on another, and a one-shot CLI invocation, which starts an engine of its own,
-reports nothing rather than reaching into another host.
-
-A kill is the engine's `Kill` (`serve.rs`). An unknown or already-finished nonce is a no-op
-there, so the command answers success either way: the call is not running, which is the
-state asked for.
 
 ## struct PurviewsResult
 `purviews` reports the configured table VERBATIM with `@` references unexpanded, because

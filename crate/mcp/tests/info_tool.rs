@@ -111,7 +111,7 @@ fn info_keeps_the_thread_its_meta_names() {
     assert_eq!(s.codex_thread().as_deref(), Some("thread-two"), "a later one replaces it, never by its session");
     let _ = s.interface_with_meta("interface info", &[]);
     assert_eq!(s.codex_thread().as_deref(), Some("thread-two"), "one naming none leaves it");
-    let _ = s.interface_with_meta("interface process list", &[("threadId", "thread-three")]);
+    let _ = s.interface_with_meta("interface await list", &[("threadId", "thread-three")]);
     assert_eq!(s.codex_thread().as_deref(), Some("thread-two"), "another command keeps none");
 }
 

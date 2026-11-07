@@ -156,9 +156,9 @@ pub(crate) use sourcetrait_grammar_channel::{
 };
 
 pub(crate) use sourcetrait_grammar_interface::{
-    ChannelCommand, ChatCommand, ChatReadParams, ChatSendParams, CommitParams,
+    AwaitJobParams, ChannelCommand, ChatCommand, ChatReadParams, ChatSendParams, CommitParams,
     ConfigChannelParams, EngineInterfaceCommand,
-    EquipParams, InspectParams, InterfaceCommand, KillParams, NewParams, PeerCommand,
+    EquipParams, InspectParams, InterfaceCommand, NewParams, PeerCommand,
     PurviewConfigureParams, PurviewExtendParams, PurviewParams, RemoteAliasParams,
     RemoteChannelCloseParams, RemoteConnectParams, RemoteEngineCommand, RemoteEngineImportParams,
     RemoteEngineSetParams, RemoteListenParams, RemoteSetParams, parse_command,

@@ -177,17 +177,6 @@ fn hold_timeout(
     Ok((timeout_ms, Some(literal)))
 }
 
-/// A request's data and timeout as the process list shows them.
-fn request_args(
-    data: &NuVal,
-    timeout: Option<&NuVal>,
-) -> NuVal {
-    NuVal::Record(vec![
-        ("data".to_string(), data.clone()),
-        ("timeout".to_string(), timeout.cloned().unwrap_or(NuVal::Nothing)),
-    ])
-}
-
 /// Dispatch a prepared call on its lane and hold its result to the contract.
 async fn run_prepared(
     core: &EngineCore,
@@ -195,8 +184,6 @@ async fn run_prepared(
     prepared: PreparedExecute,
     definition: &str,
     tool: &'static str,
-    kind: InFlightKind,
-    args: NuVal,
 ) -> EngineResult<NuVal> {
     let PreparedExecute {
         def,
@@ -208,8 +195,6 @@ async fn run_prepared(
         nonce: &pair,
         source,
         tool,
-        args,
-        kind,
         definition: Some(definition),
         timeout_ms: Some(timeout_ms),
     };
@@ -233,11 +218,7 @@ pub(crate) async fn serve_execute(
     let engine = core.lint_engine.current();
     let definition = render_definition(&req.definition);
     let prepared = prepare_execute(&engine, &definition, &req.data, req.timeout.as_ref(), false)?;
-    let kind = InFlightKind::Execute {
-        lane: prepared.def.lane,
-    };
-    let args = request_args(&req.data, req.timeout.as_ref());
-    run_prepared(&core, req.nonce, prepared, &definition, "execute", kind, args).await
+    run_prepared(&core, req.nonce, prepared, &definition, "execute").await
 }
 
 /// A rerun's value: an earlier call's cached definition on fresh data.
@@ -260,12 +241,7 @@ pub(crate) async fn serve_rerun(
     let engine = core.lint_engine.current();
     let prepared =
         prepare_execute(&engine, &definition, &req.data, req.timeout.as_ref(), false)?;
-    let kind = InFlightKind::Rerun {
-        source_nonce: req.source.clone(),
-        lane: prepared.def.lane,
-    };
-    let args = request_args(&req.data, req.timeout.as_ref());
-    run_prepared(&core, req.nonce, prepared, &definition, "rerun", kind, args).await
+    run_prepared(&core, req.nonce, prepared, &definition, "rerun").await
 }
 
 /// A call's value: its data and its result each held to `main`'s contract.
@@ -324,10 +300,6 @@ pub(crate) async fn serve_call(
         nonce: &pair,
         source,
         tool: "call",
-        args: request_args(&req.data, req.timeout.as_ref()),
-        kind: InFlightKind::Call {
-            path: req.namepath.clone(),
-        },
         definition: None,
         timeout_ms: Some(timeout_ms),
     };
@@ -349,16 +321,10 @@ pub(crate) async fn serve_bed(
     let source = analyze_bed(&engine, &req.command, &req.subcommand)
         .map_err(|diagnostics| EngineError::BedViolations { diagnostics })?;
     let pair = req.nonce.into_pair();
-    let args = NuVal::Record(vec![
-        ("command".to_string(), NuVal::String(req.command.clone())),
-        ("subcommand".to_string(), NuVal::String(req.subcommand.clone())),
-    ]);
     let call = Dispatch {
         nonce: &pair,
         source,
         tool: "bed",
-        args,
-        kind: InFlightKind::Bed,
         definition: None,
         timeout_ms: None,
     };
@@ -375,9 +341,10 @@ pub(crate) async fn serve_control(
 ) -> EngineResult<ControlAnswer> {
     local(req.host)?;
     match req.command {
-        EngineCommand::Processes => Ok(ControlAnswer::Processes(processes(&core).await)),
-        EngineCommand::Kill { nonce } => {
-            kill(&core, &nonce).await;
+        EngineCommand::AwaitList => Ok(ControlAnswer::Value(await_list(&core))),
+        EngineCommand::AwaitStatus { nonce } => await_status(&core, &nonce).await.map(ControlAnswer::Value),
+        EngineCommand::AwaitStop { nonce } => {
+            await_stop(&core, &nonce).await?;
             Ok(ControlAnswer::Done)
         }
         EngineCommand::Health => Ok(ControlAnswer::Health(health(&core))),
@@ -395,65 +362,6 @@ pub(crate) async fn serve_control(
             Ok(ControlAnswer::Signatures(signatures(&core, &patterns).await))
         }
         EngineCommand::Help { namepath } => help(&core, &namepath).await,
-    }
-}
-
-/// Every call in flight.
-async fn processes(core: &EngineCore) -> Vec<ProcessRow> {
-    let map = core.in_flight.lock().await;
-    map.iter()
-        .map(|(nonce, entry)| {
-            let (source_nonce, path) = match &entry.kind {
-                InFlightKind::Execute { .. } => (None, None),
-                InFlightKind::Rerun { source_nonce, .. } => (Some(source_nonce.clone()), None),
-                InFlightKind::Call { path } => (None, Some(path.clone())),
-                InFlightKind::Bed | InFlightKind::Await => (None, None),
-            };
-            ProcessRow {
-                nonce: nonce.clone(),
-                tool: entry.tool.to_string(),
-                started_at: entry.started_at,
-                args: entry.args.clone(),
-                source_nonce,
-                path,
-            }
-        })
-        .collect()
-}
-
-/// Cancel a call in flight by its nonce and reap its tree, a job's stop run first.
-async fn kill(
-    core: &EngineCore,
-    nonce: &str,
-) {
-    if let Some(job) = running_job(core, nonce) {
-        stop_job(core, &job, StopReason::Kill).await;
-        return;
-    }
-    let found = {
-        let map = core.in_flight.lock().await;
-        match map.get(nonce) {
-            Some(entry) => {
-                entry.cancel.store(true, Ordering::SeqCst);
-                register_hung(
-                    &core.hung,
-                    HungWatch {
-                        nonce: nonce.to_string(),
-                        tool: entry.tool,
-                        lane: entry.kind.lane(),
-                        started_at: entry.started_at,
-                        cancelled_at: now_millis(),
-                        finished: entry.finished.clone(),
-                    },
-                );
-                Some(entry.tracker.collect_pids())
-            }
-            None => None,
-        }
-    };
-    if let Some(pids) = found {
-        tree_kill(&pids);
-        kill_plugin_subprocesses();
     }
 }
 

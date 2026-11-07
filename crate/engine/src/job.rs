@@ -1,7 +1,7 @@
 //! An await job: prepare in the call, execute as the job, status, and stop.
 use crate::*;
 
-/// The tool a job runs under, as the process list shows it.
+/// The tool a job's evals run under, as its logs and the hung watch name it.
 pub(crate) const AWAIT_TOOL: &str = "await";
 
 /// Each definition's timeout where the call names none, a call's own default.
@@ -15,6 +15,15 @@ const MIN_HEARTBEATS: usize = 2;
 
 /// A job's trace under its directory, one event a line.
 pub const TRACE_FILE: &str = "trace.nuonl";
+
+/// The field each event's data names the call's nonce by.
+const AWAIT_FIELD: &str = "await";
+
+/// The field a Status's data holds status's value in.
+const STATUS_FIELD: &str = "status";
+
+/// The field a Result's or a Stop's data holds its definition's value in.
+const RESULT_FIELD: &str = "result";
 
 /// The jobs running, each under its await call's nonce.
 pub(crate) type AwaitJobs = Arc<std::sync::Mutex<HashMap<String, Arc<AwaitJob>>>>;
@@ -50,18 +59,18 @@ struct SuiteTimeouts {
 pub(crate) enum StopReason {
     /// execute ran past its timeout.
     Timeout,
-    /// `interface process kill` named the job.
-    Kill,
+    /// `interface await stop` named the job, a stop by hand.
+    Manual,
     /// The host's teardown.
     Teardown,
 }
 
 impl StopReason {
-    /// The reason as a Stopped event names it.
+    /// The reason as a Stop event names it.
     fn as_str(self) -> &'static str {
         match self {
             Self::Timeout => "timeout",
-            Self::Kill => "kill",
+            Self::Manual => "stop",
             Self::Teardown => "teardown",
         }
     }
@@ -73,12 +82,12 @@ pub(crate) struct AwaitJob {
     dir: PathBuf,
     suite: PathBuf,
     def: SuiteDef,
-    /// The job's record, `{id, started}`.
-    job: NuVal,
     /// The PREPARED record's literal, the data execute, status, and stop take.
     literal: String,
     timeouts: SuiteTimeouts,
     job_id: nu::JobId,
+    /// When the job started, its PREPARED record's `job.started`.
+    started: DateData,
     started_at: u64,
     /// execute's interrupt flag, its tracker, and its thread's end.
     cancel: Arc<AtomicBool>,
@@ -167,21 +176,8 @@ pub(crate) async fn serve_await(
         phase: "await::source".to_string(),
         reason,
     })?;
-    let request_args = NuVal::Record(vec![
-        ("data".to_string(), req.data.clone()),
-        ("timeouts".to_string(), req.timeouts.clone().unwrap_or(NuVal::Nothing)),
-        ("heartbeats".to_string(), req.heartbeats.clone().unwrap_or(NuVal::Nothing)),
-    ]);
-    let value = eval_pooled(
-        &core,
-        dir.join(PREPARE),
-        source,
-        &nonce,
-        AWAIT_TOOL,
-        timeouts.prepare.ms(),
-        Some((request_args.clone(), InFlightKind::Await)),
-    )
-    .await?;
+    let value = eval_pooled(&core, dir.join(PREPARE), source, &nonce, AWAIT_TOOL, timeouts.prepare.ms(), true)
+        .await?;
     check_value(&value, &def.prepared_type, "result")
         .map_err(|reason| EngineError::ResultInvalid { reason })?;
     let prepared = NuVal::try_from_nu(value).map_err(|e| EngineError::ResultInvalid {
@@ -194,7 +190,6 @@ pub(crate) async fn serve_await(
         def,
         prepared,
         timeouts,
-        args: request_args,
     };
     start(core, launch, gaps).await
 }
@@ -207,7 +202,6 @@ struct Launch {
     def: SuiteDef,
     prepared: NuVal,
     timeouts: SuiteTimeouts,
-    args: NuVal,
 }
 
 /// The job started: registered, execute on its thread, the beats scheduled.
@@ -223,7 +217,6 @@ async fn start(
         def,
         prepared,
         timeouts,
-        args,
     } = launch;
     let cancel = Arc::new(AtomicBool::new(false));
     let tracker = make_tracker(cancel.clone());
@@ -233,13 +226,14 @@ async fn start(
         .unwrap_or_else(|e| e.into_inner())
         .add_job(nu::Job::Thread(tracker.clone()));
     let execute_dir = dir.join(EXECUTE_EXPORT);
-    let built = (|| -> EngineResult<(NuVal, NuVal, String, String)> {
+    let started = now_date();
+    let built = (|| -> EngineResult<(NuVal, String, String)> {
         let job = NuVal::Record(vec![
-            ("id".to_string(), NuVal::Int(i64::try_from(job_id.get()).unwrap_or(i64::MAX))),
-            ("started".to_string(), NuVal::Date(now_date())),
+            ("id".to_string(), NuVal::Int(job_number(job_id))),
+            ("started".to_string(), NuVal::Date(started.clone())),
         ]);
         let record = NuVal::Record(vec![
-            ("job".to_string(), job.clone()),
+            ("job".to_string(), job),
             ("prepared".to_string(), prepared),
         ]);
         let internal = |reason: String| EngineError::Internal {
@@ -254,9 +248,9 @@ async fn start(
         let execute_args = phase_args(&literal, def.execute.takes_timeout, timeouts.execute)?;
         let source = build_suite_source(&suite, EXECUTE_EXPORT, &execute_args).map_err(internal)?;
         fs::create_dir_all(&execute_dir).map_err(|e| internal(format!("{}: {e}", execute_dir.display())))?;
-        Ok((job, record, literal, source))
+        Ok((record, literal, source))
     })();
-    let (job, record, literal, source) = match built {
+    let (record, literal, source) = match built {
         Ok(built) => built,
         Err(error) => {
             core.env_jobs.lock().unwrap_or_else(|e| e.into_inner()).remove_job(job_id);
@@ -270,10 +264,10 @@ async fn start(
         dir,
         suite,
         def,
-        job,
         literal,
         timeouts,
         job_id,
+        started,
         started_at,
         cancel: cancel.clone(),
         tracker: tracker.clone(),
@@ -292,21 +286,12 @@ async fn start(
         &core.in_flight,
         &nonce,
         InFlightEntry {
-            tool: AWAIT_TOOL,
-            started_at,
-            args,
-            kind: InFlightKind::Await,
             cancel: cancel.clone(),
             tracker: tracker.clone(),
             finished: finished.clone(),
         },
     )
     .await;
-    let started = NuVal::Record(vec![
-        ("nonce".to_string(), NuVal::String(state.nonce.clone())),
-        ("job".to_string(), state.job.clone()),
-    ]);
-    emit(&core, &state, AWAIT_START_MODEL, started).await;
     core.executor.refresh_base_if_stale();
     let mut engine = core.executor.take_clone();
     engine.current_job.id = job_id;
@@ -350,7 +335,7 @@ async fn run_execute(
                         reason: format!("the result: {e}"),
                     })
                 });
-                let data = event_data(&job, Vec::new(), value);
+                let data = event_data(&job, Vec::new(), RESULT_FIELD, value);
                 emit(&core, &job, AWAIT_RESULT_MODEL, data).await;
             }
         }
@@ -381,14 +366,13 @@ async fn run_beats(
         }
         beat += 1;
         let value = run_phase(&core, &job, STATUS, &job.def.status, job.timeouts.status).await;
-        let beat_field = ("beat".to_string(), NuVal::Int(i64::try_from(beat).unwrap_or(i64::MAX)));
-        let data = event_data(&job, vec![beat_field], value);
+        let data = event_data(&job, Vec::new(), STATUS_FIELD, value);
         emit(&core, &job, AWAIT_STATUS_MODEL, data).await;
     }
 }
 
-/// A job's stop, run once: stop's eval, the job killed, then its Stopped event.
-pub(crate) async fn stop_job(
+/// A job's stop, run once: stop's eval, the job killed, then its Stop event.
+async fn stop_job(
     core: &EngineCore,
     job: &AwaitJob,
     reason: StopReason,
@@ -412,11 +396,11 @@ pub(crate) async fn stop_job(
         },
     );
     let reason_field = ("reason".to_string(), NuVal::String(reason.as_str().to_string()));
-    let data = event_data(job, vec![reason_field], value);
+    let data = event_data(job, vec![reason_field], RESULT_FIELD, value);
     if reason == StopReason::Teardown {
-        job.trace(AWAIT_STOPPED_MODEL, &data);
+        job.trace(AWAIT_STOP_MODEL, &data);
     } else {
-        emit(core, job, AWAIT_STOPPED_MODEL, data).await;
+        emit(core, job, AWAIT_STOP_MODEL, data).await;
     }
     job.stopped.notify_one();
 }
@@ -441,8 +425,8 @@ pub(crate) async fn stop_jobs(
     while stops.join_next().await.is_some() {}
 }
 
-/// The running job under a call's nonce, if any.
-pub(crate) fn running_job(
+/// The job running under a call's nonce, none once it is over.
+fn running_job(
     core: &EngineCore,
     nonce: &str,
 ) -> Option<Arc<AwaitJob>> {
@@ -450,7 +434,64 @@ pub(crate) fn running_job(
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .get(nonce)
+        .filter(|job| !job.done.load(Ordering::SeqCst))
         .cloned()
+}
+
+/// Every job running, `{await, job, started}` a row, in the order they started.
+pub(crate) fn await_list(core: &EngineCore) -> NuVal {
+    let mut jobs: Vec<Arc<AwaitJob>> = core
+        .jobs
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .values()
+        .filter(|job| !job.done.load(Ordering::SeqCst))
+        .cloned()
+        .collect();
+    jobs.sort_by_key(|job| job.job_id.get());
+    let rows = jobs
+        .iter()
+        .map(|job| {
+            NuVal::Record(vec![
+                (AWAIT_FIELD.to_string(), NuVal::String(job.nonce.clone())),
+                ("job".to_string(), NuVal::Int(job_number(job.job_id))),
+                ("started".to_string(), NuVal::Date(job.started.clone())),
+            ])
+        })
+        .collect();
+    NuVal::List(rows)
+}
+
+/// A job's status run now, `{await, status}` or `{await, error}`, sending nothing.
+pub(crate) async fn await_status(
+    core: &EngineCore,
+    nonce: &str,
+) -> EngineResult<NuVal> {
+    let job = running_job(core, nonce).ok_or_else(|| unknown_await(nonce))?;
+    let value = run_phase(core, &job, STATUS, &job.def.status, job.timeouts.status).await;
+    Ok(event_data(&job, Vec::new(), STATUS_FIELD, value))
+}
+
+/// A job stopped by hand: its stop run, the job killed, its Stop packet sent.
+pub(crate) async fn await_stop(
+    core: &EngineCore,
+    nonce: &str,
+) -> EngineResult<()> {
+    let job = running_job(core, nonce).ok_or_else(|| unknown_await(nonce))?;
+    stop_job(core, &job, StopReason::Manual).await;
+    Ok(())
+}
+
+/// The refusal of an await command naming no running job.
+fn unknown_await(nonce: &str) -> EngineError {
+    EngineError::AwaitUnknown {
+        nonce: nonce.to_string(),
+    }
+}
+
+/// A job's id as its records carry it.
+fn job_number(job_id: nu::JobId) -> i64 {
+    i64::try_from(job_id.get()).unwrap_or(i64::MAX)
 }
 
 /// A job over: out of the engine's jobs, the jobs table, and the calls in flight.
@@ -482,7 +523,7 @@ async fn run_phase(
         phase: format!("await::{export}"),
         reason,
     })?;
-    let value = eval_pooled(core, job.dir.join(export), source, &job.nonce, AWAIT_TOOL, timeout.ms(), None)
+    let value = eval_pooled(core, job.dir.join(export), source, &job.nonce, AWAIT_TOOL, timeout.ms(), false)
         .await?;
     check_value(&value, &phase.result_type, "result")
         .map_err(|reason| EngineError::ResultInvalid { reason })?;
@@ -523,16 +564,17 @@ fn given_literal(
     render_nuon(&value).map_err(internal)
 }
 
-/// An event's data: the nonce, its fields, then a value or its error's rows.
+/// An event's data: `await`, its fields, then a value or its error's rows.
 fn event_data(
     job: &AwaitJob,
     fields: Vec<(String, NuVal)>,
+    value_field: &str,
     value: EngineResult<NuVal>,
 ) -> NuVal {
-    let mut data = vec![("nonce".to_string(), NuVal::String(job.nonce.clone()))];
+    let mut data = vec![(AWAIT_FIELD.to_string(), NuVal::String(job.nonce.clone()))];
     data.extend(fields);
     match value {
-        Ok(result) => data.push(("result".to_string(), result)),
+        Ok(value) => data.push((value_field.to_string(), value)),
         Err(error) => data.push(("error".to_string(), rows_value(error.rows()))),
     }
     NuVal::Record(data)

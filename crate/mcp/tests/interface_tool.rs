@@ -58,10 +58,12 @@ fn every_command_answers_through_the_interface() {
     assert_eq!(result_of(&info)["name"], "grammar", "got {info}");
     assert!(info["nonce"].as_str().is_some(), "the interface call mints the nonce; got {info}");
 
-    let listed = s.interface("interface process list");
-    assert_eq!(result_of(&listed)["processes"], nuon("[]"), "got {listed}");
-    let killed = s.interface("interface process kill 'noSuchNonce1'");
-    assert!(result_of(&killed).is_nothing(), "got {killed}");
+    let listed = s.interface("interface await list");
+    assert_eq!(result_of(&listed), &nuon("[]"), "got {listed}");
+    for command in ["interface await status 'noSuchAwait1'", "interface await stop 'noSuchAwait1'"] {
+        let refused = s.interface(command);
+        assert_eq!(error_kind(&refused), Some("await::unknown"), "`{command}`: {refused}");
+    }
 
     let source = equip_source(t.temp_dir(), "sourcetrait/ifprobe");
     let source_text = quoted(&source.to_string_lossy());
@@ -180,8 +182,8 @@ fn a_subcommand_runs_with_or_without_its_head() {
     let grmr = s.interface("help grmr");
     let block = result_of(&grmr)["doc"]["signatures"].as_str().unwrap_or_default();
     assert!(block.starts_with("## grmr Signatures\n"), "got {grmr}");
-    let listed = s.interface("process list");
-    assert!(result_of(&listed)["processes"].as_list().is_some(), "got {listed}");
+    let listed = s.interface("await list");
+    assert!(result_of(&listed).as_list().is_some(), "got {listed}");
     let refused = s.interface("channel config --spam-warn-rate -1");
     assert_eq!(error_kind(&refused), Some("interface::invalid"), "got {refused}");
     let position = refused["error"][0]["source"]["position"].clone();

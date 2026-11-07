@@ -36,9 +36,9 @@ grammar-ssh's idle end and its signal end carry their reason.
 ## enum SshFrame
 The two directions' frames. Requests and asks each carry an id their sender
 draws in order, unique in the session, so a response or an answer finds its
-waiter without a table of its own on the wire. A cancel is no frame of its own:
-it is an interface call, `process kill` under the call's nonce, which the MCP
-minted.
+waiter without a table of its own on the wire. No frame cancels a call; an await
+job's stop is an interface call, `await stop` under its await call's nonce, which
+the MCP minted.
 
 ## enum EngineRequest
 The tool calls themselves, each with its parameters as the MCP's tool took them,
@@ -52,7 +52,7 @@ its Nu text.
 ### fn is_call
 An eval, a rerun, a call, or a bed call takes one of the session's call slots,
 each running an eval; an interface call takes a control slot, so a session full
-of evals still answers a kill, a process list, or an info.
+of evals still answers an await stop, an await list, or an info.
 
 `Await` is the sixth call, an eval's like the others, so it takes a call's slot while
 prepare runs; its job runs on past the answer.

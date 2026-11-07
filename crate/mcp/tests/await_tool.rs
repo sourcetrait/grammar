@@ -47,6 +47,22 @@ fn text(value: &nuval::NuVal) -> &str {
     }
 }
 
+/// A trace's lines, each a record of its model, its time, and its data.
+fn trace_lines(trace: &str) -> Vec<nuval::NuVal> {
+    trace
+        .lines()
+        .map(|line| nuval::NuVal::from_nuon(line).unwrap_or_else(|e| panic!("a trace line is NUON: {e}\n{line}")))
+        .collect()
+}
+
+/// A record's field names, in order.
+fn names(value: &nuval::NuVal) -> Vec<&str> {
+    match value {
+        nuval::NuVal::Record(fields) => fields.iter().map(|(key, _)| key.as_str()).collect(),
+        other => panic!("a record, not {other:?}"),
+    }
+}
+
 /// The job's trace once a line of `model` lands in it, or after ten seconds.
 fn trace_with(s: &TestServer, nonce: &str, model: &str) -> String {
     let file = s.await_dir(nonce).join("trace.nuonl");
@@ -68,31 +84,51 @@ fn await_answers_the_prepared_record_and_traces_the_result() {
     assert_eq!(field(result, "prepared"), &nuval::NuVal::Record(vec![("nap".into(), nuval::NuVal::Duration(10_000_000))]));
     let nonce = text(field(&env, "nonce")).to_string();
     let trace = trace_with(s, &nonce, "mcp/await/Result");
-    assert!(trace.contains("mcp/await/Result"), "the trace:\n{trace}");
-    let first = trace.lines().next().unwrap_or_default();
-    assert!(first.contains("mcp/await/Start") && first.contains("job"), "the Start comes first; the trace:\n{trace}");
+    let lines = trace_lines(&trace);
+    let [line] = lines.as_slice() else {
+        panic!("the trace is the Result alone; the trace:\n{trace}");
+    };
+    assert_eq!(text(field(line, "model")), "mcp/await/Result", "the trace:\n{trace}");
+    let data = field(line, "data");
+    assert_eq!(names(data), vec!["await", "result"], "the trace:\n{trace}");
+    assert_eq!(text(field(data, "await")), nonce, "the trace:\n{trace}");
     assert!(s.await_dir(&nonce).join("suite.nu").is_file(), "the suite is cached beside its trace");
 }
 
 #[test]
-fn a_kill_stops_the_job_and_traces_its_stop() {
+fn a_stop_by_hand_stops_the_job_and_traces_its_stop() {
     let s = TESTING.harness();
     let env = s.await_suite(&suite(), "{nap: 30sec}", None, None);
     let nonce = text(field(&env, "nonce")).to_string();
-    let listed = s.processes();
-    let rows = match field(field(&listed, "result"), "processes") {
+    let listed = s.awaits();
+    let rows = match field(&listed, "result") {
         nuval::NuVal::List(rows) => rows.clone(),
-        other => panic!("a list of rows, not {other:?}"),
+        other => panic!("a table of rows, not {other:?}"),
     };
+    let row = rows
+        .iter()
+        .find(|row| text(field(row, "await")) == nonce)
+        .unwrap_or_else(|| panic!("the job lists by its await; got {rows:?}"));
+    assert_eq!(names(row), vec!["await", "job", "started"], "{row:?}");
+    let status = s.await_status(&nonce);
+    let answered = field(&status, "result");
+    assert_eq!(names(answered), vec!["await", "status"], "{status:?}");
+    assert_eq!(field(answered, "status"), &nuval::NuVal::Nothing, "status's value, null here; {status:?}");
+    let stopped = s.await_stop(&nonce);
+    assert_eq!(field(&stopped, "result"), &nuval::NuVal::Nothing, "{stopped:?}");
+    let trace = trace_with(s, &nonce, "mcp/await/Stop");
+    let lines = trace_lines(&trace);
+    let stop = lines
+        .iter()
+        .find(|line| text(field(line, "model")) == "mcp/await/Stop")
+        .unwrap_or_else(|| panic!("a Stop; the trace:\n{trace}"));
+    let data = field(stop, "data");
+    assert_eq!(names(data), vec!["await", "reason", "result"], "the trace:\n{trace}");
+    assert_eq!(text(field(data, "reason")), "stop", "the trace:\n{trace}");
     assert!(
-        rows.iter().any(|row| text(field(row, "nonce")) == nonce && text(field(row, "tool")) == "await"),
-        "the job lists in flight as await; got {rows:?}",
+        lines.iter().all(|line| text(field(line, "model")) != "mcp/await/Result"),
+        "a stopped job sends no Result; the trace:\n{trace}",
     );
-    let killed = s.kill(&nonce);
-    assert_eq!(field(&killed, "result"), &nuval::NuVal::Nothing, "{killed:?}");
-    let trace = trace_with(s, &nonce, "mcp/await/Stopped");
-    assert!(trace.contains("mcp/await/Stopped") && trace.contains("kill"), "the trace:\n{trace}");
-    assert!(!trace.contains("mcp/await/Result"), "a stopped job sends no Result; the trace:\n{trace}");
 }
 
 #[test]

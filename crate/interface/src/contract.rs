@@ -58,13 +58,14 @@ pub enum RemoteEngineCommand {
     Import(RemoteEngineImportParams),
 }
 
-/// The engine's commands: info, help, the processes, the purviews, the equips.
+/// The engine's commands: info, help, the await jobs, the purviews, the equips.
 #[derive(Debug)]
 pub enum EngineInterfaceCommand {
     Info,
     Help(InspectParams),
-    ProcessList,
-    ProcessKill(KillParams),
+    AwaitList,
+    AwaitStatus(AwaitJobParams),
+    AwaitStop(AwaitJobParams),
     PurviewList,
     PurviewSet(PurviewParams),
     PurviewExtend(PurviewExtendParams),
@@ -375,9 +376,12 @@ fn command(
         CommandKind::Help => engine(E::Help(InspectParams {
             namepath: text(literals, "namepath"),
         })),
-        CommandKind::ProcessList => engine(E::ProcessList),
-        CommandKind::ProcessKill => engine(E::ProcessKill(KillParams {
-            nonce: text(literals, "nonce"),
+        CommandKind::AwaitList => engine(E::AwaitList),
+        CommandKind::AwaitStatus => engine(E::AwaitStatus(AwaitJobParams {
+            nonce: text(literals, "await"),
+        })),
+        CommandKind::AwaitStop => engine(E::AwaitStop(AwaitJobParams {
+            nonce: text(literals, "await"),
         })),
         CommandKind::PurviewList => engine(E::PurviewList),
         CommandKind::PurviewSet => engine(E::PurviewSet(PurviewParams {
