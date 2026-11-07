@@ -35,6 +35,8 @@ pub(crate) enum InFlightKind {
     Rerun { source_nonce: String, lane: Lane },
     Call { path: String },
     Bed,
+    /// An await call: its prepare within the call, then its job.
+    Await,
 }
 
 impl InFlightKind {
@@ -42,7 +44,7 @@ impl InFlightKind {
     pub(crate) fn lane(&self) -> Lane {
         match self {
             Self::Execute { lane } | Self::Rerun { lane, .. } => *lane,
-            Self::Call { .. } | Self::Bed => Lane::Stateless,
+            Self::Call { .. } | Self::Bed | Self::Await => Lane::Stateless,
         }
     }
 }
@@ -99,9 +101,10 @@ pub(crate) struct Dispatch<'a> {
     pub timeout_ms: Option<u64>,
 }
 
+/// A call on the stateless pool, its logs in `log_dir`, registered in flight.
 pub(crate) async fn dispatch_pooled(
     core: &EngineCore,
-    log_kind: CacheKind,
+    log_dir: PathBuf,
     call: Dispatch<'_>,
 ) -> EngineResult<nu::Value> {
     let Dispatch {
@@ -113,7 +116,6 @@ pub(crate) async fn dispatch_pooled(
         definition,
         timeout_ms,
     } = call;
-    let log_dir = cache_dir(log_kind, nonce);
     fs::create_dir_all(&log_dir).map_err(|e| EngineError::Internal {
         phase: "dispatch_pooled::create_log_dir".to_string(),
         reason: format!("create_dir_all {}: {e}", log_dir.display()),
@@ -121,6 +123,24 @@ pub(crate) async fn dispatch_pooled(
     if let Some(definition) = definition {
         write_definition(&log_dir, definition);
     }
+    eval_pooled(core, log_dir, source, nonce.as_str(), tool, timeout_ms, Some((args, kind))).await
+}
+
+/// One eval on the stateless pool under its permit and its timeout, registered in
+/// flight where `flight` gives its row's arguments and kind.
+pub(crate) async fn eval_pooled(
+    core: &EngineCore,
+    log_dir: PathBuf,
+    source: String,
+    nonce: &str,
+    tool: &'static str,
+    timeout_ms: Option<u64>,
+    flight: Option<(NuVal, InFlightKind)>,
+) -> EngineResult<nu::Value> {
+    fs::create_dir_all(&log_dir).map_err(|e| EngineError::Internal {
+        phase: "eval_pooled::create_log_dir".to_string(),
+        reason: format!("create_dir_all {}: {e}", log_dir.display()),
+    })?;
     core.executor.refresh_base_if_stale();
     let effective_timeout = timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS);
     let budget = tk::TkDuration::from_millis(effective_timeout);
@@ -149,31 +169,37 @@ pub(crate) async fn dispatch_pooled(
     let finished = Arc::new(AtomicBool::new(false));
     let tracker = make_tracker(cancel.clone());
     engine.current_job.background_thread_job = Some(tracker.clone());
-    register_in_flight(
-        &core.in_flight,
-        nonce,
-        InFlightEntry {
-            tool,
-            started_at,
-            args,
-            kind,
-            cancel: cancel.clone(),
-            tracker: tracker.clone(),
-            finished: finished.clone(),
-        },
-    )
-    .await;
-    let _flight_cleanup = InFlightCleanup {
-        map: core.in_flight.clone(),
-        key: nonce.as_str().to_string(),
+    let _flight_cleanup = match flight {
+        Some((args, kind)) => {
+            register_in_flight(
+                &core.in_flight,
+                nonce,
+                InFlightEntry {
+                    tool,
+                    started_at,
+                    args,
+                    kind,
+                    cancel: cancel.clone(),
+                    tracker: tracker.clone(),
+                    finished: finished.clone(),
+                },
+            )
+            .await;
+            Some(InFlightCleanup {
+                map: core.in_flight.clone(),
+                key: nonce.to_string(),
+                finished: finished.clone(),
+            })
+        }
+        None => None,
     };
     let eval_fut = eval_stateless(
         engine,
         cancel.clone(),
         log_dir,
         source,
-        nonce.as_str().to_string(),
-        permit,
+        nonce.to_string(),
+        Some(permit),
         finished.clone(),
         core.host.clone(),
     );
@@ -186,7 +212,7 @@ pub(crate) async fn dispatch_pooled(
             register_hung(
                 &core.hung,
                 HungWatch {
-                    nonce: nonce.as_str().to_string(),
+                    nonce: nonce.to_string(),
                     tool,
                     lane: Lane::Stateless,
                     started_at,
@@ -238,7 +264,7 @@ pub(crate) async fn dispatch_stateful(
     let finished = Arc::new(AtomicBool::new(false));
     register_in_flight(
         &core.in_flight,
-        nonce,
+        nonce.as_str(),
         InFlightEntry {
             tool,
             started_at,
@@ -253,6 +279,7 @@ pub(crate) async fn dispatch_stateful(
     let _flight_cleanup = InFlightCleanup {
         map: core.in_flight.clone(),
         key: nonce.as_str().to_string(),
+        finished: finished.clone(),
     };
     let effective_timeout = timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS);
     let eval_fut = engine.eval(
@@ -286,27 +313,42 @@ pub(crate) async fn dispatch_stateful(
     }
 }
 
-async fn register_in_flight(
+/// A call's row in flight under its nonce.
+pub(crate) async fn register_in_flight(
     in_flight: &InFlight,
-    nonce: &datum::NoncePair,
+    nonce: &str,
     entry: InFlightEntry,
 ) {
     let mut map = in_flight.lock().await;
-    map.insert(nonce.as_str().to_string(), entry);
+    map.insert(nonce.to_string(), entry);
 }
 
+/// A call's row taken out, only while it is still the row its eval's `finished` names.
+pub(crate) async fn remove_in_flight(
+    in_flight: &InFlight,
+    nonce: &str,
+    finished: &Arc<AtomicBool>,
+) {
+    let mut map = in_flight.lock().await;
+    if map.get(nonce).is_some_and(|entry| Arc::ptr_eq(&entry.finished, finished)) {
+        map.remove(nonce);
+    }
+}
+
+/// A call's row taken out when its dispatch ends, a later row under its nonce kept.
 struct InFlightCleanup {
     map: InFlight,
     key: String,
+    finished: Arc<AtomicBool>,
 }
 
 impl Drop for InFlightCleanup {
     fn drop(&mut self) {
         let map = self.map.clone();
         let key = std::mem::take(&mut self.key);
+        let finished = self.finished.clone();
         tk::spawn(async move {
-            let mut g = map.lock().await;
-            g.remove(&key);
+            remove_in_flight(&map, &key, &finished).await;
         });
     }
 }
@@ -318,8 +360,10 @@ pub(crate) fn now_millis() -> u64 {
         .unwrap_or(0)
 }
 
-/// Clean-shutdown teardown: cancel every in-flight eval and reap its tree.
-pub(crate) async fn teardown_all_in_flight(core: &EngineCore) {
+/// Clean-shutdown teardown: every await job's stop run, then every in-flight eval
+/// cancelled and its tree reaped.
+pub(crate) async fn teardown_all_in_flight(core: &Arc<EngineCore>) {
+    stop_jobs(core, StopReason::Teardown).await;
     let pids: Vec<u32> = {
         let map = core.in_flight.lock().await;
         let mut all = Vec::new();

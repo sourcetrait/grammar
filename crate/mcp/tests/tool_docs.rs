@@ -13,6 +13,7 @@ const EXECUTE_DOC: &str = include_str!("../../../include/human/mcp/execute.md");
 const MCP_DOC: &str = include_str!("../../../include/human/mcp/mcp.md");
 const INTERFACE_DOC: &str = include_str!("../../../include/human/mcp/interface.md");
 const BED_DOC: &str = include_str!("../../../include/human/mcp/bed.md");
+const AWAIT_DOC: &str = include_str!("../../../include/mcp/tool/await.md");
 
 fn description(s: &TestServer, name: &str) -> String {
     let tools = s.tools();
@@ -30,6 +31,12 @@ fn the_execute_tool_is_described_by_its_contract() {
 }
 
 #[test]
+fn the_await_tool_is_described_by_its_doc() {
+    let s = TESTING.harness();
+    assert_eq!(description(s, "await"), AWAIT_DOC);
+}
+
+#[test]
 fn rerun_names_the_tool_it_reruns() {
     let s = TESTING.harness();
     assert!(description(s, "rerun").contains("`execute`"));
@@ -41,6 +48,7 @@ fn the_instructions_open_with_the_envelope_schema() {
     let instructions = s.instructions();
     assert!(instructions.starts_with(MCP_DOC), "{instructions}");
     assert!(instructions.contains("/execute/<nonce>/definition.nu"), "{instructions}");
+    assert!(instructions.contains("/await/<nonce>/{suite.nu,trace.nuonl,<definition>/}"), "{instructions}");
     assert!(instructions.contains("the paths in its results are that host's own"), "{instructions}");
 }
 
@@ -53,7 +61,7 @@ fn no_tool_declares_an_output_schema() {
 }
 
 #[test]
-fn five_tools_are_routed() {
+fn six_tools_are_routed() {
     let s = TESTING.harness();
     let mut names: Vec<String> = s
         .tools()
@@ -61,7 +69,7 @@ fn five_tools_are_routed() {
         .map(|tool| tool["name"].as_str().unwrap_or_default().to_string())
         .collect();
     names.sort();
-    assert_eq!(names, vec!["bed", "call", "execute", "interface", "rerun"]);
+    assert_eq!(names, vec!["await", "bed", "call", "execute", "interface", "rerun"]);
 }
 
 #[test]

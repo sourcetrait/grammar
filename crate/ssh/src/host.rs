@@ -64,6 +64,7 @@ impl HostRoute {
             },
             HostAsk::ChannelSend(data) => self.asker.ask(SessionAsk::ChannelSend(data)).await,
             HostAsk::Stopped(stopped) => self.asker.ask(SessionAsk::Stopped(stopped)).await,
+            HostAsk::Await(event) => self.asker.ask(SessionAsk::Await(event)).await,
             HostAsk::RemoteSend(data) => match tk::spawn_blocking(move || prepare_send(data)).await {
                 Ok(Ok(prepared)) => self.asker.ask(SessionAsk::RemoteSend(prepared)).await,
                 Ok(Err(reason)) => HostAnswer::Refused(reason),

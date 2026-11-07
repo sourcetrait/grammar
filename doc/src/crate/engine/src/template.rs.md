@@ -59,3 +59,8 @@ call's later def winning its own call's resolution.
 The data's literal binds the `data` positional, so nushell's own check of it runs at
 parse too, beneath the host's strict one; the timeout's literal follows only when the
 signature takes `timeout?`.
+
+## fn build_suite_source
+A suite's definition runs on its cached module overlaid with a prefix, as a call runs a
+rig's `main`, so the module's helpers and imports resolve as the module declares them and
+the export is called by its name under the alias.

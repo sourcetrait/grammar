@@ -92,6 +92,9 @@ An interface call's subcommand is parsed here and run on this engine with the
 session's view (`crate/engine`'s `desk.rs`), so the MCP sends a command it knows
 only as text.
 
+An await call is answered as the other calls are; its job's events ride the session's
+asks after the answer.
+
 ## fn value
 A call's answer, its value or its rows; a request the engine's system fails to
 take answers as the call's failure, so the MCP reads one shape whatever failed.

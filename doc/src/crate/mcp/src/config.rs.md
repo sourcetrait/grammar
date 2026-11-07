@@ -209,3 +209,5 @@ tool whole. `Embedded` holds the engine's own name (`GRMR_COMMANDS`). `Command` 
 (`server/interface/grammar.rs`), so a deny names exactly a command the parse
 registers, and a word sequence the table lacks is refused at the argument as an
 unknown tool is.
+
+`await` is deniable as the other tools are.

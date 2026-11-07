@@ -20,6 +20,8 @@ because each is rendered from the deny set at runtime and the tool attribute tak
 constant. A denied `grmr` command leaves bed standing, its description and its calls
 without that command.
 
+`await` routes unless denied, as the other tools do.
+
 ## const MCP_DOC
 User's `include/human/mcp/mcp.md`, verbatim: the envelope every tool answers, which he
 keeps as the contract's own text, so the instructions an agent reads are his schema
@@ -46,3 +48,6 @@ envelope and those paths lives in the skills, not here.
 The same config answers `server/discover` in the 2026-07-28 era, rmcp building the
 DiscoverResult from it, so a client that never sends `initialize` still gets the title and
 the instructions.
+
+The instructions name an await call's directory too, so an agent finds a job's trace
+after a packet the Channel couldn't take.

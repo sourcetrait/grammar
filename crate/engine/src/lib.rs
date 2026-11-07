@@ -17,6 +17,7 @@ pub(crate) mod equip {
 pub(crate) mod execute;
 pub(crate) mod executor;
 pub(crate) mod identity;
+pub(crate) mod job;
 pub(crate) mod lint;
 pub(crate) mod mode;
 pub(crate) mod msg;
@@ -46,6 +47,7 @@ pub(crate) mod plugins;
 pub(crate) mod schema;
 pub(crate) mod send;
 pub(crate) mod serve;
+pub(crate) mod suite;
 pub(crate) mod system;
 pub(crate) mod teardown;
 pub(crate) mod template;
@@ -65,9 +67,9 @@ pub(crate) use crate::{
     cache::call_log_dir,
     config_dirs::{config_dirs, init_config_dirs},
     dispatch::{
-        DEFAULT_TIMEOUT_MS, Dispatch, HungRegistry, HungWatch, InFlight, InFlightKind,
-        READY_POOL_TARGET, dispatch_pooled, dispatch_stateful, hung_snapshot, now_millis,
-        register_hung, teardown_all_in_flight,
+        DEFAULT_TIMEOUT_MS, Dispatch, HungRegistry, HungWatch, InFlight, InFlightEntry, InFlightKind,
+        READY_POOL_TARGET, dispatch_pooled, dispatch_stateful, eval_pooled, hung_snapshot, now_millis,
+        register_hung, register_in_flight, remove_in_flight, teardown_all_in_flight,
     },
     embed::{StatefulEngine, eval_in_process, eval_stateless, merge_env_no_chdir},
     engine::{instance_startup, startup},
@@ -83,7 +85,8 @@ pub(crate) use crate::{
         },
         validate::{HELP_WORDS, NAME_DENYLIST, is_reserved_term, validate_equip_source},
     },
-    execute::{EXECUTE, contract_signature},
+    execute::{EXECUTE, SignatureContract, contract_signature},
+    job::{AwaitJobs, StopReason, running_job, serve_await, stop_job, stop_jobs},
     mode::Mode,
     nuapi::{
         grmr::{
@@ -103,14 +106,18 @@ pub(crate) use crate::{
     params::{cache_home, data_home, params, started},
     parse_engine::{LIB_DIRS_CONST, PLUGIN_DIRS_CONST, dirs_value, set_dirs_const},
     plugins::{load_plugin_decls, registry_mtime, registry_path},
-    schema::{data_typedef, result_typedef, signature_group},
-    serve::{EngineCore, serve_bed, serve_call, serve_control, serve_execute, serve_rerun},
+    schema::{data_typedef, result_typedef, same_shape, signature_group, suite_data_typedef},
+    serve::{
+        EngineCore, hold_data, local, serve_bed, serve_call, serve_control, serve_execute,
+        serve_rerun,
+    },
     system::HostLink,
     teardown::{kill_plugin_subprocesses, make_tracker, tree_kill},
     template::render_nuon,
 };
 
 pub(crate) use sourcetrait_grammar_protocol::{
+    AWAIT_RESULT_MODEL, AWAIT_STATUS_MODEL, AWAIT_STOPPED_MODEL,
     ChannelSendData, ChannelSpamErrorEmergency, HostInfo, INTERFACE, PreparedSend, PurviewRow, PurviewView,
     RemoteSendData, RuntimeError, SendFile, TransientPaths, model_too_long, model_too_long_reason,
     reserved_prefix, safe_dest, with_head,
@@ -165,6 +172,7 @@ pub(crate) mod nu {
         debugger::WithoutDebug,
         engine::{Command, EngineState, Job, Jobs, Mail, Stack, StateWorkingSet, ThreadJob},
     };
+    pub(crate) use nu_protocol::JobId;
     pub(crate) use nu_protocol::ast::Call as AstCall;
     pub(crate) use nu_protocol::shell_error::generic::GenericError;
     pub(crate) use nu_std::load_standard_library;
@@ -174,7 +182,7 @@ pub(crate) mod nu {
 pub(crate) use nu::{CallExt, IntoValue};
 
 pub(crate) use nuval::{
-    NuField, NuType, NuTypeError, NuVal, NuonStyle, TryFromNu, TryIntoNu, wide,
+    DateData, NuField, NuType, NuTypeError, NuVal, NuonStyle, TryFromNu, TryIntoNu, wide,
 };
 
 pub(crate) use sourcetrait_common::{agnostic, cereal, datum, subsys};
@@ -186,13 +194,13 @@ pub(crate) mod ser {
 pub(crate) mod tk {
     pub(crate) use tokio::{
         spawn,
-        task::spawn_blocking,
+        task::{JoinSet, spawn_blocking},
         sync::{
-            Mutex as AsyncMutex, OwnedSemaphorePermit, RwLock as AsyncRwLock, Semaphore,
+            Mutex as AsyncMutex, Notify, OwnedSemaphorePermit, RwLock as AsyncRwLock, Semaphore,
             oneshot,
             mpsc::{UnboundedSender, unbounded_channel},
         },
-        time::{Duration as TkDuration, timeout},
+        time::{Duration as TkDuration, sleep, timeout},
     };
 }
 
@@ -223,6 +231,7 @@ pub use crate::{
     },
     execute::{ExecuteDef, analyze_definition, define, definition_model, render_definition},
     executor::{Executor, eval_concurrency_cap},
+    job::TRACE_FILE,
     identity::EngineIdentity,
     lint::lint_block,
     msg::{DefineRequest, FromEngine, HostAsk, PinAsk, ToEngine},
@@ -236,13 +245,17 @@ pub use crate::{
     plugins::{ensure_plugin_registry, list_registered_plugins},
     schema::{check_value, typedef_text},
     send::prepare_send,
-    serve::{nuon_data, nuon_timeout},
+    serve::{nuon_data, nuon_heartbeats, nuon_timeout, nuon_timeouts},
+    suite::{
+        EXECUTE_EXPORT, PREPARE, PhaseDef, STATUS, STOP, SUITE_EXPORTS, SUITE_FILE, SuiteDef,
+        analyze_suite, heartbeats_type, job_type, prepared_record_type, timeouts_type,
+    },
     system::{EngineHandle, EngineSysConfig, EngineSysParams, EngineSysPaths, EngineSystem},
-    template::{build_call_source, build_execute_source},
+    template::{build_call_source, build_execute_source, build_suite_source},
 };
 
 pub use sourcetrait_grammar_protocol::{
-    BUILTINS, BedRequest, CallDoc, CallRequest, CheckSummary, CommitResult, ControlAnswer,
+    AwaitEvent, AwaitRequest, BUILTINS, BedRequest, CallDoc, CallRequest, CheckSummary, CommitResult, ControlAnswer,
     ControlRequest, Diagnostic, EngineCommand, EngineError, EngineHealth, EngineResult, ExecuteDefinition,
     ExecuteRequest,
     FromEngineSys, Host, HostAnswer, HostStop, HungEval, InspectDoc, LINT_VIOLATION_CAP, Lane,

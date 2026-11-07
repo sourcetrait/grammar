@@ -20,6 +20,10 @@ into the store behind the engine's back has no lock, and a call to it answers
 The system's link to its controller, held for every eval the core dispatches, each
 lane handing it to its eval's decls.
 
+### field jobs
+The await jobs running, under their calls' nonces: where a kill and the teardown find a
+job's stop.
+
 ## fn local
 A request names its host, so one request type serves a linked host's engine as well as
 this one. Until this engine serves a linked host's requests, a request naming one is
@@ -30,6 +34,11 @@ machine.
 A tool's timeout, taken at the MCP's edge as the value its NUON names, as its data is,
 by nuval's reader: NUON reads a duration literal. A text that isn't NUON is refused as
 a timeout.
+
+## fn nuon_timeouts / fn nuon_heartbeats
+An await call's two NUON parameters taken as their values at the tool's edge, each
+refused under its own kind; their shapes are the serving engine's to hold, since a remote
+engine runs the job.
 
 ## fn parse_timeout
 The call's timeout and nothing else: the value held to a positive duration, a value of
@@ -168,6 +177,10 @@ plugins.
 The hang watch is registered while the entry is still live, since the kill answers before
 the dispatch future does and the entry would otherwise be gone by the time a hang could be
 confirmed.
+
+An await job's kill runs its stop first and answers once the stop has run and the job is
+killed: the job is found among the running jobs by the call's nonce before the in-flight
+map is read.
 
 ## fn health
 The supervisor's one reading of the engine: the threads watched for a hang, the permits

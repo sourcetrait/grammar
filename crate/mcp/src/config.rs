@@ -335,6 +335,7 @@ pub(crate) fn spec_default(var: &str) -> Option<PathBuf> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeniableTool {
     Execute,
+    Await,
     Rerun,
     Call,
     Interface,
@@ -347,6 +348,7 @@ impl DeniableTool {
     pub(crate) fn from_name(s: &str) -> Option<Self> {
         Some(match s.trim() {
             "execute" => Self::Execute,
+            "await" => Self::Await,
             "rerun" => Self::Rerun,
             "call" => Self::Call,
             "interface" => Self::Interface,

@@ -4,11 +4,14 @@ use crate::*;
 const MCP_DOC: &str = include_str!("../../../../../include/human/mcp/mcp.md");
 
 impl NuSh {
-    /// The five tools the deny set leaves, `interface`'s and `bed`'s descriptions set.
+    /// The six tools the deny set leaves, `interface`'s and `bed`'s descriptions set.
     pub(crate) fn tool_router(deny: &DenySet) -> mcp::ToolRouter<Self> {
         let mut router = mcp::ToolRouter::new();
         if !deny.denies(DeniableTool::Execute) {
             router += Self::execute_router();
+        }
+        if !deny.denies(DeniableTool::Await) {
+            router += Self::await_router();
         }
         if !deny.denies(DeniableTool::Rerun) {
             router += Self::rerun_router();
@@ -56,7 +59,9 @@ impl mcp::ServerHandler for NuSh {
                  {cache}/{{execute,calls}}/<nonce>/{{stdout,stderr}}; \
                  an execute call's definition co-locates at \
                  {cache}/execute/<nonce>/definition.nu \
-                 (the rerun(nonce) handle). \
+                 (the rerun(nonce) handle); an await call's suite, its trace of events, \
+                 and each definition's logs at \
+                 {cache}/await/<nonce>/{{suite.nu,trace.nuonl,<definition>/}}. \
                  Installed equips live in a signed git repo at \
                  {data}/equip/; signing keypair at \
                  {data}/keypair/. \

@@ -20,6 +20,9 @@ supervisor lines in place of the MCP's, since those govern grammar-ssh's
 operator. A send and a stop go up as they are; a remote send is prepared here
 first, its files read where they are, and goes up inline.
 
+An await job's event goes to the MCP as an ask, as a Channel send does, and the MCP
+emits it under the engine's alias.
+
 ## fn with_supervisor
 The record's `supervisor` table replaced, its shape the MCP's, so a definition
 reads one shape on any host.

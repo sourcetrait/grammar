@@ -9,7 +9,8 @@ use std::time::Duration;
 use sourcetrait_common::datum;
 use sourcetrait_grammar_client::{Session, SessionEvent};
 use sourcetrait_grammar_protocol::{
-    CallAnswer, EngineRequest, EngineResponse, ExecuteDefinition, ExecuteRequest, HelloReply, Host,
+    AWAIT_RESULT_MODEL, AwaitRequest, CallAnswer, EngineRequest, EngineResponse, ExecuteDefinition,
+    ExecuteRequest, HelloReply, Host,
     HostAnswer, Instance, InterfaceRequest, LIMITS_DEFAULT, Limits, McpFrame, NuType, NuVal, SessionAsk,
     SessionClose, SshFrame, TransportError,
 };
@@ -234,6 +235,61 @@ fn an_evals_asks_reach_the_mcp_and_its_answers_come_back() {
             record(&[("cpu", NuVal::Float(0.5)), ("rate", NuVal::Int(10))]),
             "the MCP's config, grammar-ssh's own supervisor lines in it",
         );
+    });
+}
+
+/// The PREPARED record of a suite whose prepare answers nothing.
+const NOTHING_PREPARED: &str = "record<job: record<id: int, started: datetime>, prepared: nothing>";
+
+/// A suite on `data: nothing` whose job answers `{done: true}` at once.
+fn quick_suite() -> String {
+    format!(
+        "export def prepare [data: nothing]: nothing -> nothing {{ }}
+export def execute [data: {NOTHING_PREPARED}]: nothing -> record<done: bool> {{ {{done: true}} }}
+export def status [data: {NOTHING_PREPARED}]: nothing -> nothing {{ }}
+export def stop [data: {NOTHING_PREPARED}]: nothing -> nothing {{ }}
+"
+    )
+}
+
+#[test]
+fn an_await_job_answers_its_record_and_its_events_ride_the_ask() {
+    let instance = TestInstance::new("fixture");
+    runtime().block_on(async {
+        let (_child, opened) = open(&instance, "default", LIMITS_DEFAULT).await;
+        let (session, mut events) = opened.expect("the session opens");
+        let (seen_tx, mut seen_rx) = tokio::sync::mpsc::unbounded_channel();
+        tokio::spawn(async move {
+            while let Some(event) = events.recv().await {
+                if let SessionEvent::Ask { ask, responder } = event {
+                    responder.answer(match ask {
+                        SessionAsk::Await(event) => {
+                            let _ = seen_tx.send(event);
+                            HostAnswer::Sent("event1".to_string())
+                        }
+                        other => HostAnswer::Refused(format!("{other:?}")),
+                    });
+                }
+            }
+        });
+        let nonce = datum::NonceGenerator::new().generate();
+        let request = EngineRequest::Await(AwaitRequest {
+            host: Host::Local,
+            nonce,
+            module: quick_suite(),
+            data: NuVal::Nothing,
+            timeouts: None,
+            heartbeats: None,
+        });
+        let prepared = value(&session, request).await;
+        assert_eq!(field(&prepared, "prepared"), &NuVal::Nothing);
+        let event = tokio::time::timeout(Duration::from_secs(10), seen_rx.recv())
+            .await
+            .expect("an event within 10 s")
+            .expect("the event");
+        assert_eq!(event.model, AWAIT_RESULT_MODEL);
+        assert_eq!(field(&event.data, "result"), &record(&[("done", NuVal::Bool(true))]));
+        assert_eq!(text(field(&event.data, "nonce")), nonce.to_string());
     });
 }
 

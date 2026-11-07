@@ -36,6 +36,9 @@ action it reports is known only once the sender has stopped. grammar-ssh's
 controller answers a pin itself and carries the rest to its session's MCP as
 the session's asks, a remote send prepared first (`send.rs`).
 
+`Await` is an await job's event, asked of the host, which emits it as a host packet, so no
+body can forge one.
+
 ## macro wire_request
 `ExecuteRequest`, `RerunRequest`, `CallRequest`, and `BedRequest` answer with a
 `ValueAnswer`,

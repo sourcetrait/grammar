@@ -84,6 +84,11 @@ A prepared send, a local eval's or grammar-ssh's, goes to the peer links'
 system, which mints the id and queues the frames on
 the link to `mcp_nom` (`crate/peer`'s `system.rs`).
 
+### fn emit_await
+An engine's await event emitted through the Channel's gate as a host packet, from `mcp`,
+a remote engine's from `<alias>/mcp`. A model outside `mcp/await/` is refused, so an
+engine emits nothing else as the host.
+
 ### fn remote_answer
 A remote engine's ask is answered as a local eval's is, so a definition on
 grammar-ssh reaches the agent's Channel and the remote links as it does locally.

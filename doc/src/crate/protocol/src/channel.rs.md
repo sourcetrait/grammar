@@ -44,6 +44,11 @@ client-cap change is a one-line edit. A rendered line over it spills its
 `attached`, then its `data`, each to its file's size (`crate/channel`'s
 `render.rs`).
 
+## const AWAIT_MODEL_PREFIX / struct AwaitEvent
+An await job's events are host packets under `mcp/await/`: Status, Result, and Stopped.
+The event is its model and its data, so a new event moves no wire; the MCP emits only a
+model under the prefix.
+
 ## const MODEL_MAX_CHARS / fn model_too_long
 The one field a spilled line keeps that its sender chooses, bounded so a spill
 always fits the cap. Held wherever the reservation is: a definition's send, a

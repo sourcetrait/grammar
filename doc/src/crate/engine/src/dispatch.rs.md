@@ -17,9 +17,10 @@ deliberate: the list shows ALL in-flight work on the engine, so subagents see ea
 calls and the primary's.
 
 ## enum InFlightKind
-Every kind but `call` and `bed` carries its LANE, the one thing `Kill` and the hang watch
-need to tell a stuck stateful lane from a held stateless permit; `call` and `bed` always
-run stateless.
+Every kind but `call`, `bed`, and `await` carries its LANE, the one thing `Kill` and the
+hang watch need to tell a stuck stateful lane from a held stateless permit; the three
+always run stateless. `Await` names an await call's row in both of its lives: its prepare
+within the call, then its job under the same nonce.
 
 ## struct HungWatch
 Registered on the TIMEOUT branch of either dispatch path, and on a `Kill` of a live entry.
@@ -47,9 +48,15 @@ same description: its nonce and source, what the process list shows of it, its k
 definition to cache, and its timeout.
 
 ## fn dispatch_pooled
+A call's own: its log directory made and its definition cached, then `eval_pooled` with its
+row in flight. The caller names the log directory, so an await job's prepare logs under
+its job's directory as a call logs under its cache kind's.
+
+## fn eval_pooled
 THE HOST MINTS THE NONCE and the request carries it; the dispatch hands it to the eval, which
 sets it as `$env.NONCE` on the eval's stack - which is what makes the ambient value equal
-the envelope's.
+the envelope's. An eval with no row in flight is an await job's status or stop, which run
+under the job's own row; everything else about the pool holds for it.
 
 `refresh_base_if_stale` runs before taking a clone, so this eval runs against current
 plugin decls rather than whatever the base held when it was built.
@@ -82,9 +89,15 @@ Drop SPAWNS an async removal task because `Drop` cannot await, and the map is be
 async mutex. The consequence worth knowing: removal is not synchronous with the dispatch
 returning, so a `Processes` racing a completion can still see the finished entry briefly.
 
+## fn remove_in_flight
+The removal is by identity, the row's `finished` flag the eval's own: an await call's
+prepare returns and its job registers under the same nonce at once, so a late removal by
+nonce alone would take the job's row.
+
 ## fn teardown_all_in_flight
 The `Teardown` command and the system's stop both run it, so a host shutting down - its
-client gone, or a signal taken mid-eval - leaks no process tree.
+client gone, or a signal taken mid-eval - leaks no process tree. Every await job's stop
+runs first, while its job still runs, so the stop can tear down what the job holds.
 
 ## fn sweep_env_jobs
 THE HALF `in_flight` STRUCTURALLY CANNOT COVER. A `job spawn` that outlives its eval has

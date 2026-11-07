@@ -57,6 +57,7 @@ pub enum EngineRequest {
     Call(CallRequest),
     Bed(BedRequest),
     Interface(InterfaceRequest),
+    Await(AwaitRequest),
 }
 
 impl EngineRequest {
@@ -84,6 +85,10 @@ impl From<BedRequest> for EngineRequest {
 
 impl From<InterfaceRequest> for EngineRequest {
     fn from(v: InterfaceRequest) -> Self { Self::Interface(v) }
+}
+
+impl From<AwaitRequest> for EngineRequest {
+    fn from(v: AwaitRequest) -> Self { Self::Await(v) }
 }
 
 /// grammar-ssh's answer to a tool call.
@@ -147,6 +152,8 @@ pub enum SessionAsk {
     RemoteSend(PreparedSend),
     /// The MCP's configuration in force.
     Config,
+    /// An await job's event for the MCP's Channel.
+    Await(AwaitEvent),
 }
 
 /// A remote send as its sender prepares it: its data and each file's bytes.

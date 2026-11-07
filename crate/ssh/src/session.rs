@@ -446,6 +446,11 @@ async fn respond(
             let nonce = req.nonce;
             value(nonce, engine.request(req).await)
         }
+        EngineRequest::Await(mut req) => {
+            req.host = Host::Local;
+            let nonce = req.nonce;
+            value(nonce, engine.request(req).await)
+        }
         EngineRequest::Interface(req) => {
             let desk = SessionDesk { engine, info, view };
             CallAnswer {

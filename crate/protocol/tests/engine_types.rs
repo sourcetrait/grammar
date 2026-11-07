@@ -42,6 +42,11 @@ fn bed_refusal() -> Diagnostic {
     Diagnostic::error("bed::invalid", Some(source), "one `grmr` command, never piped")
 }
 
+fn suite_refusal() -> Diagnostic {
+    let source = Source { path: None, position: [3, 1] };
+    Diagnostic::error("module::invalid", Some(source), "a suite exports `prepare`")
+}
+
 fn detailed() -> Diagnostic {
     let detail = NuVal::Record(vec![("nom".into(), NuVal::String("fixturenom1".into())), ("n".into(), NuVal::Int(-1))]);
     Diagnostic::error("engine::restart", None, "Grammar engine has a new nom").with_detail(detail)
@@ -104,10 +109,24 @@ fn requests() -> Vec<(String, ToEngineSys)> {
             command: "grmr".into(),
             subcommand: "channel send 'my/adhoc/Thing' {foo: 'bar', num: 3}".into(),
         };
+        let suite = AwaitRequest {
+            host,
+            nonce: NONCE,
+            module: "export def prepare [data: nothing]: nothing -> nothing { }".into(),
+            data: NuVal::Nothing,
+            timeouts: Some(NuVal::Record(vec![
+                ("prepare".into(), NuVal::Nothing),
+                ("execute".into(), NuVal::Duration(0)),
+                ("status".into(), NuVal::Duration(5_000_000_000)),
+                ("stop".into(), NuVal::Nothing),
+            ])),
+            heartbeats: Some(NuVal::List(vec![NuVal::Duration(1_000_000_000), NuVal::Duration(i64::MAX)])),
+        };
         out.push((format!("request/execute/{h}"), execute.into()));
         out.push((format!("request/rerun/{h}"), rerun.into()));
         out.push((format!("request/call/{h}"), call.into()));
         out.push((format!("request/bed/{h}"), bed.into()));
+        out.push((format!("request/await/{h}"), suite.into()));
     }
     for (c, command) in commands() {
         out.push((format!("request/control/{c}"), ControlRequest { host: Host::Local, command }.into()));
@@ -153,6 +172,8 @@ fn engine_errors() -> Vec<(&'static str, EngineError)> {
         ("host_unserved", E::HostUnserved { host: "example".into() }),
         ("internal", E::Internal { phase: "io".into(), reason: "denied".into() }),
         ("bed_violations", E::BedViolations { diagnostics: vec![bed_refusal(), warning()] }),
+        ("suite_violations", E::SuiteViolations { diagnostics: vec![suite_refusal(), warning()] }),
+        ("heartbeats_invalid", E::HeartbeatsInvalid { reason: "one interval".into() }),
     ]
 }
 
@@ -347,6 +368,8 @@ fn error_variant(e: &EngineError) -> &'static str {
         E::HostUnserved { .. } => "host_unserved",
         E::Internal { .. } => "internal",
         E::BedViolations { .. } => "bed_violations",
+        E::SuiteViolations { .. } => "suite_violations",
+        E::HeartbeatsInvalid { .. } => "heartbeats_invalid",
     }
 }
 
@@ -375,7 +398,7 @@ fn every_variant_has_its_vector() {
     let commands: BTreeSet<_> = commands().iter().map(|(_, c)| command_variant(c)).collect();
     assert_eq!(commands.len(), 12);
     let errors: BTreeSet<_> = engine_errors().iter().map(|(_, e)| error_variant(e)).collect();
-    assert_eq!(errors.len(), 28);
+    assert_eq!(errors.len(), 30);
     let answers: BTreeSet<_> = control_answers().iter().map(|(_, a)| answer_variant(a)).collect();
     assert_eq!(answers.len(), 13);
     let messages: BTreeSet<_> = requests()
@@ -386,9 +409,10 @@ fn every_variant_has_its_vector() {
             ToEngineSys::Call(_) => "call",
             ToEngineSys::Control(_) => "control",
             ToEngineSys::Bed(_) => "bed",
+            ToEngineSys::Await(_) => "await",
         })
         .collect();
-    assert_eq!(messages.len(), 5);
+    assert_eq!(messages.len(), 6);
 }
 
 #[test]
@@ -414,6 +438,7 @@ fn each_single_condition_error_keeps_its_kind() {
                 EngineError::EquipViolations { .. }
                     | EngineError::DefinitionViolations { .. }
                     | EngineError::BedViolations { .. }
+                    | EngineError::SuiteViolations { .. }
             )
         })
         .map(|(name, e)| (*name, e.kind()))
@@ -438,6 +463,7 @@ fn each_single_condition_error_keeps_its_kind() {
         ("data_invalid", "data::invalid"),
         ("result_invalid", "result::invalid"),
         ("timeout_invalid", "timeout::invalid"),
+        ("heartbeats_invalid", "heartbeats::invalid"),
         ("rerun_invalid_nonce", "rerun::invalid_nonce"),
         ("rerun_body_missing", "rerun::body_missing"),
         ("dispatch", "thread::dispatch"),
@@ -510,6 +536,10 @@ fn a_violations_error_reports_its_error_rows_alone() {
     let rows = bed.rows();
     assert_eq!(rows.len(), 1, "a bed call's refusal reports its errors alone");
     assert_eq!((rows[0].kind.as_str(), rows[0].source.as_ref().map(|s| s.position)), ("bed::invalid", Some([1, 14])));
+    let suite = EngineError::SuiteViolations { diagnostics: vec![suite_refusal(), warning()] };
+    let rows = suite.rows();
+    assert_eq!(rows.len(), 1, "a suite's refusal reports its errors alone");
+    assert_eq!((rows[0].kind.as_str(), rows[0].source.as_ref().map(|s| s.position)), ("module::invalid", Some([3, 1])));
     let single = EngineError::Timeout { timeout_ms: 1500 }.rows();
     assert_eq!(single.len(), 1);
     assert_eq!((single[0].kind.as_str(), single[0].message.as_str()), ("thread::timeout", "eval timed out after 1500 ms"));

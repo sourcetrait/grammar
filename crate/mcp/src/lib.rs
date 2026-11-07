@@ -18,6 +18,7 @@ pub(crate) mod server {
     pub(crate) mod remote;
     pub(crate) mod run;
     pub(crate) mod tool {
+        pub(crate) mod await_tool;
         pub(crate) mod bed;
         pub(crate) mod call;
         pub(crate) mod channel_close;
@@ -95,6 +96,7 @@ pub(crate) use crate::{
         emergency::EmergencyPolicy,
         identity::mint_nonce,
         tool::{
+            await_tool::AwaitParams,
             bed::{BED_TOOL, BedParams, bed_description},
             call::CallParams,
             common::{
@@ -139,7 +141,8 @@ pub(crate) use sourcetrait_grammar_engine::{
     build_execute_source, definition_file, ensure_default_purview, ensure_equip_store,
     ensure_plugin_registry, equip_root, file_start, grmr_signatures_where,
     index_from_nuon,
-    install_builtins, lib_dir, lint_block, list_registered_plugins, nuon_data, nuon_timeout, prepare_send,
+    install_builtins, lib_dir, lint_block, list_registered_plugins, nuon_data, nuon_heartbeats,
+    nuon_timeout, nuon_timeouts, prepare_send,
     purviews_path, rig_dir, rig_meta_path, run_engine_command, seed_builtin_purviews, typedef_text,
 };
 
@@ -187,7 +190,7 @@ pub(crate) use sourcetrait_grammar_protocol::{
 };
 
 pub(crate) use sourcetrait_grammar_protocol::{
-    BedRequest, with_head,
+    AWAIT_MODEL_PREFIX, AwaitEvent, AwaitRequest, BedRequest, with_head,
 };
 
 pub(crate) use sourcetrait_grammar_protocol::{

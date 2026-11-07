@@ -98,6 +98,21 @@ pub struct BedRequest {
     pub subcommand: String,
 }
 
+/// An `await` call: a suite module's job, prepared on its data and started.
+#[cereal::derived(Data)]
+pub struct AwaitRequest {
+    pub host: Host,
+    pub nonce: datum::Nonce,
+    /// The module: its Nu text, exporting the suite's four definitions.
+    pub module: String,
+    /// prepare's data, the tool's NUON taken as its value.
+    pub data: NuVal,
+    /// Each definition's timeout, the tool's NUON taken as its value; the defaults when absent.
+    pub timeouts: Option<NuVal>,
+    /// The gaps between status beats, the tool's NUON taken as its value; the default when absent.
+    pub heartbeats: Option<NuVal>,
+}
+
 /// An interface call: its subcommand, parsed and run by the host it reaches.
 #[cereal::derived(Data)]
 pub struct InterfaceRequest {
@@ -474,6 +489,14 @@ pub enum EngineError {
     BedViolations {
         diagnostics: Vec<Diagnostic>,
     },
+    /// An await call's refusals, its module held to the suite's contract.
+    SuiteViolations {
+        diagnostics: Vec<Diagnostic>,
+    },
+    /// An await call's heartbeats, and why they are refused.
+    HeartbeatsInvalid {
+        reason: String,
+    },
 }
 
 /// The engine's result.
@@ -502,6 +525,7 @@ impl EngineError {
             Self::DataInvalid { .. } => "data::invalid",
             Self::ResultInvalid { .. } => "result::invalid",
             Self::TimeoutInvalid { .. } => "timeout::invalid",
+            Self::HeartbeatsInvalid { .. } => "heartbeats::invalid",
             Self::RerunInvalidNonce { .. } => "rerun::invalid_nonce",
             Self::RerunBodyMissing { .. } => "rerun::body_missing",
             Self::Dispatch { .. } => "thread::dispatch",
@@ -509,7 +533,8 @@ impl EngineError {
             Self::HostUnserved { .. } => "host::unserved",
             Self::EquipViolations { .. }
             | Self::DefinitionViolations { .. }
-            | Self::BedViolations { .. } => {
+            | Self::BedViolations { .. }
+            | Self::SuiteViolations { .. } => {
                 unreachable!("a violations error renders through its rows, not a kind")
             }
         }
@@ -571,7 +596,8 @@ impl EngineError {
             }
             Self::DataInvalid { reason }
             | Self::ResultInvalid { reason }
-            | Self::TimeoutInvalid { reason } => reason.clone(),
+            | Self::TimeoutInvalid { reason }
+            | Self::HeartbeatsInvalid { reason } => reason.clone(),
             Self::RerunInvalidNonce { nonce, reason } => {
                 format!("invalid nonce `{nonce}`: {reason}")
             }
@@ -583,7 +609,8 @@ impl EngineError {
             Self::HostUnserved { host } => format!("no engine is served on the host `{host}`"),
             Self::EquipViolations { .. }
             | Self::DefinitionViolations { .. }
-            | Self::BedViolations { .. } => {
+            | Self::BedViolations { .. }
+            | Self::SuiteViolations { .. } => {
                 unreachable!("a violations error renders through its rows, not a message")
             }
         }
@@ -594,7 +621,8 @@ impl EngineError {
         match self {
             Self::EquipViolations { diagnostics }
             | Self::DefinitionViolations { diagnostics }
-            | Self::BedViolations { diagnostics } => Diagnostic::bucket(diagnostics).0,
+            | Self::BedViolations { diagnostics }
+            | Self::SuiteViolations { diagnostics } => Diagnostic::bucket(diagnostics).0,
             single => vec![Diagnostic::error(single.kind(), None, single.message())],
         }
     }
@@ -623,7 +651,8 @@ impl fmt::Display for EngineError {
         match self {
             Self::EquipViolations { diagnostics }
             | Self::DefinitionViolations { diagnostics }
-            | Self::BedViolations { diagnostics } => {
+            | Self::BedViolations { diagnostics }
+            | Self::SuiteViolations { diagnostics } => {
                 let messages: Vec<&str> =
                     diagnostics.iter().map(|d| d.message.as_str()).collect();
                 f.write_str(&messages.join("; "))
@@ -642,6 +671,7 @@ pub enum ToEngineSys {
     Call(CallRequest),
     Control(ControlRequest),
     Bed(BedRequest),
+    Await(AwaitRequest),
 }
 
 #[cereal::derived(Data)]
@@ -668,6 +698,10 @@ impl From<ControlRequest> for ToEngineSys {
 
 impl From<BedRequest> for ToEngineSys {
     fn from(v: BedRequest) -> Self { Self::Bed(v) }
+}
+
+impl From<AwaitRequest> for ToEngineSys {
+    fn from(v: AwaitRequest) -> Self { Self::Await(v) }
 }
 
 impl TryFrom<FromEngineSys> for ValueAnswer {

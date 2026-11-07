@@ -111,6 +111,11 @@ crate; it is exercised live on the test channel instead. This harness names no
 client, so its open is sync and binds nothing, and a test drives one through
 `interface` itself.
 
+### fn await_suite / fn await_dir
+The await tool on the local host, and the directory its job keeps under the namespace's
+cache: a test reads a job's trace there, the test server's Channel being closed, so every
+event's emit is refused while its trace line lands.
+
 ### fn tools
 The router's own listing, each tool serialized as `tools/list` carries it, so a
 test holds a description or the absence of an output schema as a client sees it.

@@ -113,6 +113,9 @@ A caught panic heals the shared jobs table as the stateful thread's does
 lock would leave every later `job` command panicking on the poison. The table is
 emptied and its poison cleared.
 
+An eval holds no permit where it runs an await job's execute: a job holding a pool slot
+for hours would starve every call.
+
 ## fn heal_jobs
 Emptying is the only safe heal: a table a panic interrupted mid-update holds nothing
 trustworthy. A job thread still running loses its entry and with it its kill handle;

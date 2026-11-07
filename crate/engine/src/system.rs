@@ -189,6 +189,11 @@ async fn answer(
             let result = contained(serve_bed(core, req)).await;
             FromEngineSys::Value(ValueAnswer { nonce, result })
         }
+        ToEngineSys::Await(req) => {
+            let nonce = req.nonce;
+            let result = contained(serve_await(core, req)).await;
+            FromEngineSys::Value(ValueAnswer { nonce, result })
+        }
     }
 }
 

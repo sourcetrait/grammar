@@ -9,6 +9,8 @@ pub(crate) struct EngineCore {
     pub(crate) env_jobs: Arc<std::sync::Mutex<nu::Jobs>>,
     pub(crate) in_flight: InFlight,
     pub(crate) hung: HungRegistry,
+    /// The await jobs running, under their calls' nonces.
+    pub(crate) jobs: AwaitJobs,
     pub(crate) rig_locks: RigLocks,
     /// The contract's, the lint's, and the validator's engine.
     pub(crate) lint_engine: LintEngine,
@@ -34,6 +36,7 @@ impl EngineCore {
             env_jobs,
             in_flight: Arc::new(tk::AsyncMutex::new(HashMap::new())),
             hung: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            jobs: Arc::new(std::sync::Mutex::new(HashMap::new())),
             rig_locks,
             lint_engine: LintEngine::new(),
             host,
@@ -43,7 +46,7 @@ impl EngineCore {
 }
 
 /// Refuse a request for a host whose engine this process doesn't serve.
-fn local(host: Host) -> EngineResult<()> {
+pub(crate) fn local(host: Host) -> EngineResult<()> {
     match host {
         Host::Local => Ok(()),
         Host::Remote(nom) => Err(EngineError::HostUnserved {
@@ -59,6 +62,26 @@ pub fn nuon_timeout(text: Option<&str>) -> EngineResult<Option<NuVal>> {
     };
     NuVal::from_nuon(text).map(Some).map_err(|e| EngineError::TimeoutInvalid {
         reason: format!("`{text}` is not a Nu duration: {e}"),
+    })
+}
+
+/// An await call's timeouts, their NUON text taken as the value it names, where given.
+pub fn nuon_timeouts(text: Option<&str>) -> EngineResult<Option<NuVal>> {
+    let Some(text) = text else {
+        return Ok(None);
+    };
+    NuVal::from_nuon(text).map(Some).map_err(|e| EngineError::TimeoutInvalid {
+        reason: format!("`timeouts` is not NUON: {e}"),
+    })
+}
+
+/// An await call's heartbeats, their NUON text taken as the value it names, where given.
+pub fn nuon_heartbeats(text: Option<&str>) -> EngineResult<Option<NuVal>> {
+    let Some(text) = text else {
+        return Ok(None);
+    };
+    NuVal::from_nuon(text).map(Some).map_err(|e| EngineError::HeartbeatsInvalid {
+        reason: format!("`heartbeats` is not NUON: {e}"),
     })
 }
 
@@ -128,7 +151,7 @@ pub fn nuon_data(
 }
 
 /// A request's data held to its typedef, answered as its source's literal.
-fn hold_data(
+pub(crate) fn hold_data(
     data: &NuVal,
     typedef: &NuType,
 ) -> EngineResult<String> {
@@ -191,7 +214,7 @@ async fn run_prepared(
         timeout_ms: Some(timeout_ms),
     };
     let value = match def.lane {
-        Lane::Stateless => dispatch_pooled(core, CacheKind::Execute, call).await?,
+        Lane::Stateless => dispatch_pooled(core, cache_dir(CacheKind::Execute, &pair), call).await?,
         Lane::Stateful => dispatch_stateful(core, call).await?,
     };
     check_value(&value, &def.result_type, "result")
@@ -308,7 +331,7 @@ pub(crate) async fn serve_call(
         definition: None,
         timeout_ms: Some(timeout_ms),
     };
-    let value = dispatch_pooled(&core, CacheKind::Calls, call).await?;
+    let value = dispatch_pooled(&core, cache_dir(CacheKind::Calls, &pair), call).await?;
     check_value(&value, &function.result_type, "result")
         .map_err(|reason| EngineError::ResultInvalid { reason })?;
     NuVal::try_from_nu(value).map_err(|e| EngineError::ResultInvalid {
@@ -339,7 +362,7 @@ pub(crate) async fn serve_bed(
         definition: None,
         timeout_ms: None,
     };
-    let value = dispatch_pooled(&core, CacheKind::Calls, call).await?;
+    let value = dispatch_pooled(&core, cache_dir(CacheKind::Calls, &pair), call).await?;
     NuVal::try_from_nu(value).map_err(|e| EngineError::ResultInvalid {
         reason: format!("the result: {e}"),
     })
@@ -384,7 +407,7 @@ async fn processes(core: &EngineCore) -> Vec<ProcessRow> {
                 InFlightKind::Execute { .. } => (None, None),
                 InFlightKind::Rerun { source_nonce, .. } => (Some(source_nonce.clone()), None),
                 InFlightKind::Call { path } => (None, Some(path.clone())),
-                InFlightKind::Bed => (None, None),
+                InFlightKind::Bed | InFlightKind::Await => (None, None),
             };
             ProcessRow {
                 nonce: nonce.clone(),
@@ -398,11 +421,16 @@ async fn processes(core: &EngineCore) -> Vec<ProcessRow> {
         .collect()
 }
 
-/// Cancel an in-flight call by its nonce and reap its process tree.
+/// Cancel an in-flight call by its nonce and reap its process tree; a running await
+/// job's stop runs first, the job killed once it has.
 async fn kill(
     core: &EngineCore,
     nonce: &str,
 ) {
+    if let Some(job) = running_job(core, nonce) {
+        stop_job(core, &job, StopReason::Kill).await;
+        return;
+    }
     let found = {
         let map = core.in_flight.lock().await;
         match map.get(nonce) {

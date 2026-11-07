@@ -58,6 +58,8 @@ pub enum HostAsk {
     Config,
     /// A setting held for a process's lifetime.
     Pin(PinAsk),
+    /// An await job's event, a host packet for the Channel.
+    Await(AwaitEvent),
 }
 
 /// A pin's dotted key, the process it follows, and the value it holds.
@@ -182,6 +184,7 @@ wire_request! {
     CallRequest => ValueAnswer,
     ControlRequest => EngineResult<ControlAnswer>,
     BedRequest => ValueAnswer,
+    AwaitRequest => ValueAnswer,
 }
 
 impl TryFrom<FromEngine> for ValueAnswer {

@@ -46,6 +46,16 @@ The return type, read from the signature's output `Type`. The same top rule, and
 record or table refused at EVERY depth: a return declares what the body produces, and an
 open type there would assert nothing.
 
+## fn suite_data_typedef
+A suite's data under the return contract, as the document reads: no record or table open
+at any depth.
+
+## fn same_shape
+Two types as one shape. nushell's output `Type` folds `path` and `directory` into
+`string` where a parameter's `SyntaxShape` keeps them, so a PREPARED record declaring a
+`path` field must equal prepare's return type, which reads it as `string`. Fields and
+members compare in any order.
+
 ## fn not_data
 nuval refuses a closure, a block, and the parser's other shapes as types no value takes;
 the contract names each as no data type.

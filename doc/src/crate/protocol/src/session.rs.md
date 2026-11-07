@@ -54,6 +54,9 @@ An eval, a rerun, a call, or a bed call takes one of the session's call slots,
 each running an eval; an interface call takes a control slot, so a session full
 of evals still answers a kill, a process list, or an info.
 
+`Await` is the sixth call, an eval's like the others, so it takes a call's slot while
+prepare runs; its job runs on past the answer.
+
 ## enum EngineResponse
 `Refused` is grammar-ssh's refusal before its engine took the request, or an
 answer past the frame refused in its place, never the engine's own failure,
@@ -91,6 +94,9 @@ since it binds grammar-ssh's own operator, so it never crosses. A remote send
 crosses prepared: its files read on grammar-ssh, where the paths are, and
 carried inline within the frame's ceiling beside its data, so the MCP reaches
 no file of grammar-ssh's.
+
+`Await` carries an await job's event from grammar-ssh's engine to the MCP's Channel,
+which emits it under the engine's alias.
 
 ## struct PreparedSend
 ## struct SendFile

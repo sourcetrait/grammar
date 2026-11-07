@@ -32,6 +32,25 @@ pub fn relay_reserved_prefix(model: &str) -> Option<&'static str> {
     reserved_prefix(model).filter(|prefix| *prefix != CHANNEL_RESERVED_PREFIX)
 }
 
+/// The model-path prefix of an await job's events, under the host's own.
+pub const AWAIT_MODEL_PREFIX: &str = "mcp/await/";
+
+/// An await job's beat: status's value or its error's rows.
+pub const AWAIT_STATUS_MODEL: &str = "mcp/await/Status";
+
+/// An await job's end: execute's value or its error's rows.
+pub const AWAIT_RESULT_MODEL: &str = "mcp/await/Result";
+
+/// An await job's interruption: stop's value or its error's rows, and why it ran.
+pub const AWAIT_STOPPED_MODEL: &str = "mcp/await/Stopped";
+
+/// An await job's event for the Channel, a host packet's model and data.
+#[cereal::derived(Data)]
+pub struct AwaitEvent {
+    pub model: String,
+    pub data: NuVal,
+}
+
 /// The most characters a packet's model takes, so a spilled line fits the cap.
 pub const MODEL_MAX_CHARS: usize = 128;
 

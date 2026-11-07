@@ -277,6 +277,24 @@ fn bed() -> BedRequest {
     }
 }
 
+fn suite() -> AwaitRequest {
+    AwaitRequest {
+        host: Host::Local,
+        nonce: nonce(),
+        module: "export def prepare [data: nothing]: nothing -> nothing { }".into(),
+        data: NuVal::Nothing,
+        timeouts: None,
+        heartbeats: Some(NuVal::List(vec![NuVal::Duration(30_000_000_000), NuVal::Duration(60_000_000_000)])),
+    }
+}
+
+fn await_event() -> AwaitEvent {
+    AwaitEvent {
+        model: AWAIT_RESULT_MODEL.into(),
+        data: NuVal::Record(vec![("nonce".into(), NuVal::String("callnonce01".into()))]),
+    }
+}
+
 fn interface() -> InterfaceRequest {
     InterfaceRequest {
         nonce: nonce(),
@@ -305,6 +323,7 @@ fn requests() -> Vec<(&'static str, EngineRequest)> {
         ("call", call().into()),
         ("bed", bed().into()),
         ("interface", interface().into()),
+        ("await", suite().into()),
     ]
 }
 
@@ -326,6 +345,7 @@ fn asks() -> Vec<(&'static str, SessionAsk)> {
         ("stopped", SessionAsk::Stopped(spam_error())),
         ("remote_send", SessionAsk::RemoteSend(prepared())),
         ("config", SessionAsk::Config),
+        ("await", SessionAsk::Await(await_event())),
     ]
 }
 
@@ -480,9 +500,10 @@ fn every_variant_has_its_vector() {
             EngineRequest::Call(_) => "call",
             EngineRequest::Bed(_) => "bed",
             EngineRequest::Interface(_) => "interface",
+            EngineRequest::Await(_) => "await",
         })
         .collect();
-    assert_eq!(requests.len(), 5);
+    assert_eq!(requests.len(), 6);
     let responses: BTreeSet<_> = responses()
         .iter()
         .map(|(_, r)| match r {
@@ -498,9 +519,10 @@ fn every_variant_has_its_vector() {
             SessionAsk::Stopped(_) => "stopped",
             SessionAsk::RemoteSend(_) => "remote_send",
             SessionAsk::Config => "config",
+            SessionAsk::Await(_) => "await",
         })
         .collect();
-    assert_eq!(asks.len(), 4);
+    assert_eq!(asks.len(), 5);
     let answers: BTreeSet<_> = answers()
         .iter()
         .map(|(_, a)| match a {

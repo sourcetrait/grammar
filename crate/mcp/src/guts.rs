@@ -490,6 +490,31 @@ impl TestServer {
         cache.join("calls").join(nonce)
     }
 
+    /// An await call's dir, its suite, its trace, and each definition's logs.
+    pub fn await_dir(&self, nonce: &str) -> std::path::PathBuf {
+        let execute = self.execute_log_dir(nonce);
+        let cache = execute.parent().and_then(|dir| dir.parent()).expect("the cache home");
+        cache.join("await").join(nonce)
+    }
+
+    /// `await` on a suite and its data's NUON text, its timeouts' and heartbeats' where given.
+    pub fn await_suite(
+        &self,
+        module: &str,
+        data: &str,
+        timeouts: Option<&str>,
+        heartbeats: Option<&str>,
+    ) -> NuVal {
+        let p = AwaitParams {
+            host: LOCAL_HOST.to_string(),
+            module: module.to_string(),
+            data: data.to_string(),
+            timeouts: timeouts.map(str::to_string),
+            heartbeats: heartbeats.map(str::to_string),
+        };
+        Self::envelope(self.rt.block_on(self.nush.await_suite(mcp::Parameters(p))))
+    }
+
     /// The committed rig of an equip by its compound `author/name`.
     pub fn rig_dir(&self, name: &str) -> std::path::PathBuf {
         crate::rig_dir(name)

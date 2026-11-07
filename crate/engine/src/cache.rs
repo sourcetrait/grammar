@@ -4,6 +4,8 @@ use crate::*;
 pub enum CacheKind {
     Execute,
     Calls,
+    /// An await job's suite, trace, and each definition's logs.
+    Await,
 }
 
 impl CacheKind {
@@ -11,6 +13,7 @@ impl CacheKind {
         match self {
             Self::Execute => "execute",
             Self::Calls => "calls",
+            Self::Await => "await",
         }
     }
 }
@@ -28,7 +31,7 @@ pub(crate) fn call_log_dir(nonce: &str) -> Option<PathBuf> {
     if nonce.is_empty() || !nonce.chars().all(|c| c.is_ascii_alphanumeric()) {
         return None;
     }
-    [CacheKind::Execute, CacheKind::Calls]
+    [CacheKind::Execute, CacheKind::Calls, CacheKind::Await]
         .into_iter()
         .map(|kind| cache_kind_dir(kind).join(nonce))
         .find(|dir| dir.is_dir())

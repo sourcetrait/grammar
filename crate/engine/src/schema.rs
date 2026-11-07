@@ -72,6 +72,57 @@ pub(crate) fn result_typedef(ty: &nu::Type) -> Result<NuType, String> {
     }
 }
 
+/// Why an open record or table cannot type a suite definition's data at any depth.
+const OPEN_SUITE_DATA: &str =
+    "an open `record<>` or `table<>` is refused in a suite's data; declare the fields";
+
+/// A suite definition's `data` type under the return contract: nothing, or a typed
+/// record or table, no record or table open at any depth.
+pub(crate) fn suite_data_typedef(shape: &nu::SyntaxShape) -> Result<NuType, String> {
+    match shape {
+        nu::SyntaxShape::Nothing => Ok(NuType::Nothing),
+        nu::SyntaxShape::Record(_) | nu::SyntaxShape::Table(_) => {
+            let ty = NuType::try_from(shape).map_err(not_data)?;
+            grammar(&ty, Some(OPEN_SUITE_DATA))?;
+            Ok(ty)
+        }
+        other => Err(format!(
+            "typed `nothing`, `record<...>`, or `table<...>`, not `{other}`"
+        )),
+    }
+}
+
+/// Whether two types are one shape: `path` and `directory` taken as `string`, a
+/// record's or a table's fields and a oneof's members in any order.
+pub(crate) fn same_shape(a: &NuType, b: &NuType) -> bool {
+    canonical(a) == canonical(b)
+}
+
+/// A type's text with its string variants folded and its members sorted.
+fn canonical(ty: &NuType) -> std::string::String {
+    match ty {
+        NuType::Path | NuType::Directory => NuType::String.name().to_string(),
+        NuType::Record(fields) => format!("record<{}>", canonical_fields(fields)),
+        NuType::Table(columns) => format!("table<{}>", canonical_fields(columns)),
+        NuType::List(element) => format!("list<{}>", canonical(element)),
+        NuType::OneOf(members) => {
+            let mut parts: Vec<std::string::String> = members.iter().map(canonical).collect();
+            parts.sort();
+            parts.dedup();
+            format!("oneof<{}>", parts.join(","))
+        }
+        scalar => scalar.name().to_string(),
+    }
+}
+
+/// A record's fields in canonical text, sorted by name.
+fn canonical_fields(fields: &[NuField]) -> std::string::String {
+    let mut parts: Vec<std::string::String> =
+        fields.iter().map(|f| format!("{}:{}", f.name, canonical(&f.ty))).collect();
+    parts.sort();
+    parts.join(",")
+}
+
 /// A shape or type no data takes, in the contract's words.
 fn not_data(error: NuTypeError) -> String {
     match error {

@@ -43,6 +43,26 @@ pub fn build_call_source(
     ))
 }
 
+/// The alias a suite's module is overlaid under in each of its evals.
+const SUITE_ALIAS: &str = "__suite";
+
+/// The source of one suite definition's eval: its cached module overlaid, then the
+/// export on its arguments' literals.
+pub fn build_suite_source(
+    suite: &Path,
+    export: &str,
+    args: &[String],
+) -> Result<String, String> {
+    let target = render_nuon(&nu::Value::string(
+        suite.to_string_lossy().into_owned(),
+        nu::Span::unknown(),
+    ))?;
+    Ok(format!(
+        "overlay use --prefix {target} as {SUITE_ALIAS}\n{SUITE_ALIAS} {export} {}\n",
+        args.join(" "),
+    ))
+}
+
 /// The source of an `execute` call: its definition, then `execute` on its data.
 pub fn build_execute_source(
     definition: &str,

@@ -44,6 +44,9 @@ stopped mid-eval leaks no process tree.
 Every request is answered, a refusal included, so a controller never waits on one the
 engine dropped.
 
+An await call is answered as an execute is, contained on a task of its own; its job runs
+on past the answer.
+
 ## fn contained
 A panic in a request's work answers as `internal` on that request rather than ending the
 system. An eval's own panic never gets this far, its thread catching it; this is for the

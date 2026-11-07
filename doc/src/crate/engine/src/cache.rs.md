@@ -8,6 +8,10 @@ The variant-to-dir-name mapping lives in ONE place so the per-call trees cannot 
 apart from the enum that selects them: `execute/` for every `execute` and `rerun` call, either
 lane, and `calls/` for a rig's call.
 
+`Await` is an await call's directory, `await/<nonce>/`: its cached suite, its trace, and
+each definition's logs. `call_log_dir` finds it too, so a job's `grmr dbg` writes beside
+its trace.
+
 ## fn cache_dir
 Composes the per-call dir but deliberately does NOT create it. The dispatch
 prologue owns `create_dir_all` and passes the dir into the eval, so there is one

@@ -94,6 +94,38 @@ impl HostRoute {
                 Ok(()) => HostAnswer::Pinned,
                 Err(reason) => HostAnswer::Refused(reason),
             },
+            HostAsk::Await(event) => self.emit_await(event, FROM_MCP).await,
+        }
+    }
+
+    /// An await job's event emitted as a host packet, its model under `mcp/await/`.
+    async fn emit_await(
+        &self,
+        event: AwaitEvent,
+        from: &str,
+    ) -> HostAnswer {
+        if !event.model.starts_with(AWAIT_MODEL_PREFIX) {
+            return HostAnswer::Refused(format!(
+                "an await job's event is modeled under `{AWAIT_MODEL_PREFIX}`, not `{}`",
+                event.model,
+            ));
+        }
+        let Some(channel) = self.face.channel() else {
+            return face_down();
+        };
+        let emit = EmitRequest {
+            from: from.to_string(),
+            model: event.model,
+            data: event.data,
+            attached: None,
+            staged: None,
+        };
+        match channel.request(emit).await {
+            Ok(Ok(id)) => HostAnswer::Sent(id),
+            Ok(Err(EmitError::Render(reason) | EmitError::Write(reason))) | Err(reason) => {
+                HostAnswer::Refused(reason)
+            }
+            Ok(Err(EmitError::Refused(refusal))) => HostAnswer::Refused(refusal.message().to_string()),
         }
     }
 
@@ -179,6 +211,9 @@ impl HostRoute {
                 Ok(record) => HostAnswer::Config(record),
                 Err(reason) => HostAnswer::Refused(reason),
             },
+            SessionAsk::Await(event) => {
+                self.emit_await(event, &remote_origin(alias, FROM_MCP)).await
+            }
         }
     }
 }

@@ -57,6 +57,12 @@ An interface call's subcommand as the end user sent it, its nonce the MCP's: the
 host it reaches parses it with the interface contract and runs it there
 (`crate/engine`'s `desk.rs`), so a remote engine's commands cross as text alone.
 
+## struct AwaitRequest
+An await call's parameters as its tool took them: the module, Nu, as its text, and the
+data, the timeouts, and the heartbeats, NUON, as NuVals (User). The serving engine holds
+the module to the suite's contract, so a remote engine refuses what its own contract
+refuses.
+
 ## enum EngineCommand
 Everything a host asks that isn't an eval, so one request type reaches the
 engine's state: its calls in flight, its health, its equips, and its
@@ -196,6 +202,9 @@ what finds it. The validator already emits non-`rig::` kinds,
 `From<String>` is what keeps every ordinary `?` site in the eval untouched by that
 distinction, and `From<io::Error>`, `Internal { phase: "io" }`, every filesystem
 call in the equips' lifecycle.
+
+`SuiteViolations` reports its rows, each a suite's `module::invalid`, as the other
+violations errors do; `HeartbeatsInvalid` is `heartbeats::invalid`.
 
 ### fn message
 An equip is named as every other surface names it, through `display_equip`: a
