@@ -60,6 +60,8 @@ Packets from a definition to you: small summaries, never payloads.
   `<inbox>/<id>.attached.nuon`; models under `mcp/`, `remote/`, and `channel/`
   are the host's. A line too long to show carries `attached`, then `data`, as a
   filesize, `data`'s file `<inbox>/<id>.data.nuon`, and the file is read.
+- An `await` job's events are `mcp/await/Status`, `Result`, and `Stopped`,
+  each also a line of its trace, `await/<nonce>/trace.nuonl` under the cache.
 - Sending too fast warns, then stops the sender.
 
 ## RemoteChannel
