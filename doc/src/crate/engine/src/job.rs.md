@@ -39,7 +39,9 @@ is built after the add and the add is undone if building fails. execute's eval t
 clone of the stateless base with the job as its current job, so `job id` answers the
 job's id; it takes no pool permit, since a job holding a slot for hours would starve the
 pool. The in-flight row stays under the call's nonce, so `interface process list` and
-`kill` find the job as they find a call.
+`kill` find the job as they find a call. The Start event, the nonce and the job's record,
+goes once the job is registered and before execute and the beats begin, so it is the
+first event and the one that carries the record (User).
 
 ## fn run_execute
 execute's end, its timeout, and a stop's notice race. Its end sends the Result when it
@@ -47,8 +49,9 @@ settles the job; its timeout runs the stop; a stop's notice ends the watch even 
 killed thread never returns.
 
 ## fn run_beats
-A gap is counted from the previous beat, the first from the start, the last repeating.
-No beat starts once the job is done.
+A gap is counted from the previous beat, the first from the start, the last repeating,
+so the first Status comes as the first gap ends and none before it (User). No beat
+starts once the job is done.
 
 ## fn stop_job
 stop runs while the job still runs, so it can tear down what the job holds, then the
@@ -61,6 +64,11 @@ The teardown's: every job's stop at once, each bounded by its own timeout. A tea
 Stopped event is traced alone: the host it would reach is the one stopping, the MCP at
 its shutdown or grammar-ssh's session at its end, and an ask of it could wait on a
 system that answers no more.
+
+## fn event_data
+A Status's, a Result's, or a Stopped's data: the nonce, the event's own field, then the
+value or its error's rows. None names the job, whose record the Start alone carries
+(User).
 
 ## fn emit
 The event is traced first, then asked of the host from a blocking thread, since the host

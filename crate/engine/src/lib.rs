@@ -117,7 +117,7 @@ pub(crate) use crate::{
 };
 
 pub(crate) use sourcetrait_grammar_protocol::{
-    AWAIT_RESULT_MODEL, AWAIT_STATUS_MODEL, AWAIT_STOPPED_MODEL,
+    AWAIT_RESULT_MODEL, AWAIT_START_MODEL, AWAIT_STATUS_MODEL, AWAIT_STOPPED_MODEL,
     ChannelSendData, ChannelSpamErrorEmergency, HostInfo, INTERFACE, PreparedSend, PurviewRow, PurviewView,
     RemoteSendData, RuntimeError, SendFile, TransientPaths, model_too_long, model_too_long_reason,
     reserved_prefix, safe_dest, with_head,

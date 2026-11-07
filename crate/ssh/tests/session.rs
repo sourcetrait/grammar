@@ -9,7 +9,8 @@ use std::time::Duration;
 use sourcetrait_common::datum;
 use sourcetrait_grammar_client::{Session, SessionEvent};
 use sourcetrait_grammar_protocol::{
-    AWAIT_RESULT_MODEL, AwaitRequest, CallAnswer, EngineRequest, EngineResponse, ExecuteDefinition,
+    AWAIT_RESULT_MODEL, AWAIT_START_MODEL, AwaitRequest, CallAnswer, EngineRequest, EngineResponse,
+    ExecuteDefinition,
     ExecuteRequest, HelloReply, Host,
     HostAnswer, Instance, InterfaceRequest, LIMITS_DEFAULT, Limits, McpFrame, NuType, NuVal, SessionAsk,
     SessionClose, SshFrame, TransportError,
@@ -283,6 +284,12 @@ fn an_await_job_answers_its_record_and_its_events_ride_the_ask() {
         });
         let prepared = value(&session, request).await;
         assert_eq!(field(&prepared, "prepared"), &NuVal::Nothing);
+        let start = tokio::time::timeout(Duration::from_secs(10), seen_rx.recv())
+            .await
+            .expect("a Start within 10 s")
+            .expect("the Start");
+        assert_eq!(start.model, AWAIT_START_MODEL, "the Start comes first");
+        assert_eq!(field(&start.data, "job"), field(&prepared, "job"));
         let event = tokio::time::timeout(Duration::from_secs(10), seen_rx.recv())
             .await
             .expect("an event within 10 s")

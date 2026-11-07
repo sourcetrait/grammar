@@ -69,6 +69,8 @@ fn await_answers_the_prepared_record_and_traces_the_result() {
     let nonce = text(field(&env, "nonce")).to_string();
     let trace = trace_with(s, &nonce, "mcp/await/Result");
     assert!(trace.contains("mcp/await/Result"), "the trace:\n{trace}");
+    let first = trace.lines().next().unwrap_or_default();
+    assert!(first.contains("mcp/await/Start") && first.contains("job"), "the Start comes first; the trace:\n{trace}");
     assert!(s.await_dir(&nonce).join("suite.nu").is_file(), "the suite is cached beside its trace");
 }
 

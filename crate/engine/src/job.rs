@@ -302,6 +302,11 @@ async fn start(
         },
     )
     .await;
+    let started = NuVal::Record(vec![
+        ("nonce".to_string(), NuVal::String(state.nonce.clone())),
+        ("job".to_string(), state.job.clone()),
+    ]);
+    emit(&core, &state, AWAIT_START_MODEL, started).await;
     core.executor.refresh_base_if_stale();
     let mut engine = core.executor.take_clone();
     engine.current_job.id = job_id;
@@ -518,16 +523,13 @@ fn given_literal(
     render_nuon(&value).map_err(internal)
 }
 
-/// An event's data: the nonce, the job, its fields, then a value or error rows.
+/// An event's data: the nonce, its fields, then a value or its error's rows.
 fn event_data(
     job: &AwaitJob,
     fields: Vec<(String, NuVal)>,
     value: EngineResult<NuVal>,
 ) -> NuVal {
-    let mut data = vec![
-        ("nonce".to_string(), NuVal::String(job.nonce.clone())),
-        ("job".to_string(), job.job.clone()),
-    ];
+    let mut data = vec![("nonce".to_string(), NuVal::String(job.nonce.clone()))];
     data.extend(fields);
     match value {
         Ok(result) => data.push(("result".to_string(), result)),

@@ -302,9 +302,13 @@ fn await_answers_its_prepared_record_then_its_result() {
     assert!(matches!(field(job, "id"), Some(NuVal::Int(_))), "got {job:?}");
     assert!(matches!(field(job, "started"), Some(NuVal::Date(_))), "got {job:?}");
     let nonce = answer.nonce.to_string();
-    let (result, _) = event_of(&nonce, "mcp/await/Result");
+    let (start, _) = event_of(&nonce, "mcp/await/Start");
+    let started = record(&[("nonce", NuVal::String(nonce.clone())), ("job", job.clone())]);
+    assert_eq!(start.data, started, "the Start carries the nonce and the job's record");
+    let (result, events) = event_of(&nonce, "mcp/await/Result");
+    assert_eq!(events.first().map(|event| event.model.as_str()), Some("mcp/await/Start"), "got {events:?}");
     assert_eq!(field(&result.data, "result"), Some(&record(&[("doubled", NuVal::Int(42))])));
-    assert_eq!(field(&result.data, "job"), Some(job));
+    assert_eq!(field(&result.data, "job"), None, "the job's record rides the Start alone");
     assert!(e.wait_for(|rows| rows.iter().all(|r| r.nonce != nonce)), "the job leaves the list");
     let trace_file = e.root.join("cache").join("await").join(&nonce).join(TRACE_FILE);
     let trace = std::fs::read_to_string(&trace_file).expect("the job's trace");
@@ -325,6 +329,22 @@ fn a_beat_runs_status_while_the_job_runs() {
         .unwrap_or_else(|| panic!("a beat while the job ran; got {events:?}"));
     assert_eq!(field(&status.data, "beat"), Some(&NuVal::Int(1)));
     assert_eq!(field(&status.data, "result"), Some(&record(&[("beating", NuVal::Bool(true))])));
+    assert_eq!(field(&status.data, "job"), None, "the job's record rides the Start alone");
+    let trace_file = e.root.join("cache").join("await").join(&nonce).join(TRACE_FILE);
+    let trace = std::fs::read_to_string(&trace_file).expect("the job's trace");
+    let at = |model: &str| -> i128 {
+        let line = trace
+            .lines()
+            .find(|line| line.contains(model))
+            .unwrap_or_else(|| panic!("no {model} in the trace:\n{trace}"));
+        let value = NuVal::from_nuon(line).unwrap_or_else(|e| panic!("a trace line is NUON: {e}\n{line}"));
+        match field(&value, "at") {
+            Some(NuVal::Date(date)) => i128::from(date.seconds) * 1_000_000_000 + i128::from(date.seconds_fraction),
+            other => panic!("a trace line's time, not {other:?}"),
+        }
+    };
+    let gap = at("mcp/await/Status") - at("mcp/await/Start");
+    assert!(gap >= 190_000_000, "the first Status comes a heartbeat after the Start, not {gap} ns later");
 }
 
 #[test]
@@ -348,6 +368,7 @@ fn a_kill_runs_stop_then_sends_stopped() {
     let (stopped, events) = event_of(&nonce, "mcp/await/Stopped");
     assert_eq!(field(&stopped.data, "reason"), Some(&NuVal::String("kill".to_string())));
     assert_eq!(field(&stopped.data, "result"), Some(&record(&[("stopped", job_id)])));
+    assert_eq!(field(&stopped.data, "job"), None, "the job's record rides the Start alone");
     assert!(e.wait_for(|rows| rows.iter().all(|r| r.nonce != nonce)), "the stopped job leaves the list");
     let events = events_for(&nonce, |_| false).into_iter().chain(events).collect::<Vec<_>>();
     assert!(
