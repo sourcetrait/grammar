@@ -112,7 +112,7 @@ pub(crate) use crate::{
         serve_rerun,
     },
     system::HostLink,
-    teardown::{kill_plugin_subprocesses, make_tracker, tree_kill},
+    teardown::{kill_plugin_subprocesses, make_job_tracker, make_tracker, tree_kill},
     template::render_nuon,
 };
 
@@ -124,8 +124,8 @@ pub(crate) use sourcetrait_grammar_protocol::{
 };
 
 pub(crate) use sourcetrait_grammar_interface::{
-    EngineInterfaceCommand, InspectParams, InterfaceCommand, KIND_INTERFACE, PurviewConfigureParams,
-    PurviewExtendParams, PurviewParams, interface_engine, parse_command,
+    AwaitRigParams, EngineInterfaceCommand, InspectParams, InterfaceCommand, KIND_INTERFACE,
+    PurviewConfigureParams, PurviewExtendParams, PurviewParams, interface_engine, parse_command,
 };
 
 pub(crate) use std::{
@@ -170,7 +170,10 @@ pub(crate) mod nu {
             Operator, Pattern, RecordItem,
         },
         debugger::WithoutDebug,
-        engine::{Command, EngineState, Job, Jobs, Mail, Stack, StateWorkingSet, ThreadJob},
+        engine::{
+            Command, CurrentJob, EngineState, Job, Jobs, Mail, Mailbox, Stack, StateWorkingSet,
+            ThreadJob,
+        },
     };
     pub(crate) use nu_protocol::JobId;
     pub(crate) use nu_protocol::ast::Call as AstCall;
@@ -200,7 +203,7 @@ pub(crate) mod tk {
             oneshot,
             mpsc::{UnboundedSender, unbounded_channel},
         },
-        time::{Duration as TkDuration, sleep, timeout},
+        time::{Duration as TkDuration, Instant as TkInstant, sleep, sleep_until, timeout},
     };
 }
 

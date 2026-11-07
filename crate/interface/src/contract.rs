@@ -63,6 +63,7 @@ pub enum RemoteEngineCommand {
 pub enum EngineInterfaceCommand {
     Info,
     Help(InspectParams),
+    AwaitRig(AwaitRigParams),
     AwaitList,
     AwaitStatus(AwaitJobParams),
     AwaitStop(AwaitJobParams),
@@ -83,6 +84,8 @@ enum Literal {
     Text(String),
     Texts(Vec<String>),
     Whole(i64),
+    /// A literal of any shape, its value by nushell's constant evaluation.
+    Value(nu::Value),
 }
 
 /// A call's literal arguments by name, each with its span.
@@ -201,7 +204,7 @@ fn held_call(
         match argument {
             nu::Argument::Positional(expr) => {
                 match spec.positionals.get(index) {
-                    Some(arg) => match literal(expr, arg) {
+                    Some(arg) => match literal(ws, expr, arg) {
                         Ok(value) => {
                             literals.insert(arg.name, (value, expr.span));
                         }
@@ -220,7 +223,7 @@ fn held_call(
                     continue;
                 };
                 match value {
-                    Some(expr) => match literal(expr, arg) {
+                    Some(expr) => match literal(ws, expr, arg) {
                         Ok(value) => {
                             literals.insert(arg.name, (value, expr.span));
                         }
@@ -245,6 +248,7 @@ fn held_call(
 
 /// An argument's literal, refused when it is anything else.
 fn literal(
+    ws: &nu::StateWorkingSet,
     expr: &nu::Expression,
     arg: &ArgSpec,
 ) -> Result<Literal, Refusal> {
@@ -258,6 +262,10 @@ fn literal(
                     ArgShape::String => "string",
                     ArgShape::Strings => "list-of-strings",
                     ArgShape::Int => "int",
+                    ArgShape::Directory => "directory",
+                    ArgShape::Any => "value",
+                    ArgShape::SuiteTimeouts => "timeouts-record",
+                    ArgShape::Durations => "list-of-durations",
                 },
             ),
         )
@@ -265,6 +273,13 @@ fn literal(
     match (arg.shape, &expr.expr) {
         (ArgShape::String, nu::Expr::String(text) | nu::Expr::RawString(text)) => {
             Ok(Literal::Text(text.clone()))
+        }
+        (
+            ArgShape::Directory,
+            nu::Expr::Directory(text, _) | nu::Expr::String(text) | nu::Expr::RawString(text),
+        ) => Ok(Literal::Text(text.clone())),
+        (ArgShape::Any | ArgShape::SuiteTimeouts | ArgShape::Durations, _) if is_literal(expr) => {
+            nu::eval_constant(ws, expr).map(Literal::Value).map_err(|_| refused())
         }
         (ArgShape::Int, nu::Expr::Int(whole)) => Ok(Literal::Whole(*whole)),
         (ArgShape::Strings, nu::Expr::List(items)) => {
@@ -281,6 +296,65 @@ fn literal(
             Ok(Literal::Texts(texts))
         }
         _ => Err(refused()),
+    }
+}
+
+/// Whether an expression is a literal throughout: no variable, call, or spread.
+fn is_literal(expr: &nu::Expression) -> bool {
+    match &expr.expr {
+        nu::Expr::Bool(_)
+        | nu::Expr::Int(_)
+        | nu::Expr::Float(_)
+        | nu::Expr::Binary(_)
+        | nu::Expr::Nothing
+        | nu::Expr::String(_)
+        | nu::Expr::RawString(_)
+        | nu::Expr::DateTime(_) => true,
+        nu::Expr::ValueWithUnit(value) => is_literal(&value.expr),
+        nu::Expr::FullCellPath(path) => path.tail.is_empty() && is_literal(&path.head),
+        nu::Expr::List(items) => items
+            .iter()
+            .all(|item| matches!(item, nu::ListItem::Item(item) if is_literal(item))),
+        nu::Expr::Record(items) => items.iter().all(|item| {
+            matches!(item, nu::RecordItem::Pair(key, value) if is_literal(key) && is_literal(value))
+        }),
+        nu::Expr::Table(table) => {
+            table.columns.iter().all(is_literal) && table.rows.iter().all(|row| row.iter().all(is_literal))
+        }
+        _ => false,
+    }
+}
+
+/// A literal's value as nuval carries it, refused at its span where it can't.
+fn carried(
+    value: nu::Value,
+    span: nu::Span,
+    name: &str,
+) -> Result<NuVal, Refusal> {
+    NuVal::try_from_nu(value).map_err(|e| (Some(span), format!("`{name}`: {e}")))
+}
+
+/// A value argument; a required one the parse has already held present.
+fn value(
+    literals: &mut Literals,
+    name: &str,
+) -> Result<NuVal, Refusal> {
+    match literals.remove(name) {
+        Some((Literal::Value(value), span)) => carried(value, span, name),
+        Some((_, span)) => Err((Some(span), format!("`{name}` takes a literal value"))),
+        None => Ok(NuVal::Nothing),
+    }
+}
+
+/// An optional value argument; absent when not given.
+fn optional_value(
+    literals: &mut Literals,
+    name: &str,
+) -> Result<Option<NuVal>, Refusal> {
+    match literals.remove(name) {
+        None => Ok(None),
+        Some((Literal::Value(value), span)) => carried(value, span, name).map(Some),
+        Some((_, span)) => Err((Some(span), format!("`{name}` takes a literal value"))),
     }
 }
 
@@ -375,6 +449,12 @@ fn command(
         CommandKind::Info => engine(E::Info),
         CommandKind::Help => engine(E::Help(InspectParams {
             namepath: text(literals, "namepath"),
+        })),
+        CommandKind::AwaitRig => engine(E::AwaitRig(AwaitRigParams {
+            module: text(literals, "module"),
+            data: value(literals, "data")?,
+            timeouts: optional_value(literals, "timeouts")?,
+            heartbeats: optional_value(literals, "heartbeats")?,
         })),
         CommandKind::AwaitList => engine(E::AwaitList),
         CommandKind::AwaitStatus => engine(E::AwaitStatus(AwaitJobParams {

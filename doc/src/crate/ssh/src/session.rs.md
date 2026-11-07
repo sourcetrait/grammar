@@ -70,11 +70,11 @@ MCP's close, or the idle window.
 ## fn serve_frames
 Requests run each on a task of their own, an eval in one slot of `calls` and
 every other request in one of `control`, so a session full of evals still
-answers an await list or an await stop; a request past its slots is refused `Busy`
-at once rather than queued. A request whose id is in flight ends the session,
-since its response could not tell the two apart. An answer to an ask goes to
-the asker; a ping is ponged. The session's view and its interface parser are
-made at its start, so a view on grammar-ssh's engine dies with the session.
+answers an await list or an await stop; a request past its slots is refused
+`Busy` at once rather than queued. A request whose id is in flight ends the
+session, since its response could not tell the two apart. An answer to an ask
+goes to the asker; a ping is ponged. The session's view and its interface parser
+are made at its start, so a view on grammar-ssh's engine dies with the session.
 
 The end detaches the asker first, so an eval asking now is refused at once,
 then tears the calls down and drains them; a call that outlasts the drain is
@@ -92,8 +92,10 @@ An interface call's subcommand is parsed here and run on this engine with the
 session's view (`crate/engine`'s `desk.rs`), so the MCP sends a command it knows
 only as text.
 
-An await call is answered as the other calls are; its job's events ride the session's
-asks after the answer.
+An await call is answered as the other calls are; its job's events ride the
+session's asks after the answer. An interface call runs with its request's
+nonce, so an `await rig` it carries starts its job under the call's own nonce,
+the `await` its events name.
 
 ## fn value
 A call's answer, its value or its rows; a request the engine's system fails to

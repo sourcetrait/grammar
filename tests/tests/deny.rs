@@ -101,6 +101,29 @@ fn a_denied_command_leaves_the_parse_and_the_description() {
     assert!(!has_error_path(&bare), "a subcommand runs without its head; got {bare}");
 }
 
+/// Denying `await` withholds `interface await rig` too, which starts an await job,
+/// the other await commands standing.
+#[tested]
+fn deny_await_withholds_await_rig() {
+    let t = testing::test!({ .using_temp_dir() });
+    let mut host = Host::spawn_args(t.temp_dir(), &["--deny", "await"]);
+    let help = host.interface("interface help interface");
+    let block = envelope(&help)["result"]["doc"]["signatures"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    assert!(!block.contains("`await rig ["), "await rig is undocumented; got {help}");
+    assert!(block.contains("`await list ["), "got {help}");
+    let refused = host.interface("interface await rig equip/a/b/rig/x null");
+    assert_eq!(
+        envelope_error_kind(&refused).as_deref(),
+        Some("interface::invalid"),
+        "a denied await rig is refused at the parse; got {refused}",
+    );
+    let listed = host.interface("interface await list");
+    assert!(!has_error_path(&listed), "await list stands; got {listed}");
+}
+
 #[tested]
 fn deny_bed_removes_the_tool_whole() {
     let t = testing::test!({ .using_temp_dir() });

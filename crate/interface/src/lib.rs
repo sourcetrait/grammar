@@ -8,7 +8,7 @@ mod tests {
 
 pub(crate) use std::collections::HashMap;
 
-pub(crate) use nuval::wide;
+pub(crate) use nuval::{NuVal, TryFromNu, wide};
 
 pub(crate) use sourcetrait_grammar_protocol::{
     ArgShape, ArgSpec, COMMANDS, CommandKind, CommandSpec, Diagnostic, INTERFACE,
@@ -17,10 +17,11 @@ pub(crate) use sourcetrait_grammar_protocol::{
 
 pub(crate) mod nu {
     pub(crate) use nu_parser::parse;
+    pub(crate) use nu_protocol::eval_const::eval_constant;
     pub(crate) use nu_protocol::shell_error::generic::GenericError;
     pub(crate) use nu_protocol::{
-        Category, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-        ast::{Argument, Block, Expr, Expression, ListItem},
+        Category, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+        ast::{Argument, Block, Expr, Expression, ListItem, RecordItem},
         engine::{Call, Command, EngineState, Stack, StateWorkingSet},
     };
 }
@@ -36,7 +37,7 @@ pub use crate::{
     },
     grammar::interface_engine,
     params::{
-        AwaitJobParams, ChatReadParams, ChatSendParams, CommitParams, ConfigChannelParams,
+        AwaitJobParams, AwaitRigParams, ChatReadParams, ChatSendParams, CommitParams, ConfigChannelParams,
         EquipParams, InspectParams,
         NewParams, PurviewConfigureParams, PurviewExtendParams, PurviewParams,
         RemoteAliasParams, RemoteChannelCloseParams, RemoteConnectParams, RemoteEngineImportParams,

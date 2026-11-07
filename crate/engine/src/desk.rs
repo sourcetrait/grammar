@@ -110,10 +110,11 @@ impl InterfaceParser {
 pub async fn run_interface(
     desk: &impl Desk,
     parser: &InterfaceParser,
+    nonce: datum::Nonce,
     subcommand: &str,
 ) -> Result<NuVal, Rows> {
     match parse_command(&parser.0, subcommand)? {
-        InterfaceCommand::Engine(command) => run_engine_command(desk, command).await,
+        InterfaceCommand::Engine(command) => run_engine_command(desk, nonce, command).await,
         _ => Err(vec![Diagnostic::error(
             KIND_INTERFACE,
             None,
@@ -216,6 +217,7 @@ struct ScaffoldResult {
 /// An engine command's value on the desk's engine, or the rows its refusal reports.
 pub async fn run_engine_command(
     desk: &impl Desk,
+    nonce: datum::Nonce,
     command: EngineInterfaceCommand,
 ) -> Result<NuVal, Rows> {
     use EngineInterfaceCommand as E;
@@ -224,6 +226,7 @@ pub async fn run_engine_command(
     match command {
         E::Info => info(desk, engine).await,
         E::Help(p) => help(desk, engine, p).await,
+        E::AwaitRig(p) => await_rig(engine, nonce, p).await,
         E::AwaitList => match control(engine, EngineCommand::AwaitList).await? {
             ControlAnswer::Value(table) => Ok(table),
             _ => Err(unexpected("await_list")),
@@ -287,6 +290,46 @@ pub async fn run_engine_command(
             _ => Err(unexpected("equip_commit")),
         },
     }
+}
+
+/// An await job started from a rig's module directory, its PREPARED record.
+async fn await_rig(
+    engine: &EngineHandle,
+    nonce: datum::Nonce,
+    p: AwaitRigParams,
+) -> Result<NuVal, Rows> {
+    let module = rig_module(&p.module).map_err(|reason| vec![Diagnostic::error(KIND_INTERFACE, None, reason)])?;
+    let request = AwaitRequest {
+        host: Host::Local,
+        nonce,
+        module: format!("export use {module} *"),
+        data: p.data,
+        timeouts: p.timeouts,
+        heartbeats: p.heartbeats,
+    };
+    let answer = engine.request(request).await.map_err(EngineError::rows)?;
+    answer.result.map_err(EngineError::rows)
+}
+
+/// A rig's module directory held to its equip path, each part plain.
+fn rig_module(module: &str) -> Result<&str, String> {
+    let parts: Vec<&str> = module.split('/').collect();
+    match parts.as_slice() {
+        ["equip", author, name, "rig", rest @ ..]
+            if !rest.is_empty() && plain_part(author) && plain_part(name) && rest.iter().all(|part| plain_part(part)) =>
+        {
+            Ok(module)
+        }
+        _ => Err(format!(
+            "`{module}` is no rig's module directory: its equip path is \
+             `equip/<author>/<name>/rig/<module>`, each part letters, digits, `_`, or `-`"
+        )),
+    }
+}
+
+/// Whether a path's part is plain: letters, digits, `_`, and `-` alone.
+fn plain_part(part: &str) -> bool {
+    !part.is_empty() && part.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
 /// A control command's answer, or the rows its failure reports.

@@ -34,6 +34,7 @@ fn kind_name(kind: CommandKind) -> &'static str {
     match kind {
         K::Info => "info",
         K::Help => "help",
+        K::AwaitRig => "await rig",
         K::AwaitList => "await list",
         K::AwaitStatus => "await status",
         K::AwaitStop => "await stop",
@@ -73,9 +74,9 @@ fn kind_name(kind: CommandKind) -> &'static str {
 
 #[test]
 fn the_catalog_holds_the_baseline_commands() {
-    assert_eq!(COMMANDS.len(), 36);
+    assert_eq!(COMMANDS.len(), 37);
     let words: BTreeSet<&str> = COMMANDS.iter().map(|spec| spec.words()).collect();
-    assert_eq!(words.len(), 36, "a command's words repeat");
+    assert_eq!(words.len(), 37, "a command's words repeat");
     for spec in COMMANDS {
         assert_eq!(spec.words(), kind_name(spec.kind), "{}", spec.name);
         assert_eq!(spec.name, format!("{INTERFACE} {}", spec.words()));

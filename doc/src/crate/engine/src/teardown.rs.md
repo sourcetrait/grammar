@@ -16,10 +16,10 @@ eval's subreaper, so an orphan reparents to it and stays on its ppid chain (the
 operator's `reaper.rs`). `Jobs::kill_and_remove` alone reaches only the tracked
 direct child.
 
-On macOS the table holds the host user's own processes, which is every process an eval
-starts, and there is no subreaper: a descendant orphaned before the walk goes to
-launchd and escapes it. Where no table is read the walk finds nothing, and the kill
-reaches the tracked children alone.
+On macOS the table holds the host user's own processes, which is every process
+an eval starts, and there is no subreaper: a descendant orphaned before the walk
+goes to launchd and escapes it. Where no table is read the walk finds nothing,
+and the kill reaches the tracked children alone.
 
 On Windows the table holds every process, and none is reparented: a process
 keeps its parent's pid after that parent exits. The walk starts from each
@@ -33,25 +33,32 @@ The table is read once and walked BEFORE the kill, which is what makes the set
 deterministic rather than a race against reparenting.
 
 ## fn make_tracker
-Setting the returned job as an engine's `current_job.background_thread_job` is what makes
-nushell register the pid of every external that eval spawns into an Arc-shared set, which
-an await job's stop, the timeout, and the teardown then read.
+Setting the returned job as an engine's `current_job.background_thread_job` is
+what makes nushell register the pid of every external that eval spawns into an
+Arc-shared set, which an await job's stop, the timeout, and the teardown then
+read.
 
-The Mail sender is a THROWAWAY on purpose: pid tracking is sender-independent, and a
-foreground eval never emits job Mail.
+The Mail sender is a THROWAWAY on purpose: pid tracking is sender-independent,
+and a foreground eval never emits job Mail.
 
-Its `Signals` share the eval's cancel flag, so once cancel fires no further pid is
-registered.
+Its `Signals` share the eval's cancel flag, so once cancel fires no further pid
+is registered.
+
+## fn make_job_tracker
+An await job's tracker, which the jobs table lists, so its sender is live: the
+receiver becomes the job's mailbox, as nushell's `job spawn` makes one, and
+`job send <id>` reaches the job's `job recv`. Its description names the job's
+await.
 
 ## fn kill_plugin_subprocesses
-Unblocks a plugin-hung eval, which nothing else can: a hung plugin ignores the cancel
-`Signals` and is not a tracked external, so killing its subprocess is what closes the
-plugin IPC pipe and makes the eval's plugin read return an error. Plugins respawn lazily
-on next use.
+Unblocks a plugin-hung eval, which nothing else can: a hung plugin ignores the
+cancel `Signals` and is not a tracked external, so killing its subprocess is
+what closes the plugin IPC pipe and makes the eval's plugin read return an
+error. Plugins respawn lazily on next use.
 
-BROAD BY NATURE - nushell shares plugin subprocesses across evals - so it fires only on
-the teardown, NEVER on an automatic timeout or an await job's stop, where the
-supervisor scopes that escalation instead.
+BROAD BY NATURE - nushell shares plugin subprocesses across evals - so it fires
+only on the teardown, NEVER on an automatic timeout or an await job's stop,
+where the supervisor scopes that escalation instead.
 
 ## fn kill_pid
 `SIGKILL` on Unix. On Windows the process is opened with `PROCESS_TERMINATE`

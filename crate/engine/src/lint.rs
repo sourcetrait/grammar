@@ -25,7 +25,16 @@ const REGEX_RECEIVERS: &[&str] = &[
 ];
 
 /// The commands whose first positional is a path the parser resolves.
-const PARSE_PATH_RECEIVERS: &[&str] = &["use", "overlay use", "source", "source-env"];
+const PARSE_PATH_RECEIVERS: &[&str] = &[
+    "use",
+    "export use",
+    "overlay use",
+    "module",
+    "export module",
+    "source",
+    "source-env",
+    "plugin use",
+];
 
 
 /// The hard-coded path rule's message.

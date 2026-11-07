@@ -1,12 +1,27 @@
 //! The interface commands in the parse: their decls and their isolated engine.
 use crate::*;
 
+/// The fields an await suite's timeouts hold, each a definition's bound.
+const SUITE_TIMEOUT_FIELDS: [&str; 4] = ["prepare", "execute", "status", "stop"];
+
 /// The parse's shape for an argument's.
 pub(crate) fn syntax(shape: ArgShape) -> nu::SyntaxShape {
     match shape {
         ArgShape::String => nu::SyntaxShape::String,
         ArgShape::Strings => nu::SyntaxShape::List(Box::new(nu::SyntaxShape::String)),
         ArgShape::Int => nu::SyntaxShape::Int,
+        ArgShape::Directory => nu::SyntaxShape::Directory,
+        ArgShape::Any => nu::SyntaxShape::Any,
+        ArgShape::SuiteTimeouts => nu::SyntaxShape::Record(
+            SUITE_TIMEOUT_FIELDS
+                .iter()
+                .map(|field| {
+                    let bound = nu::SyntaxShape::OneOf(vec![nu::SyntaxShape::Nothing, nu::SyntaxShape::Duration]);
+                    (field.to_string(), bound)
+                })
+                .collect(),
+        ),
+        ArgShape::Durations => nu::SyntaxShape::List(Box::new(nu::SyntaxShape::Duration)),
     }
 }
 

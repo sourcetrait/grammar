@@ -455,7 +455,7 @@ async fn respond(
             let desk = SessionDesk { engine, info, view };
             CallAnswer {
                 nonce: req.nonce,
-                result: run_interface(&desk, parser, &req.subcommand).await,
+                result: run_interface(&desk, parser, req.nonce, &req.subcommand).await,
             }
         }
     };

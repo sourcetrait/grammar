@@ -38,6 +38,10 @@ fn sample(spec: &CommandSpec) -> String {
             ArgShape::String => " 'x'",
             ArgShape::Strings => " ['x']",
             ArgShape::Int => " 1",
+            ArgShape::Directory => " equip/a/b/rig/x",
+            ArgShape::Any => " null",
+            ArgShape::SuiteTimeouts => " {prepare: null, execute: null, status: null, stop: null}",
+            ArgShape::Durations => " [1sec 2sec]",
         });
     }
     text
@@ -50,6 +54,7 @@ fn kind_of(command: &InterfaceCommand) -> CommandKind {
         InterfaceCommand::Engine(command) => match command {
             E::Info => CommandKind::Info,
             E::Help(_) => CommandKind::Help,
+            E::AwaitRig(_) => CommandKind::AwaitRig,
             E::AwaitList => CommandKind::AwaitList,
             E::AwaitStatus(_) => CommandKind::AwaitStatus,
             E::AwaitStop(_) => CommandKind::AwaitStop,
@@ -94,6 +99,53 @@ fn kind_of(command: &InterfaceCommand) -> CommandKind {
             RemoteEngineCommand::Import(_) => CommandKind::EngineImport,
         },
     }
+}
+
+/// An await rig takes its module's directory and prepare's arguments as values.
+#[test]
+fn an_await_rig_parses_its_module_and_its_values() {
+    let timeouts = "{prepare: null, execute: 0ns, status: 5sec, stop: null}";
+    match parse(&format!("interface await rig equip/acme/geo/rig/long/pipeline {{n: 1, s: x}} {timeouts} [1sec 2sec]")) {
+        Ok(InterfaceCommand::Engine(EngineInterfaceCommand::AwaitRig(p))) => {
+            assert_eq!(p.module, "equip/acme/geo/rig/long/pipeline");
+            let record = |fields: Vec<(&str, NuVal)>| {
+                NuVal::Record(fields.into_iter().map(|(key, value)| (key.to_string(), value)).collect())
+            };
+            assert_eq!(p.data, record(vec![("n", NuVal::Int(1)), ("s", NuVal::String("x".into()))]));
+            let expected = record(vec![
+                ("prepare", NuVal::Nothing),
+                ("execute", NuVal::Duration(0)),
+                ("status", NuVal::Duration(5_000_000_000)),
+                ("stop", NuVal::Nothing),
+            ]);
+            assert_eq!(p.timeouts, Some(expected));
+            assert_eq!(
+                p.heartbeats,
+                Some(NuVal::List(vec![NuVal::Duration(1_000_000_000), NuVal::Duration(2_000_000_000)])),
+            );
+        }
+        other => panic!("an await rig, not {other:?}"),
+    }
+    match parse("await rig 'equip/a/b/rig/x' null") {
+        Ok(InterfaceCommand::Engine(EngineInterfaceCommand::AwaitRig(p))) => {
+            assert_eq!((p.module.as_str(), &p.data), ("equip/a/b/rig/x", &NuVal::Nothing));
+            assert_eq!((p.timeouts, p.heartbeats), (None, None), "absent optionals stay absent");
+        }
+        other => panic!("an await rig with null data, not {other:?}"),
+    }
+}
+
+/// An await rig refuses what isn't a literal and timeouts off their typedef.
+#[test]
+fn an_await_rig_refuses_a_non_literal_and_timeouts_off_their_typedef() {
+    let module = "equip/a/b/rig/x";
+    assert!(!refusal(&format!("await rig {module} (1 + 1)")).is_empty(), "an expression is no literal");
+    assert!(!refusal(&format!("await rig {module} [1 ...[2]]")).is_empty(), "a spread is no literal");
+    assert!(!refusal(&format!("await rig {module} {{n: (2)}}")).is_empty(), "a nested expression is none");
+    assert!(!refused(&format!("await rig {module} null {{execute: 0ns}}")).is_empty(), "timeouts are given whole");
+    assert!(!refused(&format!("await rig {module} null null [1sec 2sec]")).is_empty(), "null is no timeouts record");
+    assert!(!refused(&format!("await rig {module} null {{prepare: 1, execute: null, status: null, stop: null}}")).is_empty());
+    assert!(!refused(&format!("await rig {module}")).is_empty(), "data is required");
 }
 
 /// A chat send takes its three texts, a read its id and page, 0 when absent.

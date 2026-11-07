@@ -3,7 +3,9 @@
 use std::time::{Duration, Instant};
 
 use sourcetrait_common::testing::prelude::*;
-use sourcetrait_grammar_mcp::guts::{TestServer, error_kind, error_kinds};
+use sourcetrait_grammar_mcp::guts::{
+    TestServer, error_kind, error_kinds, has_error, valid_function_source, write_source,
+};
 
 static TESTING: testing::ModuleWith<TestServer> = testing::module_with!(Integration, {
     .using_temp_dir()
@@ -129,6 +131,51 @@ fn a_stop_by_hand_stops_the_job_and_traces_its_stop() {
         lines.iter().all(|line| text(field(line, "model")) != "mcp/await/Result"),
         "a stopped job sends no Result; the trace:\n{trace}",
     );
+}
+
+#[tested]
+fn await_rig_starts_a_suite_from_a_rigs_module_directory() {
+    let t = testing::test!({ .using_temp_dir() });
+    let s = TESTING.harness();
+    let src = s.new_rig(t.temp_dir(), "sourcetrait/awaitrig");
+    write_source(&src, "mod.nu", "export module long\n");
+    write_source(&src, "long/mod.nu", "export module nap\nexport use calc\n");
+    write_source(&src, "long/nap/mod.nu", &suite());
+    write_source(&src, "long/calc/mod.nu", &valid_function_source("x: int", "y: int", "{ y: $data.x }"));
+    let committed = s.commit("sourcetrait/awaitrig");
+    assert!(!has_error(&committed), "the rig commits: {committed:?}");
+    let env = s.interface("interface await rig equip/sourcetrait/awaitrig/rig/long/nap {nap: 10ms}");
+    let result = field(&env, "result");
+    assert_eq!(field(result, "prepared"), &nuval::NuVal::Record(vec![("nap".into(), nuval::NuVal::Duration(10_000_000))]));
+    let nonce = text(field(&env, "nonce")).to_string();
+    let trace = trace_with(s, &nonce, "mcp/await/Result");
+    let lines = trace_lines(&trace);
+    let result = lines
+        .iter()
+        .find(|line| text(field(line, "model")) == "mcp/await/Result")
+        .unwrap_or_else(|| panic!("the job's Result under the interface call's nonce; the trace:\n{trace}"));
+    assert_eq!(text(field(field(result, "data"), "await")), nonce, "the trace:\n{trace}");
+    let off_form = s.interface("await rig equip/sourcetrait/awaitrig/lib/nap {nap: 10ms}");
+    assert_eq!(error_kind(&off_form), Some("interface::invalid"), "{off_form:?}");
+    let climbing = s.interface("await rig equip/sourcetrait/awaitrig/rig/../rig/long/nap {nap: 10ms}");
+    assert_eq!(error_kind(&climbing), Some("interface::invalid"), "{climbing:?}");
+    let missing = s.interface("await rig equip/sourcetrait/awaitrig/rig/long/gone {nap: 10ms}");
+    assert_eq!(error_kind(&missing), Some("module::invalid"), "{missing:?}");
+    let call = s.interface("await rig equip/sourcetrait/awaitrig/rig/long/calc {x: 1}");
+    let kinds = error_kinds(&call);
+    assert!(!kinds.is_empty() && kinds.iter().all(|kind| kind == "module::invalid"), "a call is no suite: {call:?}");
+}
+
+#[tested]
+fn await_imports_a_suite_by_its_absolute_path() {
+    let t = testing::test!({ .using_temp_dir() });
+    let s = TESTING.harness();
+    let dir = t.temp_dir().join("nap");
+    write_source(&dir, "mod.nu", &suite());
+    let env = s.await_suite(&format!("export use {} *", dir.display()), "{nap: 10ms}", None, None);
+    assert!(!has_error(&env), "an absolute `export use` path is the parser's, never the lint's: {env:?}");
+    let result = field(&env, "result");
+    assert_eq!(field(result, "prepared"), &nuval::NuVal::Record(vec![("nap".into(), nuval::NuVal::Duration(10_000_000))]));
 }
 
 #[test]

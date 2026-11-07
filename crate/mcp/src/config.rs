@@ -361,6 +361,9 @@ impl DeniableTool {
     }
 }
 
+/// The words of the command that starts an await job, withheld with `await`.
+const AWAIT_RIG_WORDS: &str = "await rig";
+
 #[derive(Debug, Clone, Default)]
 pub(crate) struct DenySet {
     denied: Vec<DeniableTool>,
@@ -386,6 +389,14 @@ impl DenySet {
         self.denied
             .iter()
             .any(|tool| matches!(tool, DeniableTool::Command(denied) if *denied == words))
+    }
+
+    /// Whether an interface command is withheld, `await rig` with the `await` tool too.
+    pub(crate) fn denies_interface(
+        &self,
+        words: &str,
+    ) -> bool {
+        self.denies_command(words) || (words == AWAIT_RIG_WORDS && self.denies(DeniableTool::Await))
     }
 
     /// Whether the `grmr` command its name names is withheld from `bed`.

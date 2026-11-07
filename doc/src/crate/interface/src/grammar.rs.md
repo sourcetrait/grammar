@@ -3,6 +3,12 @@
 The interface commands where the parse runs: the protocol crate's catalog made
 into decls an isolated engine registers.
 
+## fn syntax
+Each shape the parse holds an argument to. The timeouts' record is its typedef
+field by field, each `oneof<nothing, duration>`, so the parse refuses a record
+missing a field, holding one more, or a field of another type, as it refuses
+`null` in its place (nushell 0.116.1); the record is given whole.
+
 ## fn signature
 Optional positionals stay optional in the parse; `config`'s thresholds are flags
 because four optional positionals would make setting the last one mean passing

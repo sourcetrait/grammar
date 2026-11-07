@@ -31,6 +31,13 @@ Decls whose positional 0 is a parse-time-const file or module path. Such a path
 cannot pass in data - it resolves at parse time, before any data exists - so
 flagging it would be a false positive by construction.
 
+A module's `export use` and `export module` are decls of their own: nu 0.116.1
+parses each as its plain keyword, then points the call at the export decl, so
+each is listed beside `use` and `module`. `module` with no block loads its path
+as a module file, and `plugin use` evaluates its plugin's name or filename as a
+constant. `plugin use --plugin-config` takes a parse-time path as a named
+argument, which the walker still checks, so a hard-coded registry path trips.
+
 `use` and `overlay use` parse to a Call whether their module resolves or not:
 nu 0.116.1 parses the arguments by the decl's signature and keeps the import
 pattern as the call's parser info, which the walker never visits. So this list

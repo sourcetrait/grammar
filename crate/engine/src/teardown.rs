@@ -11,6 +11,13 @@ pub(crate) fn make_tracker(cancel: Arc<AtomicBool>) -> nu::ThreadJob {
     )
 }
 
+/// An await job's tracker and mailbox, wired as nushell's `job spawn` wires them.
+pub(crate) fn make_job_tracker(cancel: Arc<AtomicBool>, nonce: &str) -> (nu::ThreadJob, nu::Mailbox) {
+    let (sender, receiver) = std::sync::mpsc::channel::<nu::Mail>();
+    let tracker = nu::ThreadJob::new(nu::Signals::new(cancel), Some(format!("await {nonce}")), sender);
+    (tracker, nu::Mailbox::new(receiver))
+}
+
 /// Kill every tracked child AND its descendants in the process table.
 pub(crate) fn tree_kill(tracked: &[u32]) {
     let table = sourcetrait_process::processes();

@@ -14,10 +14,15 @@ purviews. The names are User's: `interface <topic> <action>`, or
 `interface help interface` answers with the commands' signatures and `interface
 help grmr` with grmr's: both words are reserved before any namepath is read.
 
+## const SUITE_TIMEOUTS_TYPEDEF
+The typedef of an await suite's timeouts, as prepare's `timeouts?` takes them,
+the one `await rig`'s signature line names (User).
+
 ## enum ArgShape
-Three shapes cover every argument the commands take: a string, a list of
-strings, and a whole number. Anything richer would be a value the agent could
-build with an expression, and the contract takes literals alone.
+A string, a list of strings, a whole number, and `await rig`'s four: a
+directory, any value, the timeouts' record by its typedef, and a list of
+durations. Each is a literal of the subcommand, the contract refusing what an
+expression would build.
 
 ## struct CommandSpec
 `result` is the result's kind alone, `record`, `table`, or `nothing`, as the
@@ -48,10 +53,12 @@ Ordered as the description lists them, grouped by topic. A topic's commands sit
 together because `render_signatures` opens a heading when the topic changes.
 `channel sync` is User's addition beyond the tools converted; `sync` sits after
 `open`, in the order of the handshake it serves. `channel open` takes no
-argument: the host chooses its mode for the caller's harness (User). The remote engine commands, User's, sit under the Remote topic after
-the remote channels', the same six verbs and `import`. The chat's two, User's,
-take a topic of their own after Remote; `chat read`'s `page` is the catalog's
-one optional positional, 0 when absent.
+argument: the host chooses its mode for the caller's harness (User). The remote
+engine commands, User's, sit under the Remote topic after the remote channels',
+the same six verbs and `import`. The chat's two, User's, take a topic of their
+own after Remote; `chat read`'s `page` is optional, 0 when absent. `await rig`
+opens the Await topic, a job started before it is listed, its `timeouts?` and
+`heartbeats?` optional positionals as prepare's contract has them (User).
 
 ## fn with_head
 A subcommand sent without its head, `info` for `interface info` or `dbg {a: 1}`

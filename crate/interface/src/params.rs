@@ -14,6 +14,19 @@ pub struct AwaitJobParams {
     pub nonce: String,
 }
 
+/// Parameters for `interface await rig`: a rig's module, prepare's arguments.
+#[derive(Debug)]
+pub struct AwaitRigParams {
+    /// The rig's module directory by its equip path, as the subcommand gave it.
+    pub module: String,
+    /// prepare's data, the subcommand's literal as its value.
+    pub data: NuVal,
+    /// Each definition's timeout, the literal record's value; absent if absent.
+    pub timeouts: Option<NuVal>,
+    /// The gaps between beats, the literal list as its value; absent if absent.
+    pub heartbeats: Option<NuVal>,
+}
+
 /// Parameters for `interface purview set`.
 #[derive(Debug, ser::Deserialize, ser::Serialize)]
 pub struct PurviewParams {

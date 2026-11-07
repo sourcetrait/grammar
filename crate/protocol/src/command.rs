@@ -4,12 +4,25 @@ pub const INTERFACE: &str = "interface";
 /// The words `interface help` answers with a block of its own, no namepath's.
 pub const HELP_WORDS: [&str; 2] = [INTERFACE, "grmr"];
 
+/// The typedef an await suite's timeouts take, each definition's bound.
+pub const SUITE_TIMEOUTS_TYPEDEF: &str = "record<prepare: oneof<nothing, duration>, \
+     execute: oneof<nothing, duration>, status: oneof<nothing, duration>, \
+     stop: oneof<nothing, duration>>";
+
 /// What one argument holds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ArgShape {
     String,
     Strings,
     Int,
+    /// A module's directory, by the path a `use` resolves.
+    Directory,
+    /// A literal value of any type.
+    Any,
+    /// An await suite's timeouts, held to their typedef.
+    SuiteTimeouts,
+    /// A list of durations.
+    Durations,
 }
 
 impl ArgShape {
@@ -19,6 +32,10 @@ impl ArgShape {
             Self::String => "string",
             Self::Strings => "list<string>",
             Self::Int => "int",
+            Self::Directory => "directory",
+            Self::Any => "any",
+            Self::SuiteTimeouts => SUITE_TIMEOUTS_TYPEDEF,
+            Self::Durations => "list<duration>",
         }
     }
 }
@@ -37,6 +54,7 @@ pub struct ArgSpec {
 pub enum CommandKind {
     Info,
     Help,
+    AwaitRig,
     AwaitList,
     AwaitStatus,
     AwaitStop,
@@ -127,6 +145,33 @@ const AWAIT_ARGS: &[ArgSpec] = &[ArgSpec {
     optional: false,
     summary: "The await call's nonce, the `await` its job's packets carry.",
 }];
+
+const AWAIT_RIG_ARGS: &[ArgSpec] = &[
+    ArgSpec {
+        name: "module",
+        shape: ArgShape::Directory,
+        optional: false,
+        summary: "A rig's module directory by its equip path, equip/<author>/<name>/rig/<module>.",
+    },
+    ArgSpec {
+        name: "data",
+        shape: ArgShape::Any,
+        optional: false,
+        summary: "prepare's data, `null` for `data: nothing`.",
+    },
+    ArgSpec {
+        name: "timeouts",
+        shape: ArgShape::SuiteTimeouts,
+        optional: true,
+        summary: "Each definition's timeout, a duration or null; 120sec where null.",
+    },
+    ArgSpec {
+        name: "heartbeats",
+        shape: ArgShape::Durations,
+        optional: true,
+        summary: "The gaps between status beats, two or more, the last repeating.",
+    },
+];
 
 const SET_ARGS: &[ArgSpec] = &[ArgSpec {
     name: "purviews",
@@ -400,6 +445,15 @@ pub const COMMANDS: &[CommandSpec] = &[
         flags: NO_ARGS,
         result: "record",
         summary: "Displays equipment documentation",
+    },
+    CommandSpec {
+        kind: CommandKind::AwaitRig,
+        name: "interface await rig",
+        topic: "Await",
+        positionals: AWAIT_RIG_ARGS,
+        flags: NO_ARGS,
+        result: "record",
+        summary: "Start an await job from a rig's module; answer its PREPARED record.",
     },
     CommandSpec {
         kind: CommandKind::AwaitList,

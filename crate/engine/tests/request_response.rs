@@ -695,3 +695,169 @@ fn a_second_system_starts_and_stops() {
     assert!(matches!(answer, Ok(ControlAnswer::Value(_))), "got {answer:?}");
     e.rt.block_on(second.stop()).expect("the system stops");
 }
+
+/// The PREPARED record of a suite whose prepare answers nothing.
+const PREPARED_NOTHING: &str = "record<job: record<id: int, started: datetime>, prepared: nothing>";
+
+/// A suite of nothing's data: prepare's, execute's, and stop's bodies as given.
+fn suite_of_nothing(prepare: &str, execute: &str, stop: &str) -> String {
+    format!(
+        "export def prepare [data: nothing]: nothing -> nothing {{ {prepare} }}
+export def execute [data: {PREPARED_NOTHING}]: nothing -> nothing {{ {execute} }}
+export def status [data: {PREPARED_NOTHING}]: nothing -> nothing {{ }}
+export def stop [data: {PREPARED_NOTHING}]: nothing -> nothing {{ {stop} }}
+"
+    )
+}
+
+/// The moments a job's trace holds of `model`, in nanoseconds since its start.
+fn traced_since(e: &TestEngine, nonce: &str, model: &str, started: i128) -> Vec<i128> {
+    let trace_file = e.root.join("cache").join("await").join(nonce).join(TRACE_FILE);
+    let trace = std::fs::read_to_string(&trace_file).unwrap_or_else(|err| panic!("the trace: {err}"));
+    trace
+        .lines()
+        .filter(|line| line.contains(model))
+        .map(|line| {
+            let event = NuVal::from_nuon(line).unwrap_or_else(|err| panic!("a trace line is NUON: {err}"));
+            nanos(field(&event, "at")) - started
+        })
+        .collect()
+}
+
+#[test]
+fn beats_hold_their_schedule_past_a_slow_status() {
+    let e = TESTING.harness();
+    let slow = suite().replace("{beating: true}", "sleep 500ms; {beating: true}");
+    let second = NuVal::Duration(1_000_000_000);
+    let beats = NuVal::List(vec![second.clone(), second]);
+    let answer = e.await_suite(&slow, "{x: 1, nap: 3600ms}", None, Some(beats));
+    let prepared = answer.result.expect("the job starts");
+    let started = nanos(field(field(&prepared, "job").expect("its job"), "started"));
+    let nonce = answer.nonce.to_string();
+    event_of(&nonce, "mcp/await/Result");
+    let beats = traced_since(e, &nonce, "mcp/await/Status", started);
+    assert_eq!(beats.len(), 3, "a beat at 1, 2, and 3 seconds, each status 500 ms: {beats:?}");
+    for pair in beats.windows(2) {
+        let gap = pair[1] - pair[0];
+        assert!(
+            (750_000_000..=1_250_000_000).contains(&gap),
+            "a status sent a second after the last, not {gap} ns later: {beats:?}",
+        );
+    }
+}
+
+#[test]
+fn a_job_send_reaches_its_executes_job_recv() {
+    let e = TESTING.harness();
+    let prepared_type = "record<job: record<id: int, started: datetime>, prepared: record<n: int>>";
+    let module = format!(
+        "export def prepare [data: record<x: int>]: nothing -> record<n: int> {{ {{n: $data.x}} }}
+export def execute [data: {prepared_type}]: nothing -> record<got: int> {{
+    let mail = job recv --timeout 10sec
+    {{got: $mail.x}}
+}}
+export def status [data: {prepared_type}]: nothing -> nothing {{ }}
+export def stop [data: {prepared_type}]: nothing -> nothing {{ }}
+"
+    );
+    let answer = e.await_suite(&module, "{x: 1}", None, None);
+    let prepared = answer.result.expect("the job starts");
+    let id = match field(field(&prepared, "job").expect("its job"), "id") {
+        Some(NuVal::Int(id)) => *id,
+        other => panic!("a job id, not {other:?}"),
+    };
+    let nonce = answer.nonce.to_string();
+    let sender = format!("def execute [data: nothing]: nothing -> nothing {{ {{x: 7}} | job send {id} }}");
+    let sent = e.execute(&sender, "null");
+    assert!(sent.result.is_ok(), "the send answers: {sent:?}");
+    let (result, _) = event_of(&nonce, "mcp/await/Result");
+    let expected = NuVal::Record(vec![
+        ("await".to_string(), NuVal::String(nonce.clone())),
+        ("result".to_string(), NuVal::Record(vec![("got".to_string(), NuVal::Int(7))])),
+    ]);
+    assert_eq!(result.data, expected, "the mail sent to the job's id is execute's job recv's");
+}
+
+#[test]
+fn an_await_whose_prepare_ends_in_the_teardown_starts_no_job() {
+    let e = TESTING.harness();
+    let second = Arc::new(e.rt.block_on(EngineHandle::start(TestHost)).expect("a second system"));
+    let request = |module: String| AwaitRequest {
+        host: Host::Local,
+        nonce: e.nonces.generate(),
+        module,
+        data: NuVal::Nothing,
+        timeouts: None,
+        heartbeats: None,
+    };
+    let first = request(suite_of_nothing("", "sleep 30sec", "sleep 3sec"));
+    let first_nonce = first.nonce.to_string();
+    let first = e.rt.block_on(second.request(first)).expect("the engine answers");
+    assert!(first.result.is_ok(), "the first job starts: {first:?}");
+    let late = request(suite_of_nothing("sleep 1500ms", "sleep 30sec", ""));
+    let late_nonce = late.nonce.to_string();
+    let answer = e
+        .rt
+        .block_on(async {
+            let engine = second.clone();
+            let call = tokio::spawn(async move { engine.request(late).await });
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            let engine = second.clone();
+            let teardown = tokio::spawn(async move { engine.control(EngineCommand::Teardown).await });
+            let answer = call.await.expect("the call's task");
+            teardown.await.expect("the teardown's task").expect("the teardown answers");
+            answer
+        })
+        .expect("the engine answers");
+    match &answer.result {
+        Err(EngineError::Internal { phase, reason }) => {
+            assert_eq!(phase, "await::start", "{reason}");
+            assert!(reason.contains("stopping"), "{reason}");
+        }
+        other => panic!("an await whose prepare ends in the teardown is refused, not {other:?}"),
+    }
+    let late_trace = e.root.join("cache").join("await").join(&late_nonce).join(TRACE_FILE);
+    assert!(!late_trace.exists(), "the refused await never became a job");
+    let first_trace = e.root.join("cache").join("await").join(&first_nonce).join(TRACE_FILE);
+    let trace = std::fs::read_to_string(&first_trace).expect("the first job's trace");
+    assert!(trace.contains("mcp/await/Stop") && trace.contains("teardown"), "the first job's stop ran: {trace}");
+    let second = Arc::try_unwrap(second).ok().expect("the one handle left");
+    e.rt.block_on(second.stop()).expect("the system stops");
+}
+
+/// `to` by a path relative to the process's directory, which every eval's `PWD` is.
+fn relative_to_cwd(to: &Path) -> PathBuf {
+    let cwd = std::env::current_dir().expect("a working directory");
+    let from: Vec<_> = cwd.components().collect();
+    let to: Vec<_> = to.components().collect();
+    let common = from.iter().zip(&to).take_while(|(a, b)| a == b).count();
+    let mut relative = PathBuf::new();
+    for _ in common..from.len() {
+        relative.push("..");
+    }
+    for component in &to[common..] {
+        relative.push(component);
+    }
+    relative
+}
+
+#[test]
+fn a_suites_import_resolves_where_its_analysis_resolved_it() {
+    let e = TESTING.harness();
+    let mods = e.root.join("work").join("mods");
+    std::fs::create_dir_all(&mods).expect("a module directory");
+    let helper = mods.join("helper.nu");
+    std::fs::write(&helper, "export def main []: nothing -> int { 20 }\n").expect("the helper");
+    let import = relative_to_cwd(&helper);
+    let module = format!(
+        "use \"{}\"\n{}",
+        import.display(),
+        suite().replace("{n: $data.x, nap: $data.nap}", "{n: ($data.x + (helper)), nap: $data.nap}"),
+    );
+    let answer = e.await_suite(&module, "{x: 1, nap: 10ms}", None, None);
+    let prepared = answer.result.expect("prepare resolves the import as the analysis did");
+    assert_eq!(field(field(&prepared, "prepared").expect("prepare's value"), "n"), Some(&NuVal::Int(21)));
+    let (result, _) = event_of(&answer.nonce.to_string(), "mcp/await/Result");
+    let doubled = field(field(&result.data, "result").expect("execute's value"), "doubled");
+    assert_eq!(doubled, Some(&NuVal::Int(42)), "execute resolves it too");
+}

@@ -54,7 +54,7 @@ pub(crate) const INTERFACE_DESCRIPTION: &str = "Interfaces directly with the Gra
 
 /// The parse's engine, holding the commands the deny set leaves.
 pub(crate) fn interface_engine_for(deny: &DenySet) -> nu::EngineState {
-    sourcetrait_grammar_interface::interface_engine(|words| deny.denies_command(words))
+    sourcetrait_grammar_interface::interface_engine(|words| deny.denies_interface(words))
 }
 
 /// Whether `command` asks for the MCP's own block, the interface's or grmr's.
@@ -64,12 +64,12 @@ fn mcp_block(command: &EngineInterfaceCommand) -> bool {
 
 /// The commands the deny set leaves, by their words, a `##` heading a topic.
 pub(crate) fn render_command_list(deny: &DenySet) -> String {
-    sourcetrait_grammar_protocol::render_command_list(|words| deny.denies_command(words))
+    sourcetrait_grammar_protocol::render_command_list(|words| deny.denies_interface(words))
 }
 
 /// The signatures the deny set leaves, a `###` heading a topic.
 pub(crate) fn render_signatures(deny: &DenySet) -> String {
-    sourcetrait_grammar_protocol::render_signatures(|words| deny.denies_command(words))
+    sourcetrait_grammar_protocol::render_signatures(|words| deny.denies_interface(words))
 }
 
 impl ChannelFace {
@@ -205,7 +205,7 @@ impl NuSh {
         nonce: datum::Nonce,
         command: EngineInterfaceCommand,
     ) -> Result<mcp::CallToolResult, mcp::ErrorData> {
-        answer_result(nonce, run_engine_command(&LocalDesk(self), command).await)
+        answer_result(nonce, run_engine_command(&LocalDesk(self), nonce, command).await)
     }
 
     /// An interface call sent to a remote engine as its subcommand, run there.

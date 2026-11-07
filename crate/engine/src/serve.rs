@@ -11,6 +11,8 @@ pub(crate) struct EngineCore {
     pub(crate) hung: HungRegistry,
     /// The await jobs running, under their calls' nonces.
     pub(crate) jobs: AwaitJobs,
+    /// Set as the teardown takes its jobs, after which no await job starts.
+    pub(crate) stopping: AtomicBool,
     pub(crate) rig_locks: RigLocks,
     /// The contract's, the lint's, and the validator's engine.
     pub(crate) lint_engine: LintEngine,
@@ -37,6 +39,7 @@ impl EngineCore {
             in_flight: Arc::new(tk::AsyncMutex::new(HashMap::new())),
             hung: Arc::new(std::sync::Mutex::new(HashMap::new())),
             jobs: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            stopping: AtomicBool::new(false),
             rig_locks,
             lint_engine: LintEngine::new(),
             host,

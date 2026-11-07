@@ -80,7 +80,8 @@ impl StopReason {
 pub(crate) struct AwaitJob {
     nonce: String,
     dir: PathBuf,
-    suite: PathBuf,
+    /// The module's text, each phase's source carrying it inline.
+    module: String,
     def: SuiteDef,
     /// The PREPARED record's literal, the data execute, status, and stop take.
     literal: String,
@@ -172,7 +173,7 @@ pub(crate) async fn serve_await(
             phase: "await::suite".to_string(),
             reason: format!("{}: {e}", suite.display()),
         })?;
-    let source = build_suite_source(&suite, PREPARE, &args).map_err(|reason| EngineError::Internal {
+    let source = build_suite_source(&req.module, PREPARE, &args).map_err(|reason| EngineError::Internal {
         phase: "await::source".to_string(),
         reason,
     })?;
@@ -186,7 +187,7 @@ pub(crate) async fn serve_await(
     let launch = Launch {
         nonce,
         dir,
-        suite,
+        module: req.module,
         def,
         prepared,
         timeouts,
@@ -198,7 +199,7 @@ pub(crate) async fn serve_await(
 struct Launch {
     nonce: String,
     dir: PathBuf,
-    suite: PathBuf,
+    module: String,
     def: SuiteDef,
     prepared: NuVal,
     timeouts: SuiteTimeouts,
@@ -213,19 +214,20 @@ async fn start(
     let Launch {
         nonce,
         dir,
-        suite,
+        module,
         def,
         prepared,
         timeouts,
     } = launch;
     let cancel = Arc::new(AtomicBool::new(false));
-    let tracker = make_tracker(cancel.clone());
+    let (tracker, mailbox) = make_job_tracker(cancel.clone(), &nonce);
     let job_id = core
         .env_jobs
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .add_job(nu::Job::Thread(tracker.clone()));
     let execute_dir = dir.join(EXECUTE_EXPORT);
+    let beats_from = tk::TkInstant::now();
     let started = now_date();
     let built = (|| -> EngineResult<(NuVal, String, String)> {
         let job = NuVal::Record(vec![
@@ -246,7 +248,7 @@ async fn start(
             .map_err(|e| internal(e.to_string()))?;
         let literal = render_nuon(&value).map_err(internal)?;
         let execute_args = phase_args(&literal, def.execute.takes_timeout, timeouts.execute)?;
-        let source = build_suite_source(&suite, EXECUTE_EXPORT, &execute_args).map_err(internal)?;
+        let source = build_suite_source(&module, EXECUTE_EXPORT, &execute_args).map_err(internal)?;
         fs::create_dir_all(&execute_dir).map_err(|e| internal(format!("{}: {e}", execute_dir.display())))?;
         Ok((record, literal, source))
     })();
@@ -262,7 +264,7 @@ async fn start(
     let state = Arc::new(AwaitJob {
         nonce: nonce.clone(),
         dir,
-        suite,
+        module,
         def,
         literal,
         timeouts,
@@ -278,10 +280,18 @@ async fn start(
         stopped: tk::Notify::new(),
         trace_lock: std::sync::Mutex::new(()),
     });
-    core.jobs
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .insert(nonce.clone(), state.clone());
+    {
+        let mut jobs = core.jobs.lock().unwrap_or_else(|e| e.into_inner());
+        if core.stopping.load(Ordering::SeqCst) {
+            drop(jobs);
+            core.env_jobs.lock().unwrap_or_else(|e| e.into_inner()).remove_job(job_id);
+            return Err(EngineError::Internal {
+                phase: "await::start".to_string(),
+                reason: "the engine is stopping: no await job starts once its teardown has begun".to_string(),
+            });
+        }
+        jobs.insert(nonce.clone(), state.clone());
+    }
     register_in_flight(
         &core.in_flight,
         &nonce,
@@ -294,8 +304,11 @@ async fn start(
     .await;
     core.executor.refresh_base_if_stale();
     let mut engine = core.executor.take_clone();
-    engine.current_job.id = job_id;
-    engine.current_job.background_thread_job = Some(tracker);
+    engine.current_job = nu::CurrentJob {
+        id: job_id,
+        background_thread_job: Some(tracker),
+        mailbox: Arc::new(std::sync::Mutex::new(mailbox)),
+    };
     let eval = eval_stateless(
         engine,
         cancel,
@@ -307,7 +320,7 @@ async fn start(
         core.host.clone(),
     );
     tk::spawn(run_execute(core.clone(), state.clone(), eval));
-    tk::spawn(run_beats(core, state, gaps));
+    tk::spawn(run_beats(core, state, gaps, beats_from));
     Ok(record)
 }
 
@@ -345,29 +358,37 @@ async fn run_execute(
     finish(&core, &job).await;
 }
 
-/// The beats: status run at each gap while the job runs, each value an event.
+/// The beats: status run at each time of the schedule while the job runs.
 async fn run_beats(
     core: Arc<EngineCore>,
     job: Arc<AwaitJob>,
     gaps: Vec<tk::TkDuration>,
+    from: tk::TkInstant,
 ) {
+    let gap = |beat: usize| gaps[beat.min(gaps.len().saturating_sub(1))];
     let mut beat: usize = 0;
+    let mut at = from + gap(beat);
     loop {
-        let gap = gaps[beat.min(gaps.len().saturating_sub(1))];
         if job.done.load(Ordering::SeqCst) {
             return;
         }
         tokio::select! {
-            () = tk::sleep(gap) => {}
+            () = tk::sleep_until(at) => {}
             () = job.over.notified() => return,
         }
         if job.done.load(Ordering::SeqCst) {
             return;
         }
-        beat += 1;
         let value = run_phase(&core, &job, STATUS, &job.def.status, job.timeouts.status).await;
         let data = event_data(&job, Vec::new(), STATUS_FIELD, value);
         emit(&core, &job, AWAIT_STATUS_MODEL, data).await;
+        beat += 1;
+        at += gap(beat);
+        let now = tk::TkInstant::now();
+        while at <= now && at + gap(beat + 1) <= now {
+            beat += 1;
+            at += gap(beat);
+        }
     }
 }
 
@@ -410,13 +431,13 @@ pub(crate) async fn stop_jobs(
     core: &Arc<EngineCore>,
     reason: StopReason,
 ) {
-    let jobs: Vec<Arc<AwaitJob>> = core
-        .jobs
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .values()
-        .cloned()
-        .collect();
+    let jobs: Vec<Arc<AwaitJob>> = {
+        let held = core.jobs.lock().unwrap_or_else(|e| e.into_inner());
+        if reason == StopReason::Teardown {
+            core.stopping.store(true, Ordering::SeqCst);
+        }
+        held.values().cloned().collect()
+    };
     let mut stops = tk::JoinSet::new();
     for job in jobs {
         let core = core.clone();
@@ -519,7 +540,7 @@ async fn run_phase(
     timeout: PhaseTimeout,
 ) -> EngineResult<NuVal> {
     let args = phase_args(&job.literal, phase.takes_timeout, timeout)?;
-    let source = build_suite_source(&job.suite, export, &args).map_err(|reason| EngineError::Internal {
+    let source = build_suite_source(&job.module, export, &args).map_err(|reason| EngineError::Internal {
         phase: format!("await::{export}"),
         reason,
     })?;

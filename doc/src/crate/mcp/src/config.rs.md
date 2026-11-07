@@ -95,8 +95,8 @@ updates the Channel's system rather than this. The config is resolved once and
 shared read-only (`run.rs`), so anything adjustable at runtime needs its own
 live layer; the operator's pins are the same shape applied to `[supervisor]`.
 
-The starting values are initial. There is no basis for them beyond reasoning; only
-production traffic will say what a normal producer actually does. The gap
+The starting values are initial. There is no basis for them beyond reasoning;
+only production traffic will say what a normal producer actually does. The gap
 between legitimate and runaway is enormous rather than marginal - a state lane
 emits single digits per burst, a loop emits thousands per second - so the
 numbers barely affect detection and mostly decide how often a well-behaved fast
@@ -205,9 +205,18 @@ The five tools, an interface command by its words, and a `grmr` command by its
 name: `--deny 'purview configure'` withholds that one command while the tool
 stands, and `--deny interface` the tool whole; `--deny 'grmr dbg'` withholds
 that command from `bed`, its description and its calls, and `--deny bed` the
-tool whole. `Embedded` holds the engine's own name (`GRMR_COMMANDS`). `Command` holds the table's own words
-(`server/interface/grammar.rs`), so a deny names exactly a command the parse
-registers, and a word sequence the table lacks is refused at the argument as an
-unknown tool is.
+tool whole. `Embedded` holds the engine's own name (`GRMR_COMMANDS`). `Command`
+holds the table's own words (`server/interface/grammar.rs`), so a deny names
+exactly a command the parse registers, and a word sequence the table lacks is
+refused at the argument as an unknown tool is.
 
 `await` is deniable as the other tools are.
+
+## const AWAIT_RIG_WORDS
+`interface await rig` starts an await job as the tool does, so the tool's deny
+reaches it: a host withholding `await` has no job started by another door.
+
+## fn DenySet::denies_interface
+An interface command's deny: its own words, or the `await` tool's for `await
+rig`. The parse, the description's list, and `interface help interface`'s block
+all ask it, so a denied `await rig` leaves all three.
