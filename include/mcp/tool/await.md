@@ -41,7 +41,7 @@ This contract is aggressively enforced and will error if broken.
 - Each record field provides a timeout for its corresponding contractual definition
 - Value of `null` will use engine defaults
 - Only `execute` allows for `0ns` to disable timeouts for the job itself
-- Engine default: `{prepare: 120sec, execute: 120sec, status: 120sec, stop: 120sec}`
+- Engine default: `{prepare: 120sec, execute: 0ns, status: 120sec, stop: 120sec}`
 #### Parameter: `heartbeats`
 - Intervals at which the engine:
   - Checks to see if the process is still running

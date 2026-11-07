@@ -988,6 +988,57 @@ fn traced_events(e: &TestEngine, nonce: &str) -> Vec<(String, NuVal)> {
 }
 
 #[test]
+fn execute_runs_unbounded_where_the_call_names_no_bound() {
+    let e = TESTING.harness();
+    let prepared_type = "record<job: record<id: int, started: datetime>, prepared: record<nap: duration>>";
+    let module = format!(
+        "export def prepare [data: record<nap: duration>]: nothing -> record<nap: duration> {{ $data }}
+export def execute [data: {prepared_type}, timeout?: duration]: nothing -> record<timeout: duration> {{
+    sleep $data.prepared.nap
+    {{timeout: $timeout}}
+}}
+export def status [data: {prepared_type}, timeout?: duration]: nothing -> record<timeout: duration> {{ {{timeout: $timeout}} }}
+export def stop [data: {prepared_type}]: nothing -> nothing {{ }}
+"
+    );
+    let tenth = NuVal::Duration(100_000_000);
+    let beats = NuVal::List(vec![tenth.clone(), tenth]);
+    let bounds = |timeouts: Option<NuVal>| -> (NuVal, NuVal) {
+        let answer = e.await_suite(&module, "{nap: 400ms}", timeouts, Some(beats.clone()));
+        assert!(answer.result.is_ok(), "the job starts: {answer:?}");
+        let (result, events) = event_of(&answer.nonce.to_string(), "mcp/await/Result");
+        let status = events
+            .iter()
+            .find(|event| event.model == "mcp/await/Status")
+            .unwrap_or_else(|| panic!("a Status before the Result; got {events:?}"));
+        let timeout = |data: &NuVal, holder: &str| {
+            field(field(data, holder).unwrap_or_else(|| panic!("{holder} in {data:?}")), "timeout")
+                .cloned()
+                .unwrap_or_else(|| panic!("its timeout in {data:?}"))
+        };
+        (timeout(&status.data, "status"), timeout(&result.data, "result"))
+    };
+    let two_minutes = NuVal::Duration(120_000_000_000);
+    let unbounded = NuVal::Duration(0);
+    assert_eq!(bounds(None), (two_minutes.clone(), unbounded.clone()), "no timeouts: status 120sec, execute 0ns");
+    let nulls = record(&[
+        ("prepare", NuVal::Nothing),
+        ("execute", NuVal::Nothing),
+        ("status", NuVal::Nothing),
+        ("stop", NuVal::Nothing),
+    ]);
+    assert_eq!(bounds(Some(nulls)), (two_minutes.clone(), unbounded), "a null field takes the same default");
+    let five = NuVal::Duration(5_000_000_000);
+    let given = record(&[
+        ("prepare", NuVal::Nothing),
+        ("execute", five.clone()),
+        ("status", NuVal::Nothing),
+        ("stop", NuVal::Nothing),
+    ]);
+    assert_eq!(bounds(Some(given)), (two_minutes, five), "a bound the call gives stands");
+}
+
+#[test]
 fn held_status_sends_keep_the_beats_on_their_times_and_send_the_newest() {
     let e = TESTING.harness();
     let prepared_type = "record<job: record<id: int, started: datetime>, prepared: record<nap: duration>>";

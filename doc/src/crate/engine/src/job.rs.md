@@ -167,7 +167,9 @@ ended reports after the Result, never torn down with the job (User).
 
 ## fn suite_timeouts
 The record's four fields are each required, null taking the default, as no type
-definition holds an optional field (User); `0ns` is execute's alone.
+definition holds an optional field (User); `0ns` is execute's alone. execute's
+default is `0ns`, its timeout check disabled, the status checks watching a long
+job (User); the other three take a call's own 120sec.
 
 ## fn heartbeat_gaps
 Two intervals at least where given (User), each positive; the default schedule

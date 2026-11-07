@@ -163,7 +163,7 @@ const AWAIT_RIG_ARGS: &[ArgSpec] = &[
         name: "timeouts",
         shape: ArgShape::SuiteTimeouts,
         optional: true,
-        summary: "Each definition's timeout, a duration or null; 120sec where null.",
+        summary: "Each definition's timeout, a duration or null; null is 120sec, execute's 0ns.",
     },
     ArgSpec {
         name: "heartbeats",

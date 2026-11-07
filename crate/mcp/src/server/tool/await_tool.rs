@@ -9,7 +9,7 @@ pub struct AwaitParams {
     pub module: String,
     /// prepare's data as NUON text; `null` for `data: nothing`.
     pub data: String,
-    /// Each definition's timeout as a NUON record of durations or nulls; 120sec each.
+    /// Each definition's timeout as NUON, durations or nulls; 120sec, execute 0ns.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timeouts: Option<String>,
     /// The gaps between status beats as a NUON list of durations, the last repeating.

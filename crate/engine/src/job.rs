@@ -4,8 +4,11 @@ use crate::*;
 /// The tool a job's evals run under, as its logs and the hung watch name it.
 pub(crate) const AWAIT_TOOL: &str = "await";
 
-/// Each definition's timeout where the call names none, a call's own default.
+/// prepare's, status's, and stop's timeout where the call names none.
 const DEFAULT_PHASE_TIMEOUT_NS: i64 = DEFAULT_TIMEOUT_MS as i64 * 1_000_000;
+
+/// execute's timeout where the call names none, `0` disabling its check.
+const DEFAULT_EXECUTE_TIMEOUT_NS: i64 = 0;
 
 /// The gaps between beats where the call names none, in seconds.
 const DEFAULT_HEARTBEATS_SECS: [u64; 18] = [
@@ -732,10 +735,13 @@ async fn send_events(
     }
 }
 
-/// The call's timeouts resolved: null or a positive duration each, 120sec if null.
+/// The call's timeouts resolved, a null taking 120sec, or execute's 0ns.
 fn suite_timeouts(given: Option<&NuVal>) -> EngineResult<SuiteTimeouts> {
     let invalid = |reason: String| EngineError::TimeoutInvalid { reason };
-    let mut nanos = [DEFAULT_PHASE_TIMEOUT_NS; 4];
+    let mut nanos = SUITE_EXPORTS.map(|name| match name {
+        EXECUTE_EXPORT => DEFAULT_EXECUTE_TIMEOUT_NS,
+        _ => DEFAULT_PHASE_TIMEOUT_NS,
+    });
     if let Some(given) = given {
         let NuVal::Record(fields) = given else {
             return Err(invalid(format!(
