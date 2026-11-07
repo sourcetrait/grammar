@@ -130,7 +130,7 @@ pub(crate) use sourcetrait_grammar_interface::{
 };
 
 pub(crate) use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     fmt, fs,
     io::{self, Write},
     ops::ControlFlow,
@@ -202,7 +202,7 @@ pub(crate) mod tk {
         sync::{
             Mutex as AsyncMutex, Notify, OwnedSemaphorePermit, RwLock as AsyncRwLock, Semaphore,
             oneshot,
-            mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
+            mpsc::{UnboundedSender, unbounded_channel},
         },
         time::{Duration as TkDuration, Instant as TkInstant, sleep, sleep_until, timeout},
     };

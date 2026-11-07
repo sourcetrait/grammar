@@ -988,7 +988,7 @@ fn traced_events(e: &TestEngine, nonce: &str) -> Vec<(String, NuVal)> {
 }
 
 #[test]
-fn held_status_sends_keep_the_beats_on_their_times_and_arrive_in_order() {
+fn held_status_sends_keep_the_beats_on_their_times_and_send_the_newest() {
     let e = TESTING.harness();
     let prepared_type = "record<job: record<id: int, started: datetime>, prepared: record<nap: duration>>";
     let module = format!(
@@ -1002,20 +1002,14 @@ export def stop [data: {prepared_type}]: nothing -> nothing {{ }}
     );
     let second = NuVal::Duration(1_000_000_000);
     let beats = NuVal::List(vec![second.clone(), second]);
-    let answer = e.await_suite(&module, "{nap: 3600ms}", None, Some(beats));
+    let answer = e.await_suite(&module, "{nap: 6600ms}", None, Some(beats));
     let prepared = answer.result.expect("the job starts");
     let started = nanos(field(field(&prepared, "job").expect("its job"), "started"));
     let nonce = answer.nonce.to_string();
-    assert!(e.wait_for(|rows| !lists(rows, &nonce)), "the job ends while its sends are held");
-    let so_far = events_for(&nonce, |_| true);
-    assert!(
-        !so_far.iter().any(|event| event.model == "mcp/await/Result"),
-        "the job over, its Result still waits behind the held Statuses: {so_far:?}",
-    );
     let has_result = |events: &[AwaitEvent]| events.iter().any(|event| event.model == "mcp/await/Result");
-    let delivered = events_within(&nonce, Duration::from_secs(20), has_result);
+    let delivered = events_within(&nonce, Duration::from_secs(25), has_result);
     let beats = traced_since(e, &nonce, "mcp/await/Status", started);
-    assert_eq!(beats.len(), 3, "statuses at 1, 2, and 3 seconds, each send held 2.5 s: {beats:?}");
+    assert_eq!(beats.len(), 6, "statuses at 1 to 6 seconds, each send held 2.5 s: {beats:?}");
     for (index, at) in beats.iter().enumerate() {
         let due = (index as i128 + 1) * 1_000_000_000;
         assert!(
@@ -1023,12 +1017,19 @@ export def stop [data: {prepared_type}]: nothing -> nothing {{ }}
             "the status due at {due} ns runs on its time, its send held: {beats:?}",
         );
     }
+    let traced = traced_events(e, &nonce);
     let delivered: Vec<(String, NuVal)> = delivered.into_iter().map(|event| (event.model, event.data)).collect();
-    assert_eq!(delivered, traced_events(e, &nonce), "every event delivered in the order it was queued");
-    let models: Vec<&str> = delivered.iter().map(|(model, _)| model.as_str()).collect();
-    assert_eq!(
-        models,
-        vec!["mcp/await/Status", "mcp/await/Status", "mcp/await/Status", "mcp/await/Result"],
-        "the Result last",
+    let statuses = |events: &[(String, NuVal)]| events.iter().filter(|(model, _)| model == "mcp/await/Status").count();
+    assert!(
+        statuses(&delivered) < statuses(&traced),
+        "a Status superseded while it waited is never sent: {delivered:?}",
     );
+    let mut rest = traced.iter();
+    assert!(
+        delivered.iter().all(|sent| rest.any(|queued| queued == sent)),
+        "every event sent was traced, in the trace's order: {delivered:?}",
+    );
+    let newest = traced.iter().rev().find(|(model, _)| model == "mcp/await/Status").expect("a traced Status");
+    assert!(delivered.contains(newest), "the newest Status is sent: {delivered:?}");
+    assert_eq!(delivered.last().map(|(model, _)| model.as_str()), Some("mcp/await/Result"), "the Result last");
 }

@@ -19,8 +19,8 @@ What a Stop event names: a timeout, `stop` for a stop by hand, or the teardown
 What a running job holds: its call's nonce, its directory, its module's text,
 the PREPARED record's literal each definition takes, its timeouts, its id in the
 jobs table, its start, execute's interrupt flag, tracker, and thread end, and
-the queue its events are delivered from. The queue's one sender is the job's,
-so the queue closes once the job's last holder lets it go.
+its end of the event queue, which closes the queue once the job's last holder
+lets it go.
 
 `settled` is taken once, by execute's end or by the first interruption, so a job
 sends one Result or one Stop and stop never runs twice. `done` stops the beats;
@@ -31,6 +31,28 @@ notice that comes before its waiter.
 One NUON line an event under the job's directory. nuval's raw style is one line
 but leaves a newline inside a string raw, so the line escapes it, as the host
 does for a packet. The trace keeps an event the Channel couldn't take.
+
+## struct EventQueue
+A job's events wait here for its sender, in the order they were queued. A Status
+queued while an older Status still waits replaces it, the older one superseded
+and never sent, its line kept in the trace; a Result and a Stop are never
+replaced. Whatever the host's pace, the queue holds at most a Status, the Result
+or the Stop, and a status that ended after it, where an unbounded channel kept
+every event a host answering slower than the beats had yet to take. A status is
+a progress report, the newest superseding the older. At the beats normal
+operation assumes, 30 seconds apart or more (User), nothing waits behind the
+event in flight. It moves no status's run (User): the beats keep their schedule,
+and only a waiting Status's delivery is given up.
+
+### fn next
+The queue is read under its lock, then the notice awaited; `notify_one` stores
+its permit while no sender waits, so an event or the close landing between the
+read and the wait is never missed.
+
+## struct EventSender
+The job's end of the queue: dropped with the job, it closes the queue, and the
+sender takes what waits before it ends, as a channel's receiver drains once its
+last sender goes.
 
 ## fn serve_await
 Every refusal comes before anything runs: the contract, the timeouts, the
@@ -131,8 +153,8 @@ event's own field, then the value under its field or its error's rows under
 
 ## fn emit
 The event is traced, then queued for the job's sender, so neither the beats,
-execute's watch, nor a stop waits on the host. The trace holds the events in the
-order they were queued, the order they are delivered in.
+execute's watch, nor a stop waits on the host. The trace holds every event in
+the order it was queued, a Status superseded while it waited among them.
 
 ## fn send_events
 A job's events delivered one at a time, each asked of the host from a blocking

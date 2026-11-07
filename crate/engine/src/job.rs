@@ -104,8 +104,8 @@ pub(crate) struct AwaitJob {
     stopped: tk::Notify,
     /// Holds the trace's writes one at a time.
     trace_lock: std::sync::Mutex<()>,
-    /// The queue the job's sender delivers its events from, in order.
-    events: tk::UnboundedSender<AwaitEvent>,
+    /// The job's end of its event queue, which closes the queue as the job goes.
+    events: EventSender,
 }
 
 impl AwaitJob {
@@ -144,6 +144,68 @@ impl AwaitJob {
         if let Err(e) = written {
             eprintln!("grammar: an await job's trace under {} not written: {e}", self.dir.display());
         }
+    }
+}
+
+/// A job's events waiting for its sender, in order, one Status at most.
+#[derive(Default)]
+pub(crate) struct EventQueue {
+    waiting: std::sync::Mutex<Waiting>,
+    /// Wakes the sender when an event is queued or the queue closes.
+    ready: tk::Notify,
+}
+
+/// The events waiting, and whether the job has let the queue go.
+#[derive(Default)]
+struct Waiting {
+    events: VecDeque<AwaitEvent>,
+    closed: bool,
+}
+
+impl EventQueue {
+    /// An event queued, a Status replacing any older Status still waiting.
+    pub(crate) fn push(
+        &self,
+        event: AwaitEvent,
+    ) {
+        let mut waiting = self.waiting.lock().unwrap_or_else(|e| e.into_inner());
+        if event.model == AWAIT_STATUS_MODEL {
+            waiting.events.retain(|queued| queued.model != AWAIT_STATUS_MODEL);
+        }
+        waiting.events.push_back(event);
+        drop(waiting);
+        self.ready.notify_one();
+    }
+
+    /// The queue closed: its sender takes what waits, then ends.
+    pub(crate) fn close(&self) {
+        self.waiting.lock().unwrap_or_else(|e| e.into_inner()).closed = true;
+        self.ready.notify_one();
+    }
+
+    /// The oldest event waiting, awaited; none once the queue is closed and empty.
+    pub(crate) async fn next(&self) -> Option<AwaitEvent> {
+        loop {
+            {
+                let mut waiting = self.waiting.lock().unwrap_or_else(|e| e.into_inner());
+                if let Some(event) = waiting.events.pop_front() {
+                    return Some(event);
+                }
+                if waiting.closed {
+                    return None;
+                }
+            }
+            self.ready.notified().await;
+        }
+    }
+}
+
+/// The job's end of its event queue.
+struct EventSender(Arc<EventQueue>);
+
+impl Drop for EventSender {
+    fn drop(&mut self) {
+        self.0.close();
     }
 }
 
@@ -263,8 +325,8 @@ async fn start(
     };
     let finished = Arc::new(AtomicBool::new(false));
     let started_at = now_millis();
-    let (events, queue) = tk::unbounded_channel();
-    tk::spawn(send_events(core.host.clone(), queue));
+    let queue = Arc::new(EventQueue::default());
+    tk::spawn(send_events(core.host.clone(), queue.clone()));
     let state = Arc::new(AwaitJob {
         nonce: nonce.clone(),
         dir,
@@ -283,7 +345,7 @@ async fn start(
         over: tk::Notify::new(),
         stopped: tk::Notify::new(),
         trace_lock: std::sync::Mutex::new(()),
-        events,
+        events: EventSender(queue),
     });
     {
         let mut jobs = core.jobs.lock().unwrap_or_else(|e| e.into_inner());
@@ -643,21 +705,18 @@ fn emit(
     data: NuVal,
 ) {
     job.trace(model, &data);
-    let event = AwaitEvent {
+    job.events.0.push(AwaitEvent {
         model: model.to_string(),
         data,
-    };
-    if job.events.send(event).is_err() {
-        eprintln!("grammar: an await job's {model} not queued: its sender has ended");
-    }
+    });
 }
 
 /// A job's events sent to its host one at a time, in the order they were queued.
 async fn send_events(
     host: HostLink,
-    mut queue: tk::UnboundedReceiver<AwaitEvent>,
+    queue: Arc<EventQueue>,
 ) {
-    while let Some(event) = queue.recv().await {
+    while let Some(event) = queue.next().await {
         let model = event.model.clone();
         let host = host.clone();
         match tk::spawn_blocking(move || host.ask(HostAsk::Await(event))).await {

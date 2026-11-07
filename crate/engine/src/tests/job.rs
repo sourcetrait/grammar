@@ -1,5 +1,71 @@
-use crate::job::catch_up;
+use crate::job::{EventQueue, catch_up};
 use crate::*;
+
+/// An event of a model, its data a number to tell it by.
+fn event(model: &str, n: i64) -> AwaitEvent {
+    AwaitEvent {
+        model: model.to_string(),
+        data: NuVal::Int(n),
+    }
+}
+
+/// What a queue gives its sender once closed, each event's model and number.
+async fn drained(queue: &EventQueue) -> Vec<(String, NuVal)> {
+    queue.close();
+    let mut sent = Vec::new();
+    while let Some(event) = queue.next().await {
+        sent.push((event.model, event.data));
+    }
+    sent
+}
+
+/// A run of Statuses no sender took leaves the newest alone waiting.
+#[tokio::test]
+async fn a_run_of_statuses_leaves_the_newest_waiting() {
+    let queue = EventQueue::default();
+    for n in 1..=5 {
+        queue.push(event(AWAIT_STATUS_MODEL, n));
+    }
+    assert_eq!(drained(&queue).await, vec![(AWAIT_STATUS_MODEL.to_string(), NuVal::Int(5))]);
+}
+
+/// A Status queued after the Result replaces the one waiting before it, and the
+/// Result is sent first; a Result and a Stop are never replaced.
+#[tokio::test]
+async fn statuses_around_a_result_send_the_result_then_the_late_status() {
+    let queue = EventQueue::default();
+    queue.push(event(AWAIT_STATUS_MODEL, 1));
+    queue.push(event(AWAIT_RESULT_MODEL, 2));
+    queue.push(event(AWAIT_STOP_MODEL, 3));
+    queue.push(event(AWAIT_STATUS_MODEL, 4));
+    let sent = vec![
+        (AWAIT_RESULT_MODEL.to_string(), NuVal::Int(2)),
+        (AWAIT_STOP_MODEL.to_string(), NuVal::Int(3)),
+        (AWAIT_STATUS_MODEL.to_string(), NuVal::Int(4)),
+    ];
+    assert_eq!(drained(&queue).await, sent);
+}
+
+/// A sender waiting on an empty queue wakes for an event, then for the close.
+#[tokio::test]
+async fn a_waiting_sender_wakes_for_an_event_then_for_the_close() {
+    let queue = Arc::new(EventQueue::default());
+    let waiter = {
+        let queue = queue.clone();
+        tokio::spawn(async move { queue.next().await })
+    };
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    queue.push(event(AWAIT_RESULT_MODEL, 1));
+    let got = waiter.await.expect("the waiter").map(|event| event.data);
+    assert_eq!(got, Some(NuVal::Int(1)), "the event queued wakes the waiting sender");
+    let waiter = {
+        let queue = queue.clone();
+        tokio::spawn(async move { queue.next().await })
+    };
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    queue.close();
+    assert!(waiter.await.expect("the waiter").is_none(), "the close ends the sender");
+}
 
 /// Nanoseconds as the beats' duration.
 fn ns(nanos: u64) -> tk::TkDuration {
